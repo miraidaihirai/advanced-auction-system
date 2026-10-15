@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 
 /**
  * Đại diện cho một giao dịch đặt giá trong phiên đấu giá.
- * Phụ trách bởi: Bạn (Leader)
  */
 public class BidTransaction {
     private String id;
