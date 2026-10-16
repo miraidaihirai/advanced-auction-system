@@ -49,9 +49,5 @@ public class Main {
 
         System.out.println("\nBid history:");
         auction.getBidHistory().forEach(bid -> System.out.println("  -> " + bid));
-
-        System.out.println("\n==================================================");
-        System.out.println(" DEMO COMPLETED");
-        System.out.println("==================================================");
     }
 }
