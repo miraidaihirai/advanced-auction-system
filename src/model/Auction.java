@@ -1,27 +1,40 @@
 package model;
 
+import Item.Item;
+import observer.AuctionObserver;
+import observer.AuctionSubject;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Đại diện cho một phiên đấu giá.
- * 
+ * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid mới.
+ * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost Update / Race Condition.
  */
-public class Auction {
+public class Auction implements AuctionSubject {
     public enum Status {
         PENDING, OPEN, CLOSED
     }
 
-    private String id;
-    private String itemId;
-    private String sellerId;
-    private double startPrice;
+    private final String id;
+    private final String itemId;
+    private final String sellerId;
+    private final double startPrice;
     private double currentPrice;
-    private double stepPrice;
+    private final double stepPrice;
     private Status status;
     private String highestBidderId;
-    private List<BidTransaction> bidHistory;
+    private final List<BidTransaction> bidHistory;
+
+    // Concurrency control: ReentrantLock (fair lock đảm bảo FIFO cho các lượt bid)
+    private final ReentrantLock lock = new ReentrantLock(true);
+
+    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt thông báo
+    private final List<AuctionObserver> observers = new CopyOnWriteArrayList<>();
 
     public Auction(String id, String itemId, String sellerId, double startPrice, double stepPrice) {
         this.id = id;
@@ -35,37 +48,95 @@ public class Auction {
         this.bidHistory = new ArrayList<>();
     }
 
+    public Auction(String id, Item item, String sellerId, double startPrice, double stepPrice) {
+        this(id, item != null ? item.getName() : "Unknown Item", sellerId, startPrice, stepPrice);
+    }
+
     public void startAuction() {
-        this.status = Status.OPEN;
-        System.out.printf("[Auction %s] Started auction for item: %s%n", id, itemId);
+        lock.lock();
+        try {
+            this.status = Status.OPEN;
+            System.out.printf("[Auction %s] Started auction for item: %s%n", id, itemId);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void closeAuction() {
-        this.status = Status.CLOSED;
-        System.out.printf("[Auction %s] Auction closed. Winner: %s with price: %.2f%n",
-                id, (highestBidderId != null ? highestBidderId : "None"), currentPrice);
+        lock.lock();
+        try {
+            this.status = Status.CLOSED;
+            System.out.printf("[Auction %s] Auction closed. Winner: %s with price: %.2f%n",
+                    id, (highestBidderId != null ? highestBidderId : "None"), currentPrice);
+            for (AuctionObserver observer : observers) {
+                try {
+                    observer.onAuctionClosed(this);
+                } catch (Exception e) {
+                    System.err.printf("[Observer Error] %s: %s%n", observer.getClass().getSimpleName(), e.getMessage());
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
     }
 
-    public synchronized boolean placeBid(BidTransaction bid) {
-        if (status != Status.OPEN) {
-            System.out.printf("[Error] Auction [%s] is not open (status: %s)%n", id, status);
-            return false;
-        }
+    /**
+     * Xử lý đặt giá đồng thời (Concurrency) bằng ReentrantLock.
+     * Tránh Lost Update và Race Condition khi nhiều thread đặt giá cùng một thời điểm.
+     */
+    public boolean placeBid(BidTransaction bid) {
+        lock.lock();
+        try {
+            if (status != Status.OPEN) {
+                System.out.printf("[Error] Auction [%s] is not open (status: %s)%n", id, status);
+                return false;
+            }
 
-        // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice + stepPrice
-        double minRequired = (bidHistory.isEmpty()) ? startPrice : (currentPrice + stepPrice);
-        if (bid.getAmount() < minRequired) {
-            System.out.printf("[Error] Bid amount %.2f is invalid (Minimum required: %.2f)%n",
-                    bid.getAmount(), minRequired);
-            return false;
-        }
+            // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice + stepPrice
+            double minRequired = (bidHistory.isEmpty()) ? startPrice : (currentPrice + stepPrice);
+            if (bid.getAmount() < minRequired) {
+                System.out.printf("[Error] Bid amount %.2f is invalid (Minimum required: %.2f)%n",
+                        bid.getAmount(), minRequired);
+                return false;
+            }
 
-        this.currentPrice = bid.getAmount();
-        this.highestBidderId = bid.getBidderId();
-        this.bidHistory.add(bid);
-        System.out.printf("[Success] %s placed bid %.2f for auction [%s]%n",
-                bid.getBidderId(), bid.getAmount(), id);
-        return true;
+            this.currentPrice = bid.getAmount();
+            this.highestBidderId = bid.getBidderId();
+            this.bidHistory.add(bid);
+            System.out.printf("[Success] %s placed bid %.2f for auction [%s]%n",
+                    bid.getBidderId(), bid.getAmount(), id);
+
+            // Tự động bắn thông báo cho toàn bộ Observers
+            notifyObservers(bid);
+            return true;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void addObserver(AuctionObserver observer) {
+        if (observer != null && !observers.contains(observer)) {
+            observers.add(observer);
+        }
+    }
+
+    @Override
+    public void removeObserver(AuctionObserver observer) {
+        if (observer != null) {
+            observers.remove(observer);
+        }
+    }
+
+    @Override
+    public void notifyObservers(BidTransaction bid) {
+        for (AuctionObserver observer : observers) {
+            try {
+                observer.onNewBid(this, bid);
+            } catch (Exception e) {
+                System.err.printf("[Observer Error] %s: %s%n", observer.getClass().getSimpleName(), e.getMessage());
+            }
+        }
     }
 
     public String getId() {
@@ -85,7 +156,12 @@ public class Auction {
     }
 
     public double getCurrentPrice() {
-        return currentPrice;
+        lock.lock();
+        try {
+            return currentPrice;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public double getStepPrice() {
@@ -93,20 +169,40 @@ public class Auction {
     }
 
     public Status getStatus() {
-        return status;
+        lock.lock();
+        try {
+            return status;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public String getHighestBidderId() {
-        return highestBidderId;
+        lock.lock();
+        try {
+            return highestBidderId;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public List<BidTransaction> getBidHistory() {
-        return Collections.unmodifiableList(bidHistory);
+        lock.lock();
+        try {
+            return Collections.unmodifiableList(new ArrayList<>(bidHistory));
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     public String toString() {
-        return String.format("Auction[id=%s, itemId=%s, seller=%s, currentPrice=%.2f, winner=%s, status=%s]",
-                id, itemId, sellerId, currentPrice, (highestBidderId != null ? highestBidderId : "None"), status);
+        lock.lock();
+        try {
+            return String.format("Auction[id=%s, itemId=%s, seller=%s, currentPrice=%.2f, winner=%s, status=%s]",
+                    id, itemId, sellerId, currentPrice, (highestBidderId != null ? highestBidderId : "None"), status);
+        } finally {
+            lock.unlock();
+        }
     }
 }

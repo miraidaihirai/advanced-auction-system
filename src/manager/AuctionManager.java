@@ -2,27 +2,33 @@ package manager;
 
 import model.Auction;
 import model.BidTransaction;
+import observer.AuctionObserver;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Quản lý các phiên đấu giá trong toàn hệ thống.
  * Áp dụng Singleton Pattern đảm bảo chỉ có 1 bộ quản trị duy nhất.
+ * Quản lý đồng thời bằng ConcurrentHashMap và AtomicLong sinh Transaction ID duy nhất.
  */
 public class AuctionManager {
     // 1. Biến static duy nhất của Singleton
     private static AuctionManager instance;
 
-    // Danh sách lưu trữ các phiên đấu giá theo ID
+    // Danh sách lưu trữ các phiên đấu giá theo ID (Thread-safe)
     private final Map<String, Auction> auctionMap;
+
+    // Bộ đếm giao dịch thread-safe tránh trùng ID khi đặt giá đồng thời
+    private static final AtomicLong txCounter = new AtomicLong(0);
 
     // 2. Private constructor ngăn tạo đối tượng từ bên ngoài
     private AuctionManager() {
-        this.auctionMap = new HashMap<>();
+        this.auctionMap = new ConcurrentHashMap<>();
     }
 
     // 3. Phương thức tĩnh truy cập instance duy nhất (Thread-safe)
@@ -61,6 +67,15 @@ public class AuctionManager {
         return Collections.unmodifiableList(openList);
     }
 
+    public void registerObserver(String auctionId, AuctionObserver observer) {
+        Auction auction = auctionMap.get(auctionId);
+        if (auction != null) {
+            auction.addObserver(observer);
+        } else {
+            System.out.printf("[AuctionManager] Auction not found for observer: %s%n", auctionId);
+        }
+    }
+
     public boolean placeBid(String auctionId, String bidderId, double amount) {
         Auction auction = auctionMap.get(auctionId);
         if (auction == null) {
@@ -68,7 +83,7 @@ public class AuctionManager {
             return false;
         }
 
-        String transactionId = "TX-" + System.currentTimeMillis();
+        String transactionId = "TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
         BidTransaction tx = new BidTransaction(transactionId, auctionId, bidderId, amount);
         return auction.placeBid(tx);
     }
