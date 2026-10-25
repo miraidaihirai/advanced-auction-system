@@ -2,7 +2,11 @@ package manager;
 
 import model.Auction;
 import model.BidTransaction;
+import model.Bidder;
+import model.User;
 import observer.AuctionObserver;
+import exceptions.AuthenticationException;
+import exceptions.AuctionClosedException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,6 +26,7 @@ public class AuctionManager {
 
     // Danh sách lưu trữ các phiên đấu giá theo ID (Thread-safe)
     private final Map<String, Auction> auctionMap;
+    private final Map<String, User> userMap;
 
     // Bộ đếm giao dịch thread-safe tránh trùng ID khi đặt giá đồng thời
     private static final AtomicLong txCounter = new AtomicLong(0);
@@ -29,6 +34,7 @@ public class AuctionManager {
     // 2. Private constructor ngăn tạo đối tượng từ bên ngoài
     private AuctionManager() {
         this.auctionMap = new ConcurrentHashMap<>();
+        this.userMap = new ConcurrentHashMap<>();
     }
 
     // 3. Phương thức tĩnh truy cập instance duy nhất (Thread-safe)
@@ -60,11 +66,21 @@ public class AuctionManager {
     public List<Auction> getOpenAuctions() {
         List<Auction> openList = new ArrayList<>();
         for (Auction a : auctionMap.values()) {
-            if (a.getStatus() == Auction.Status.OPEN) {
+            if (a.getStatus() == Auction.Status.OPEN || a.getStatus() == Auction.Status.RUNNING) {
                 openList.add(a);
             }
         }
         return Collections.unmodifiableList(openList);
+    }
+
+    public void registerUser(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        User existingUser = userMap.putIfAbsent(user.getId(), user);
+        if (existingUser != null && existingUser != user) {
+            throw new IllegalArgumentException("User ID is already registered: " + user.getId());
+        }
     }
 
     public void registerObserver(String auctionId, AuctionObserver observer) {
@@ -76,11 +92,15 @@ public class AuctionManager {
         }
     }
 
-    public boolean placeBid(String auctionId, String bidderId, double amount) {
+    public boolean placeBid(String auctionId, String bidderId, String password, double amount) {
+        User user = userMap.get(bidderId);
+        if (!(user instanceof Bidder) || password == null || !user.getPassword().equals(password)) {
+            throw new AuthenticationException("Invalid bidder credentials");
+        }
+
         Auction auction = auctionMap.get(auctionId);
         if (auction == null) {
-            System.out.printf("[AuctionManager] Auction not found: %s%n", auctionId);
-            return false;
+            throw new AuctionClosedException("Auction not found: " + auctionId);
         }
 
         String transactionId = "TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
