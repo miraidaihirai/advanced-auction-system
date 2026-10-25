@@ -1,4 +1,5 @@
-import Item.Electronics;
+import Item.Item;
+import Item.Factory.*;
 import manager.AuctionManager;
 import model.Auction;
 import model.Bidder;
@@ -39,7 +40,8 @@ public class Main {
         Bidder david = new Bidder("BIDDER-03", "David", "password123");
 
         // Tao san pham Item (ke thua Item)
-        Electronics laptop = new Electronics("Gaming Laptop Asus ROG", 101, 10_000_000, 1, "Asus", "ROG-2026", 24);
+        ItemFactory laptopFactory = new ElectronicsFactory("Laptop", 101, 10_000_000, 1, "Dell", "XPS 15", 24);
+        Item laptop = laptopFactory.createItem();
 
         // Tao phien dau gia AUC-001
         Auction auction1 = new Auction("AUC-001", laptop, alice.getId(), 10_000_000.0, 500_000.0);
