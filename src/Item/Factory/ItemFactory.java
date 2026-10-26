@@ -5,7 +5,7 @@ public abstract class ItemFactory {
     
     public abstract Item createItem(); 
 
-    public void displayInfo(){
+    public void displayItem(){
         Item item = createItem();
         System.out.println("Item Name: " + item.getName());
         System.out.println("Item ID: " + item.getId());

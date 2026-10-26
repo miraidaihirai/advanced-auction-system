@@ -38,9 +38,9 @@ public class Main {
 
         // Khoi tao Seller va cac Bidders (ke thua User - LSP, implement AuctionObserver - ISP/DIP)
         Seller alice = new Seller("SELLER-01", "Alice", "password123");
-        Bidder bob = new Bidder("BIDDER-01", "Bob", "password123", 1000);
-        Bidder charlie = new Bidder("BIDDER-02", "Charlie", "password123", 9999);
-        Bidder david = new Bidder("BIDDER-03", "David", "password123", 123456);
+        Bidder bob = new Bidder("BIDDER-01", "Bob", "password123");
+        Bidder charlie = new Bidder("BIDDER-02", "Charlie", "password123");
+        Bidder david = new Bidder("BIDDER-03", "David", "password123");
         manager1.registerUser(bob);
         manager1.registerUser(charlie);
         manager1.registerUser(david);
@@ -120,7 +120,7 @@ public class Main {
         for (int i = 1; i <= numThreads; i++) {
             final int bidderNum = i;
             final String bidderId = "Bidder_Concurrent_" + bidderNum;
-            manager1.registerUser(new Bidder(bidderId, "Concurrent Bidder " + bidderNum, "password123", 10000));
+            manager1.registerUser(new Bidder(bidderId, "Concurrent Bidder " + bidderNum, "password123"));
             final double bidAmount = 1_000_000.0 + (bidderNum * 100_000.0);
             executor.submit(() -> {
                 readyLatch.countDown();
