@@ -1,5 +1,7 @@
 package model;
 
+import Item.Item;
+
 public class Bidder extends User {
     private double balance;
 
@@ -35,8 +37,8 @@ public class Bidder extends User {
         this.balance -= amount;
     }
 
-    public boolean canAfford(Auction item) {
-        return (balance >= item.getCurrentPrice());
+    public boolean canAfford(Item item) {
+        return (balance >= item.getPrice());
     }
 
     private void setBalance(double balance) {
@@ -46,3 +48,4 @@ public class Bidder extends User {
         this.balance = balance;
     }
 }
+

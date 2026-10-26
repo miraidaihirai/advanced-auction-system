@@ -2,27 +2,39 @@ package manager;
 
 import model.Auction;
 import model.BidTransaction;
+import model.Bidder;
+import model.User;
+import observer.AuctionObserver;
+import exceptions.AuthenticationException;
+import exceptions.AuctionClosedException;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Quản lý các phiên đấu giá trong toàn hệ thống.
  * Áp dụng Singleton Pattern đảm bảo chỉ có 1 bộ quản trị duy nhất.
+ * Quản lý đồng thời bằng ConcurrentHashMap và AtomicLong sinh Transaction ID duy nhất.
  */
 public class AuctionManager {
     // 1. Biến static duy nhất của Singleton
     private static AuctionManager instance;
 
-    // Danh sách lưu trữ các phiên đấu giá theo ID
+    // Danh sách lưu trữ các phiên đấu giá theo ID (Thread-safe)
     private final Map<String, Auction> auctionMap;
+    private final Map<String, User> userMap;
+
+    // Bộ đếm giao dịch thread-safe tránh trùng ID khi đặt giá đồng thời
+    private static final AtomicLong txCounter = new AtomicLong(0);
 
     // 2. Private constructor ngăn tạo đối tượng từ bên ngoài
     private AuctionManager() {
-        this.auctionMap = new HashMap<>();
+        this.auctionMap = new ConcurrentHashMap<>();
+        this.userMap = new ConcurrentHashMap<>();
     }
 
     // 3. Phương thức tĩnh truy cập instance duy nhất (Thread-safe)
@@ -54,21 +66,44 @@ public class AuctionManager {
     public List<Auction> getOpenAuctions() {
         List<Auction> openList = new ArrayList<>();
         for (Auction a : auctionMap.values()) {
-            if (a.getStatus() == Auction.Status.OPEN) {
+            if (a.getStatus() == Auction.Status.OPEN || a.getStatus() == Auction.Status.RUNNING) {
                 openList.add(a);
             }
         }
         return Collections.unmodifiableList(openList);
     }
 
-    public boolean placeBid(String auctionId, String bidderId, double amount) {
+    public void registerUser(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        User existingUser = userMap.putIfAbsent(user.getId(), user);
+        if (existingUser != null && existingUser != user) {
+            throw new IllegalArgumentException("User ID is already registered: " + user.getId());
+        }
+    }
+
+    public void registerObserver(String auctionId, AuctionObserver observer) {
         Auction auction = auctionMap.get(auctionId);
-        if (auction == null) {
-            System.out.printf("[AuctionManager] Auction not found: %s%n", auctionId);
-            return false;
+        if (auction != null) {
+            auction.addObserver(observer);
+        } else {
+            System.out.printf("[AuctionManager] Auction not found for observer: %s%n", auctionId);
+        }
+    }
+
+    public boolean placeBid(String auctionId, String bidderId, String password, double amount) {
+        User user = userMap.get(bidderId);
+        if (!(user instanceof Bidder) || password == null || !user.getPassword().equals(password)) {
+            throw new AuthenticationException("Invalid bidder credentials");
         }
 
-        String transactionId = "TX-" + System.currentTimeMillis();
+        Auction auction = auctionMap.get(auctionId);
+        if (auction == null) {
+            throw new AuctionClosedException("Auction not found: " + auctionId);
+        }
+
+        String transactionId = "TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
         BidTransaction tx = new BidTransaction(transactionId, auctionId, bidderId, amount);
         return auction.placeBid(tx);
     }
