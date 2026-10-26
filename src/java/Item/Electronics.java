@@ -1,9 +1,9 @@
-package Item;
+package java.Item;
 
 public class Electronics extends Item {
     private String brand;
     private String model;
-    private int warrantyPeriod;
+    private int warrantyPeriod; // in months
 
     public Electronics(String name, int id, int price, int quantity, String brand, String model, int warrantyPeriod) {
         super(name, id, price, quantity);
@@ -12,6 +12,7 @@ public class Electronics extends Item {
         this.warrantyPeriod = warrantyPeriod;
     }
 
+    // Getters and setters for Electronics specific attributes
     public String getBrand() {
         return brand;
     }
@@ -33,5 +34,4 @@ public class Electronics extends Item {
         this.warrantyPeriod = warrantyPeriod;
     }
 
-    
 }
