@@ -1,4 +1,4 @@
-package java.Item;
+package Item;
 
 public class Art extends Item {
     private String artist;
@@ -16,6 +16,7 @@ public class Art extends Item {
     public String getArtist() {
         return artist;
     }
+
     public void setArtist(String artist) {
         this.artist = artist;
     }
@@ -23,6 +24,7 @@ public class Art extends Item {
     public String getMedium() {
         return medium;
     }
+
     public void setMedium(String medium) {
         this.medium = medium;
     }
@@ -30,6 +32,7 @@ public class Art extends Item {
     public int getYearCreated() {
         return yearCreated;
     }
+
     public void setYearCreated(int yearCreated) {
         this.yearCreated = yearCreated;
     }
