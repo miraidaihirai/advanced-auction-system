@@ -1,4 +1,4 @@
-package java.model;
+package model;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -6,7 +6,6 @@ import java.util.List;
 
 /**
  * Đại diện cho một phiên đấu giá.
- * 
  */
 public class Auction {
     public enum Status {

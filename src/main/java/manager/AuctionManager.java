@@ -1,7 +1,7 @@
-package java.manager;
+package manager;
 
-import java.model.Auction;
-import java.model.BidTransaction;
+import model.Auction;
+import model.BidTransaction;
 
 import java.util.ArrayList;
 import java.util.Collections;

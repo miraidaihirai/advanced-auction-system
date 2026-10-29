@@ -1,4 +1,4 @@
-package java.Item;
+package Item;
 
 public class Electronics extends Item {
     private String brand;
@@ -33,5 +33,4 @@ public class Electronics extends Item {
     public void setWarrantyPeriod(int warrantyPeriod) {
         this.warrantyPeriod = warrantyPeriod;
     }
-
 }

@@ -1,4 +1,4 @@
-package java.Item;
+package Item;
 
 public abstract class Item {
     private String name;
@@ -35,7 +35,4 @@ public abstract class Item {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
-
-
-    
 }

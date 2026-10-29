@@ -1,4 +1,4 @@
-package java.Item;
+package Item;
 
 public class Art extends Item {
     private String artist;
@@ -33,5 +33,4 @@ public class Art extends Item {
     public void setYearCreated(int yearCreated) {
         this.yearCreated = yearCreated;
     }
-
 }
