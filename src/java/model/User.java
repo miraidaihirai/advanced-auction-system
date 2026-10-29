@@ -1,4 +1,4 @@
-package model;
+package java.model;
 
 public abstract class User {
     private final String id;
@@ -43,3 +43,4 @@ public abstract class User {
 
     public abstract void displayInfo();
 }
+

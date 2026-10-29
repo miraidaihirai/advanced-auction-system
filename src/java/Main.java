@@ -1,6 +1,7 @@
+package java;
 
-import manager.AuctionManager;
-import model.Auction;
+import java.manager.AuctionManager;
+import java.model.Auction;
 
 public class Main {
     public static void main(String[] args) {

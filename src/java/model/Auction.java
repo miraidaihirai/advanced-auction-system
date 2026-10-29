@@ -1,4 +1,4 @@
-package model;
+package java.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,8 +52,7 @@ public class Auction {
             return false;
         }
 
-        // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice +
-        // stepPrice
+        // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice + stepPrice
         double minRequired = (bidHistory.isEmpty()) ? startPrice : (currentPrice + stepPrice);
         if (bid.getAmount() < minRequired) {
             System.out.printf("[Error] Bid amount %.2f is invalid (Minimum required: %.2f)%n",

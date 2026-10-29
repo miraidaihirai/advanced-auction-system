@@ -1,4 +1,4 @@
-package Item;
+package java.Item;
 
 public class Vehicle extends Item {
     private String make;
@@ -16,7 +16,6 @@ public class Vehicle extends Item {
     public String getMake() {
         return make;
     }
-
     public void setMake(String make) {
         this.make = make;
     }
@@ -24,7 +23,6 @@ public class Vehicle extends Item {
     public String getModel() {
         return model;
     }
-
     public void setModel(String model) {
         this.model = model;
     }
@@ -32,7 +30,6 @@ public class Vehicle extends Item {
     public int getYear() {
         return year;
     }
-
     public void setYear(int year) {
         this.year = year;
     }
