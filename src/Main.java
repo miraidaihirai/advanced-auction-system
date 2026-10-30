@@ -14,10 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javafx.application.Application;
-import javafx.stage.Stage;
-
-public class Main extends Application{
+public class Main {
     public static void main(String[] args) throws InterruptedException {
         System.out.println("==================================================");
         System.out.println(" ONLINE AUCTION SYSTEM - SOLID & CONCURRENCY DEMO ");
@@ -147,7 +144,7 @@ public class Main extends Application{
         }
 
         readyLatch.await();
-        startGun.countDown();   
+        startGun.countDown();
         doneLatch.await(5, TimeUnit.SECONDS);
         executor.shutdown();
 
@@ -163,11 +160,5 @@ public class Main extends Application{
         System.out.println("\n==================================================");
         System.out.println(" DEMO COMPLETED SUCCESSFULLY");
         System.out.println("==================================================");
-        launch(args);
-    }
-    @Override 
-    public void start(Stage PrimaryStage){
-        PrimaryStage.setTitle("Hello!");
-        PrimaryStage.show();
     }
 }
