@@ -96,6 +96,18 @@ public class AuctionManager {
         }
     }
 
+    public User getUser(String userId) {
+        return userMap.get(userId);
+    }
+
+    public User authenticate(String userId, String password) {
+        User user = userMap.get(userId);
+        if (user != null && password != null && user.getPassword().equals(password)) {
+            return user;
+        }
+        return null;
+    }
+
     public void registerObserver(String auctionId, AuctionObserver observer) {
         Auction auction = auctionMap.get(auctionId);
         if (auction != null) {
