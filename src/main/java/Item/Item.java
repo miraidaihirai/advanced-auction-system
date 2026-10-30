@@ -7,12 +7,19 @@ public abstract class Item {
     private int quantity;
 
     protected Item(String name, int id, int price, int quantity) {
+    private String name;
+    private int id;
+    private int price;
+    private int quantity;
+
+    public Item(String name, int id, int price, int quantity) {
         this.name = name;
         this.id = id;
         this.price = price;
         this.quantity = quantity;
     }
 
+    // Getters and setters 
     public String getName() {
         return name;
     }
@@ -34,4 +41,5 @@ public abstract class Item {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
+}
 }
