@@ -1,3 +1,5 @@
+package com.auction;
+
 import Item.Item;
 import Item.Factory.*;
 import exceptions.AuthenticationException;
@@ -160,5 +162,5 @@ public class Main {
         System.out.println("\n==================================================");
         System.out.println(" DEMO COMPLETED SUCCESSFULLY");
         System.out.println("==================================================");
-    } 
+    }
 }
