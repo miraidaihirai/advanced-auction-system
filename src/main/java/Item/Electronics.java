@@ -3,6 +3,7 @@ package Item;
 public class Electronics extends Item {
     private String brand;
     private String model;
+    private int warrantyPeriod;
     private int warrantyPeriod; // in months
 
     public Electronics(String name, int id, int price, int quantity, String brand, String model, int warrantyPeriod) {
@@ -33,4 +34,6 @@ public class Electronics extends Item {
     public void setWarrantyPeriod(int warrantyPeriod) {
         this.warrantyPeriod = warrantyPeriod;
     }
+
+    
 }
