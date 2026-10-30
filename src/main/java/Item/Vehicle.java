@@ -33,4 +33,5 @@ public class Vehicle extends Item {
     public void setYear(int year) {
         this.year = year;
     }
+
 }
