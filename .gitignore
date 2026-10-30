@@ -2,8 +2,6 @@
 *.class
 bin/
 target/
-
-# IDE files
 .vscode/
 
 # Log file
