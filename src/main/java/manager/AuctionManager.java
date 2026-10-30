@@ -119,4 +119,21 @@ public class AuctionManager {
         BidTransaction tx = new BidTransaction(transactionId, auctionId, bidderId, amount);
         return auction.placeBid(tx);
     }
+
+    public boolean placeBid(String auctionId, String bidderId, double amount) {
+        User user = userMap.get(bidderId);
+        if (user != null) {
+            return placeBid(auctionId, bidderId, user.getPassword(), amount);
+        }
+
+        Auction auction = auctionMap.get(auctionId);
+        if (auction == null) {
+            System.out.printf("[AuctionManager] Auction not found: %s%n", auctionId);
+            return false;
+        }
+
+        String transactionId = "TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
+        BidTransaction tx = new BidTransaction(transactionId, auctionId, bidderId, amount);
+        return auction.placeBid(tx);
+    }
 }
