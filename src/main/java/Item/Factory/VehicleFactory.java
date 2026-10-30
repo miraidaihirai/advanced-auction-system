@@ -27,3 +27,4 @@ public class VehicleFactory extends ItemFactory {
         return new Vehicle(this.name, this.id, this.price, this.quantity, this.make, this.model, this.year);
     }
 }
+

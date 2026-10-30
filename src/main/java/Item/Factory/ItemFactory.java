@@ -2,8 +2,8 @@ package Item.Factory;
 import Item.Item;
 
 public abstract class ItemFactory {
-
-    public abstract Item createItem();
+    
+    public abstract Item createItem(); 
 
     public void displayInfo(){
         Item item = createItem();
@@ -12,4 +12,5 @@ public abstract class ItemFactory {
         System.out.println("Item Price: " + item.getPrice());
         System.out.println("Item Quantity: " + item.getQuantity());
     }
+    
 }
