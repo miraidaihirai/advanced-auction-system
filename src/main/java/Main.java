@@ -1,6 +1,6 @@
-import Item.Item;
-import Item.Factory.*;
 import exceptions.*;
+import item.Item;
+import item.Factory.*;
 import manager.AuctionManager;
 import model.*;
 import java.util.concurrent.CountDownLatch;
@@ -64,7 +64,7 @@ public class Main {
 
         // Mo phien dau gia
         System.out.println("\n>> Mo phien AUC-001:");
-        auction1.startAuction();
+        auction1.startAuction(Auction.DEFAULT_DURATION);
 
         // Bob dat gia khoi diem hop le (10,000,000) -> Observers nhan thong bao
         System.out.println("\n>> Bob dat gia 10,000,000:");
@@ -99,7 +99,7 @@ public class Main {
 
         Auction auctionConcurrent = new Auction("AUC-RACE", "Limited Antique Vase", alice.getId(), 1_000_000.0, 100_000.0);
         manager1.addAuction(auctionConcurrent);
-        auctionConcurrent.startAuction();
+        auctionConcurrent.startAuction(Auction.DEFAULT_DURATION);
 
         int numThreads = 10;
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);

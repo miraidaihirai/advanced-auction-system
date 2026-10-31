@@ -162,11 +162,11 @@ public class AuctionServer {
         manager.registerUser(david);
 
         Auction auction1 = new Auction("AUC-001", "Laptop Dell XPS 15", alice.getId(), 10_000_000, 500_000);
-        auction1.startAuction();
+        auction1.startAuction(Auction.DEFAULT_DURATION);
         manager.addAuction(auction1);
 
         Auction auction2 = new Auction("AUC-002", "Vintage Antique Vase", alice.getId(), 2_000_000, 100_000);
-        auction2.startAuction();
+        auction2.startAuction(Auction.DEFAULT_DURATION);
         manager.addAuction(auction2);
 
         System.out.println("[AuctionServer] Sample auctions and users initialized.");

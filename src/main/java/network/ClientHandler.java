@@ -265,7 +265,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 int seconds = Integer.parseInt(parts[2]);
                 auction.startAuction(Duration.ofSeconds(seconds));
             } else {
-                auction.startAuction();
+                auction.startAuction(Auction.DEFAULT_DURATION);
             }
             sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_START, auctionId));
         } catch (Exception e) {
