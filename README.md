@@ -1,8 +1,6 @@
 # advanced-auction-system
 Bài tập lớn Lập trình nâng cao: Hệ thống đấu giá trực tuyến (Java, JavaFX, Client-Server)
 
-> Đây là bản **đã sửa lỗi** của [miraidaihirai/advanced-auction-system](https://github.com/miraidaihirai/advanced-auction-system),
-> do [trungngo9207-commits](https://github.com/trungngo9207-commits) sửa ngày 30/10/2026.
 > Kế hoạch và phân công của nhóm: xem [TASKS.md](TASKS.md).
 
 ## Dự án hiện có gì
@@ -142,4 +140,4 @@ Conflict, nếu có, được xử lý **trên máy Hưng**, là người hiểu
 4. File `.fxml` để trong `src/main/resources/`. Không commit `.vscode/` hay `target/`.
 5. **Giải quyết conflict xong thì `mvn clean test` rồi mới commit.**
 
-Nếu thấy khó, Hưng có thể push phần JavaFX lên một nhánh mới (ví dụ `feature/javafx-ui`) để merge thử và xử lý conflict giúp ở repo này trước.
+Nếu thấy khó, Hưng có thể push phần JavaFX lên một nhánh mới (ví dụ `feature/javafx-ui`) để cả nhóm merge thử và xử lý conflict trước khi đưa vào `dev`.
