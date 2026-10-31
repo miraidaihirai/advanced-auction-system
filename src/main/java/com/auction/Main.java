@@ -1,4 +1,17 @@
 package com.auction;
+<<<<<<< HEAD
+=======
+
+import Item.Item;
+import Item.Factory.*;
+import exceptions.AuthenticationException;
+import exceptions.AuctionClosedException;
+import exceptions.InvalidBidException;
+import manager.AuctionManager;
+import model.Auction;
+import model.Bidder;
+import model.Seller;
+>>>>>>> 1a8e162dc38b76b9b4bde2233f401fcd8b2dead6
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
