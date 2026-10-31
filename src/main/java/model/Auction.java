@@ -23,20 +23,34 @@ import exceptions.InvalidBidException;
  * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid mới.
  * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost Update / Race Condition.
  */
-public class Auction {
+public class Auction implements AuctionSubject {
     public enum Status {
-        PENDING, OPEN, RUNNING, CLOSED
+        OPEN, RUNNING, FINISHED, PAID, CANCELED
     }
 
-    private String id;
-    private String itemId;
-    private String sellerId;
-    private double startPrice;
+    private static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
+    private static final ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(task -> {
+        Thread thread = new Thread(task, "auction-timeout");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    private final String id;
+    private final String itemId;
+    private final String sellerId;
+    private final double startPrice;
     private double currentPrice;
-    private double stepPrice;
+    private final double stepPrice;
     private Status status;
     private String highestBidderId;
-    private List<BidTransaction> bidHistory;
+    private final List<BidTransaction> bidHistory;
+
+    // Concurrency control: ReentrantLock (fair lock đảm bảo FIFO cho các lượt bid)
+    private final ReentrantLock lock = new ReentrantLock(true);
+    private ScheduledFuture<?> finishTask;
+
+    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt thông báo
+    private final List<AuctionObserver> observers = new CopyOnWriteArrayList<>();
 
     public Auction(String id, String itemId, String sellerId, double startPrice, double stepPrice) {
         this.id = id;
@@ -46,7 +60,6 @@ public class Auction {
         this.currentPrice = startPrice;
         this.stepPrice = stepPrice;
         this.status = Status.OPEN;
-        this.status = Status.PENDING;
         this.highestBidderId = null;
         this.bidHistory = new ArrayList<>();
     }
@@ -197,7 +210,7 @@ public class Auction {
                 System.err.printf("[Observer Error] %s: %s%n", observer.getClass().getSimpleName(), e.getMessage());
             }
         }
-    
+    }
 
     public String getId() {
         return id;
@@ -222,7 +235,6 @@ public class Auction {
         } finally {
             lock.unlock();
         }
-        return currentPrice;
     }
 
     public double getStepPrice() {
@@ -254,10 +266,6 @@ public class Auction {
         } finally {
             lock.unlock();
         }
-        return status;
-    }
-
-        return Collections.unmodifiableList(bidHistory);
     }
 
     @Override
@@ -269,7 +277,5 @@ public class Auction {
         } finally {
             lock.unlock();
         }
-        return String.format("Auction[id=%s, itemId=%s, seller=%s, currentPrice=%.2f, winner=%s, status=%s]",
-                id, itemId, sellerId, currentPrice, (highestBidderId != null ? highestBidderId : "None"), status);
     }
 }

@@ -15,12 +15,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
  * Quản lý các phiên đấu giá trong toàn hệ thống.
  * Áp dụng Singleton Pattern đảm bảo chỉ có 1 bộ quản trị duy nhất.
@@ -73,7 +67,7 @@ public class AuctionManager {
         List<Auction> openList = new ArrayList<>();
         for (Auction a : auctionMap.values()) {
             if (a.getStatus() == Auction.Status.OPEN || a.getStatus() == Auction.Status.RUNNING) {
-                if (a.getStatus() == Auction.Status.OPEN) {openList.add(a);}
+                openList.add(a);
             }
         }
         return Collections.unmodifiableList(openList);
@@ -122,7 +116,7 @@ public class AuctionManager {
         }
 
         String transactionId = "TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
-        
+        BidTransaction tx = new BidTransaction(transactionId, auctionId, bidderId, amount);
+        return auction.placeBid(tx);
     }
-
 }

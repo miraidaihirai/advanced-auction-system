@@ -52,6 +52,13 @@
                      đã chuyển lên <properties> ở trên thành phiên bản phù hợp (ví dụ 21) -->
             </plugin>
             <plugin>
+                <!-- Cố định version: Maven cũ (vd 3.6.3 của apt) mặc định dùng surefire 2.12.4,
+                     bản này không chạy được JUnit 5 (báo "Tests run: 0") -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+            <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
@@ -77,6 +84,8 @@
                 <version>3.1.0</version>
                 <configuration>
                     <mainClass>Main</mainClass>
+                    <!-- Không chờ 15s cho thread daemon "auction-timeout" (Auction.TIMER) khi demo kết thúc -->
+                    <cleanupDaemonThreads>false</cleanupDaemonThreads>
                 </configuration>
             </plugin>
         </plugins>
