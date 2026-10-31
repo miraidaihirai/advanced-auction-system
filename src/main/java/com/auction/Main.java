@@ -1,18 +1,21 @@
-import Item.Item;
-import Item.Factory.*;
-import exceptions.AuthenticationException;
-import exceptions.AuctionClosedException;
-import exceptions.InvalidBidException;
-import manager.AuctionManager;
-import model.Auction;
-import model.Bidder;
-import model.Seller;
+package com.auction;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import com.auction.Item.Factory.ElectronicsFactory;
+import com.auction.Item.Factory.ItemFactory;
+import com.auction.Item.Item;
+import com.auction.exceptions.AuctionClosedException;
+import com.auction.exceptions.AuthenticationException;
+import com.auction.exceptions.InvalidBidException;
+import com.auction.manager.AuctionManager;
+import com.auction.model.Auction;
+import com.auction.model.Bidder;
+import com.auction.model.Seller;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
@@ -36,7 +39,8 @@ public class Main {
         // -----------------------------------------------------------------
         System.out.println("\n--- [2] SOLID & Observer Pattern: Tu dong ban thong bao khi co bid ---");
 
-        // Khoi tao Seller va cac Bidders (ke thua User - LSP, implement AuctionObserver - ISP/DIP)
+        // Khoi tao Seller va cac Bidders (ke thua User - LSP, implement AuctionObserver
+        // - ISP/DIP)
         Seller alice = new Seller("SELLER-01", "Alice", "password123");
         Bidder bob = new Bidder("BIDDER-01", "Bob", "password123");
         Bidder charlie = new Bidder("BIDDER-02", "Charlie", "password123");
@@ -83,7 +87,8 @@ public class Main {
             System.out.println(e.getMessage());
         }
 
-        // Charlie dat gia hop le 11,000,000 -> Tu dong ban thong bao cho Alice, Bob, David
+        // Charlie dat gia hop le 11,000,000 -> Tu dong ban thong bao cho Alice, Bob,
+        // David
         System.out.println("\n>> Charlie dat gia hop le (11,000,000):");
         manager1.placeBid("AUC-001", charlie.getId(), "password123", 11_000_000.0);
 
@@ -102,7 +107,8 @@ public class Main {
         System.out.println("--- [3] Concurrency Test: placeBid() voi ReentrantLock ---");
         System.out.println("--------------------------------------------------");
 
-        Auction auctionConcurrent = new Auction("AUC-RACE", "Limited Antique Vase", alice.getId(), 1_000_000.0, 100_000.0);
+        Auction auctionConcurrent = new Auction("AUC-RACE", "Limited Antique Vase", alice.getId(), 1_000_000.0,
+                100_000.0);
         manager1.addAuction(auctionConcurrent);
         auctionConcurrent.startAuction();
 
@@ -160,5 +166,5 @@ public class Main {
         System.out.println("\n==================================================");
         System.out.println(" DEMO COMPLETED SUCCESSFULLY");
         System.out.println("==================================================");
-    } 
+    }
 }
