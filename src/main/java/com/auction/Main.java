@@ -1,3 +1,5 @@
+package com.auction;
+
 import Item.Item;
 import Item.Factory.*;
 import exceptions.AuthenticationException;
