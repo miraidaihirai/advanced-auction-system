@@ -50,11 +50,11 @@ Cần **JDK 21** và **Maven ≥ 3.6**.
 
 | Commit | Nhánh | Nội dung |
 |---|---|---|
-| `e5ec97a` | `main`, `dev` | Xoá phần code cũ bị trùng ở 5 file trên (chỉ xoá, không thêm logic mới); khôi phục `serialVersionUID` |
-| `c52a907` | `feature/socket-server-broadcast` | Merge `main` đã sửa vào; bỏ hàm `placeBid` 3 tham số; giữ cấu hình JavaFX của `main` |
-| `ec646b7` | `feature/ui` | Merge `main` đã sửa vào; gộp 2 file `pom.xml` và trỏ `mainClass` về `com.auction.Main`; thêm `package com.auction;` |
-| `498dd46` | tất cả | Cố định `maven-surefire-plugin` 3.2.5 để JUnit 5 chạy trên mọi version Maven |
-| `1b97770` | tất cả | `exec:java` không chờ thread daemon `auction-timeout` nữa (`cleanupDaemonThreads=false`) |
+| `fix: repair broken merge resolution…` | `main`, `dev` | Xoá phần code cũ bị trùng ở 5 file trên (chỉ xoá, không thêm logic mới); khôi phục `serialVersionUID` |
+| `Merge repaired main into feature/socket-server-broadcast` | `feature/socket-server-broadcast` | Merge `main` đã sửa vào; bỏ hàm `placeBid` 3 tham số; giữ cấu hình JavaFX của `main` |
+| `Merge repaired main into feature/ui` | `feature/ui` | Merge `main` đã sửa vào; gộp 2 file `pom.xml` và trỏ `mainClass` về `com.auction.Main`; thêm `package com.auction;` |
+| `build: pin maven-surefire-plugin 3.2.5…` | tất cả | Cố định `maven-surefire-plugin` 3.2.5 để JUnit 5 chạy trên mọi version Maven |
+| `build: stop exec:java waiting 15s…` | tất cả | `exec:java` không chờ thread daemon `auction-timeout` nữa (`cleanupDaemonThreads=false`) |
 
 **Đã kiểm tra** (JDK 21, với cả Maven 3.6.3 và 3.9.9):
 - Mọi nhánh đều biên dịch được và không còn dấu conflict (`<<<<<<<`)
@@ -89,16 +89,20 @@ Cần **JDK 21** và **Maven ≥ 3.6**.
 
 ## Hướng dẫn merge phần JavaFX của Hưng mà không bị conflict
 
-### Bước 1 – Đại (King Uet) cập nhật `feature/ui` (chỉ làm 1 lần)
-Bản `feature/ui` đã sửa ở repo này **fast-forward** được lên repo gốc, tức là không thể conflict. Sau đó nó merge vào `dev` sạch (đã thử).
+### Bước 1 – Đại (King Uet) đồng bộ bản sửa (chỉ làm 1 lần)
+Trong thư mục repo gốc, chạy script `dong-bo-ban-sua.sh` (đã gửi riêng):
 
 ```bash
-# Nếu chưa có remote "fixed" thì thêm trước:
-# git remote add fixed https://github.com/trungngo9207-commits/advanced-auction-system.git
-git fetch fixed
-git checkout -B feature/ui origin/feature/ui
-git merge --ff-only fixed/feature/ui
-git push origin feature/ui
+bash dong-bo-ban-sua.sh
+```
+
+Script tự cập nhật `main`, `dev`, `feature/socket-server-broadcast` và `feature/ui` lên bản sửa mới nhất. Bản `feature/ui` này đã hết conflict với `dev` (đã thử). Script không đụng tới commit của người khác, và tự dừng nếu trên GitHub có commit mới mà nó chưa biết.
+
+**Sau Bước 1, cả nhóm:** lịch sử các commit sửa lỗi được làm gọn lại, nên ai đã `pull` nhánh `main`, `dev` hoặc `feature/socket-server-broadcast` từ ngày 30/10 thì đồng bộ lại (commit hoặc `git stash` code đang làm trước):
+
+```bash
+git fetch origin
+git checkout dev && git reset --hard origin/dev     # làm tương tự với main nếu có
 ```
 
 ### Bước 2 – Hưng chạy trên máy mình, **trước khi** push phần JavaFX
