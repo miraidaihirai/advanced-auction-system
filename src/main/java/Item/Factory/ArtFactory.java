@@ -1,7 +1,7 @@
-package Item.Factory;
+package item.Factory;
 
-import Item.Art;
-import Item.Item;
+import item.Art;
+import item.Item;
 
 public class ArtFactory extends ItemFactory {
     private String name;

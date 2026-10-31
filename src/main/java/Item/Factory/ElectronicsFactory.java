@@ -1,7 +1,7 @@
-package Item.Factory;
+package item.Factory;
 
-import Item.Electronics;
-import Item.Item;
+import item.Electronics;
+import item.Item;
 
 public class ElectronicsFactory extends ItemFactory {
     private String name;
@@ -12,6 +12,7 @@ public class ElectronicsFactory extends ItemFactory {
     private String model;
     private int warrantyPeriod;
 
+    
     public ElectronicsFactory(String name, int id, int price, int quantity, String brand, String model, int warrantyPeriod) {
         this.name = name;
         this.id = id;

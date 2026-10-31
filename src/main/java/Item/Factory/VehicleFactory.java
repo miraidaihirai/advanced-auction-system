@@ -1,7 +1,7 @@
-package Item.Factory;
+package item.Factory;
 
-import Item.Item;
-import Item.Vehicle;
+import item.Item;
+import item.Vehicle;
 
 public class VehicleFactory extends ItemFactory {
     private String name;

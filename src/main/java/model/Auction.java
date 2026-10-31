@@ -1,6 +1,6 @@
 package model;
 
-import Item.Item;
+import item.Item;
 import observer.AuctionObserver;
 import observer.AuctionSubject;
 
@@ -23,44 +23,9 @@ import exceptions.InvalidBidException;
  * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid mới.
  * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost Update / Race Condition.
  */
-public class Auction implements AuctionSubject {
-    public enum Status {
-        OPEN, RUNNING, FINISHED, PAID, CANCELED
-    }
-
-    private static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
-    private static final ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(task -> {
-        Thread thread = new Thread(task, "auction-timeout");
-        thread.setDaemon(true);
-        return thread;
-    });
-
-    private final String id;
-    private final String itemId;
-    private final String sellerId;
-    private final double startPrice;
-    private double currentPrice;
-    private final double stepPrice;
-    private Status status;
-    private String highestBidderId;
-    private final List<BidTransaction> bidHistory;
-
-    // Concurrency control: ReentrantLock (fair lock đảm bảo FIFO cho các lượt bid)
-    private final ReentrantLock lock = new ReentrantLock(true);
-    private ScheduledFuture<?> finishTask;
-
-    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt thông báo
-    private final List<AuctionObserver> observers = new CopyOnWriteArrayList<>();
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-/**
- * Đại diện cho một phiên đấu giá.
- */
 public class Auction {
     public enum Status {
-        PENDING, OPEN, CLOSED
+        PENDING, OPEN, RUNNING, CLOSED
     }
 
     private String id;
@@ -90,10 +55,6 @@ public class Auction {
         this(id, item != null ? item.getName() : "Unknown Item", sellerId, startPrice, stepPrice);
     }
 
-    public void startAuction() {
-        startAuction(DEFAULT_DURATION);
-    }
-
     public void startAuction(Duration duration) {
         if (duration == null || duration.isZero() || duration.isNegative()) {
             throw new IllegalArgumentException("Auction duration must be positive");
@@ -112,14 +73,13 @@ public class Auction {
         }
     }
 
-    public void finishAuction() {
-        transitionToFinished(true);
-    }
-
     public void closeAuction() {
         finishAuction();
     }
 
+    public void finishAuction() {
+        transitionToFinished(true);
+    }
     private void finishIfRunning() {
         transitionToFinished(false);
     }
@@ -237,38 +197,7 @@ public class Auction {
                 System.err.printf("[Observer Error] %s: %s%n", observer.getClass().getSimpleName(), e.getMessage());
             }
         }
-    public void startAuction() {
-        this.status = Status.OPEN;
-        System.out.printf("[Auction %s] Started auction for item: %s%n", id, itemId);
-    }
-
-    public void closeAuction() {
-        this.status = Status.CLOSED;
-        System.out.printf("[Auction %s] Auction closed. Winner: %s with price: %.2f%n",
-                id, (highestBidderId != null ? highestBidderId : "None"), currentPrice);
-    }
-
-    public synchronized boolean placeBid(BidTransaction bid) {
-        if (status != Status.OPEN) {
-            System.out.printf("[Error] Auction [%s] is not open (status: %s)%n", id, status);
-            return false;
-        }
-
-        // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice + stepPrice
-        double minRequired = (bidHistory.isEmpty()) ? startPrice : (currentPrice + stepPrice);
-        if (bid.getAmount() < minRequired) {
-            System.out.printf("[Error] Bid amount %.2f is invalid (Minimum required: %.2f)%n",
-                    bid.getAmount(), minRequired);
-            return false;
-        }
-
-        this.currentPrice = bid.getAmount();
-        this.highestBidderId = bid.getBidderId();
-        this.bidHistory.add(bid);
-        System.out.printf("[Success] %s placed bid %.2f for auction [%s]%n",
-                bid.getBidderId(), bid.getAmount(), id);
-        return true;
-    }
+    
 
     public String getId() {
         return id;
@@ -328,11 +257,6 @@ public class Auction {
         return status;
     }
 
-    public String getHighestBidderId() {
-        return highestBidderId;
-    }
-
-    public List<BidTransaction> getBidHistory() {
         return Collections.unmodifiableList(bidHistory);
     }
 

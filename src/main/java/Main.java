@@ -1,30 +1,14 @@
-import Item.Item;
-import Item.Factory.*;
-import exceptions.AuthenticationException;
-import exceptions.AuctionClosedException;
-import exceptions.InvalidBidException;
+import item.Item;
+import item.Factory.*;
+import exceptions.*;
 import manager.AuctionManager;
-import model.Auction;
-import model.Bidder;
-import model.Seller;
-
+import model.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Main {
-    public static void main(String[] args) throws InterruptedException {
-        System.out.println("==================================================");
-        System.out.println(" ONLINE AUCTION SYSTEM - SOLID & CONCURRENCY DEMO ");
-        System.out.println("==================================================");
-
-        // -----------------------------------------------------------------
-        // 1. Kiem tra Singleton Pattern
-        // -----------------------------------------------------------------
-import manager.AuctionManager;
-import model.Auction;
 
 public class Main {
     public static void main(String[] args) {

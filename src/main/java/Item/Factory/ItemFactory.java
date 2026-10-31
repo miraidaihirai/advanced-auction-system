@@ -1,5 +1,5 @@
-package Item.Factory;
-import Item.Item;
+package item.Factory;
+import item.Item;
 
 public abstract class ItemFactory {
     

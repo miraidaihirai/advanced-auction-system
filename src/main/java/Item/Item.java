@@ -1,14 +1,8 @@
-package Item;
+package item;
 
 public abstract class Item {
     private final String name;
     private final int id;
-    private int price;
-    private int quantity;
-
-    protected Item(String name, int id, int price, int quantity) {
-    private String name;
-    private int id;
     private int price;
     private int quantity;
 
@@ -41,5 +35,4 @@ public abstract class Item {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
-}
 }
