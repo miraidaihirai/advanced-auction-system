@@ -1,6 +1,8 @@
-import exceptions.*;
 import item.Item;
 import item.Factory.*;
+import exceptions.AuthenticationException;
+import exceptions.AuctionClosedException;
+import exceptions.InvalidBidException;
 import manager.AuctionManager;
 import model.*;
 import java.util.concurrent.CountDownLatch;
