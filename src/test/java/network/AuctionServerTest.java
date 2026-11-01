@@ -50,7 +50,7 @@ public class AuctionServerTest {
         manager.registerUser(charlie);
 
         Auction testAuction = new Auction(auctionId, "MacBook Pro", sellerId, 20_000_000, 1_000_000);
-        testAuction.startAuction(Auction.DEFAULT_DURATION);
+        testAuction.startAuction();
         manager.addAuction(testAuction);
 
         server = new AuctionServer(testPort);

@@ -27,8 +27,8 @@ public class Auction implements AuctionSubject {
     public enum Status {
         OPEN, RUNNING, FINISHED, PAID, CANCELED
     }
-    public static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
-    
+
+    private static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
     private static final ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "auction-timeout");
         thread.setDaemon(true);
