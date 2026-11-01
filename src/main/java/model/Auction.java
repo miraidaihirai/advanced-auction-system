@@ -68,6 +68,10 @@ public class Auction implements AuctionSubject {
         this(id, item != null ? item.getName() : "Unknown Item", sellerId, startPrice, stepPrice);
     }
 
+    public void startAuction() {
+        startAuction(DEFAULT_DURATION);
+    }
+
     public void startAuction(Duration duration) {
         if (duration == null || duration.isZero() || duration.isNegative()) {
             throw new IllegalArgumentException("Auction duration must be positive");
