@@ -1,6 +1,6 @@
 package model;
 
-import Item.Item;
+import item.Item;
 import observer.AuctionObserver;
 import observer.AuctionSubject;
 

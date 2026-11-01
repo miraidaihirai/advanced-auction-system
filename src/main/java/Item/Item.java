@@ -1,4 +1,4 @@
-package Item;
+package item;
 
 public abstract class Item {
     private final String name;

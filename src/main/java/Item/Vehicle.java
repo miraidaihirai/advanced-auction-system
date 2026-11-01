@@ -1,4 +1,4 @@
-package Item;
+package item;
 
 public class Vehicle extends Item {
     private String make;

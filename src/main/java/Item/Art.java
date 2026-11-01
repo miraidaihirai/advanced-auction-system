@@ -1,4 +1,4 @@
-package Item;
+package item;
 
 public class Art extends Item {
     private String artist;

@@ -1,5 +1,5 @@
-import Item.Item;
-import Item.Factory.*;
+import item.Item;
+import item.Factory.*;
 import exceptions.AuthenticationException;
 import exceptions.AuctionClosedException;
 import exceptions.InvalidBidException;
