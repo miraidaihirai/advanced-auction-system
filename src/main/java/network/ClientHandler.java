@@ -1,15 +1,15 @@
 package network;
 
-import exceptions.AuctionClosedException;
-import exceptions.AuthenticationException;
-import exceptions.InvalidBidException;
-import manager.AuctionManager;
-import model.Auction;
-import model.BidTransaction;
-import model.Bidder;
-import model.Seller;
-import model.User;
-import observer.AuctionObserver;
+import com.auction.exceptions.AuctionClosedException;
+import com.auction.exceptions.AuthenticationException;
+import com.auction.exceptions.InvalidBidException;
+import com.auction.manager.AuctionManager;
+import com.auction.model.Auction;
+import com.auction.model.BidTransaction;
+import com.auction.model.Bidder;
+import com.auction.model.Seller;
+import com.auction.model.User;
+import com.auction.observer.AuctionObserver;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -24,7 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Xử lý kết nối từ một Client trong luồng riêng biệt (Multi-threaded).
- * Đồng thời là một AuctionObserver: nhận thông báo từ Auction và broadcast realtime qua Socket.
+ * Đồng thời là một AuctionObserver: nhận thông báo từ Auction và broadcast
+ * realtime qua Socket.
  */
 public class ClientHandler implements Runnable, AuctionObserver {
 
@@ -286,11 +287,13 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
         String winner = a.getHighestBidderId() != null ? a.getHighestBidderId() : "NONE";
         sendMessage(String.format(Locale.US, "AUCTION_INFO %s %s %s %.2f %.2f %s %s",
-                a.getId(), a.getItemId(), a.getSellerId(), a.getCurrentPrice(), a.getStepPrice(), winner, a.getStatus()));
+                a.getId(), a.getItemId(), a.getSellerId(), a.getCurrentPrice(), a.getStepPrice(), winner,
+                a.getStatus()));
     }
 
     /**
-     * Observer Pattern Callback: Tự động bắn thông báo realtime qua Socket khi có lượt bid mới.
+     * Observer Pattern Callback: Tự động bắn thông báo realtime qua Socket khi có
+     * lượt bid mới.
      */
     @Override
     public void onNewBid(Auction auction, BidTransaction bid) {
@@ -308,7 +311,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
     }
 
     /**
-     * Observer Pattern Callback: Tự động bắn thông báo realtime khi phiên đấu giá kết thúc.
+     * Observer Pattern Callback: Tự động bắn thông báo realtime khi phiên đấu giá
+     * kết thúc.
      */
     @Override
     public void onAuctionClosed(Auction auction) {

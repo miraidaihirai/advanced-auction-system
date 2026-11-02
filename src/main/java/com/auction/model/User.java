@@ -1,4 +1,4 @@
-package model;
+package com.auction.model;
 
 public abstract class User {
     private final String id;
