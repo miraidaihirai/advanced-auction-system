@@ -23,3 +23,7 @@ C:\GitHub\advanced-auction-system\src\main\java\com\auction\UI\HomeController.ja
 C:\GitHub\advanced-auction-system\src\main\java\com\auction\UI\Launcher.java
 C:\GitHub\advanced-auction-system\src\main\java\com\auction\UI\LogInController.java
 C:\GitHub\advanced-auction-system\src\main\java\com\auction\UI\ViewManager.java
+C:\GitHub\advanced-auction-system\src\main\java\network\AuctionClient.java
+C:\GitHub\advanced-auction-system\src\main\java\network\AuctionProtocol.java
+C:\GitHub\advanced-auction-system\src\main\java\network\AuctionServer.java
+C:\GitHub\advanced-auction-system\src\main\java\network\ClientHandler.java
