@@ -16,6 +16,7 @@ public class Electronics extends Item {
     public String getBrand() {
         return brand;
     }
+
     public void setBrand(String brand) {
         this.brand = brand;
     }
@@ -23,6 +24,7 @@ public class Electronics extends Item {
     public String getModel() {
         return model;
     }
+
     public void setModel(String model) {
         this.model = model;
     }
@@ -30,9 +32,9 @@ public class Electronics extends Item {
     public int getWarrantyPeriod() {
         return warrantyPeriod;
     }
+
     public void setWarrantyPeriod(int warrantyPeriod) {
         this.warrantyPeriod = warrantyPeriod;
     }
 
-    
 }

@@ -1,12 +1,12 @@
-package manager;
+package com.auction.manager;
 
-import model.Auction;
-import model.BidTransaction;
-import model.Bidder;
-import model.User;
-import observer.AuctionObserver;
-import exceptions.AuthenticationException;
-import exceptions.AuctionClosedException;
+import com.auction.model.Auction;
+import com.auction.model.BidTransaction;
+import com.auction.model.Bidder;
+import com.auction.model.User;
+import com.auction.observer.AuctionObserver;
+import com.auction.exceptions.AuthenticationException;
+import com.auction.exceptions.AuctionClosedException;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -12,11 +12,11 @@ public class Art extends Item {
         this.yearCreated = yearCreated;
     }
 
-
     // Getters and setters for Art specific attributes
     public String getArtist() {
         return artist;
     }
+
     public void setArtist(String artist) {
         this.artist = artist;
     }
@@ -24,6 +24,7 @@ public class Art extends Item {
     public String getMedium() {
         return medium;
     }
+
     public void setMedium(String medium) {
         this.medium = medium;
     }
@@ -31,10 +32,9 @@ public class Art extends Item {
     public int getYearCreated() {
         return yearCreated;
     }
+
     public void setYearCreated(int yearCreated) {
         this.yearCreated = yearCreated;
     }
-
-
 
 }

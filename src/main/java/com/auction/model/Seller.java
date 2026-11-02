@@ -1,6 +1,6 @@
-package model;
+package com.auction.model;
 
-import observer.AuctionObserver;
+import com.auction.observer.AuctionObserver;
 
 /**
  * Nguoi ban trong phien dau gia.

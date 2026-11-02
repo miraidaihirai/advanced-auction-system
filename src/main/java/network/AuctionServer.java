@@ -1,9 +1,9 @@
 package network;
 
-import manager.AuctionManager;
-import model.Auction;
-import model.Bidder;
-import model.Seller;
+import com.auction.manager.AuctionManager;
+import com.auction.model.Auction;
+import com.auction.model.Bidder;
+import com.auction.model.Seller;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -16,7 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Socket Multi-threaded Server cho hệ thống đấu giá trực tuyến.
- * - Lắng nghe kết nối từ các Client và cấp phát mỗi Client một Thread riêng (ClientHandler).
+ * - Lắng nghe kết nối từ các Client và cấp phát mỗi Client một Thread riêng
+ * (ClientHandler).
  * - Quản lý vòng đời Server và danh sách Client kết nối đồng thời.
  */
 public class AuctionServer {
@@ -73,7 +74,8 @@ public class AuctionServer {
     }
 
     /**
-     * Khởi động server bất đồng bộ (chạy trên thread riêng, hữu ích cho testing / nhúng).
+     * Khởi động server bất đồng bộ (chạy trên thread riêng, hữu ích cho testing /
+     * nhúng).
      */
     public void startAsync() {
         Thread serverThread = new Thread(() -> {
@@ -194,4 +196,3 @@ public class AuctionServer {
         }
     }
 }
-

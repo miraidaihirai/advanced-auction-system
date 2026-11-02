@@ -1,6 +1,6 @@
-package observer;
+package com.auction.observer;
 
-import model.BidTransaction;
+import com.auction.model.BidTransaction;
 
 /**
  * Interface Subject trong Observer Pattern.

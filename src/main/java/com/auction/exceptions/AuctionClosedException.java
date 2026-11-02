@@ -1,4 +1,4 @@
-package exceptions;
+package com.auction.exceptions;
 
 public class AuctionClosedException extends RuntimeException {
     private static final long serialVersionUID = 1L;

@@ -1,9 +1,9 @@
 package network;
 
-import manager.AuctionManager;
-import model.Auction;
-import model.Bidder;
-import model.Seller;
+import com.auction.manager.AuctionManager;
+import com.auction.model.Auction;
+import com.auction.model.Bidder;
+import com.auction.model.Seller;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

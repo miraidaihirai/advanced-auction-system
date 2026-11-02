@@ -1,7 +1,7 @@
-package observer;
+package com.auction.observer;
 
-import model.Auction;
-import model.BidTransaction;
+import com.auction.model.Auction;
+import com.auction.model.BidTransaction;
 
 /**
  * Interface Observer nhan thong bao khi co thay doi tren phien dau gia.
