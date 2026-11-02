@@ -13,6 +13,7 @@ public abstract class Item {
         this.quantity = quantity;
     }
 
+    // Getters and setters 
     public String getName() {
         return name;
     }

@@ -1,6 +1,8 @@
 # Compiled class file
 *.class
 bin/
+target/
+.vscode/
 
 # Log file
 *.log

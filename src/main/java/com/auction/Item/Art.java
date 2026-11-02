@@ -13,6 +13,7 @@ public class Art extends Item {
     }
 
 
+    // Getters and setters for Art specific attributes
     public String getArtist() {
         return artist;
     }

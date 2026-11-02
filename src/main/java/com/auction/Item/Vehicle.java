@@ -12,6 +12,7 @@ public class Vehicle extends Item {
         this.year = year;
     }
 
+    // Getters and setters for Vehicle specific attributes
     public String getMake() {
         return make;
     }
