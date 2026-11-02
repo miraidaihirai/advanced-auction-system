@@ -1,4 +1,4 @@
-package item;
+package com.auction.item;
 
 public abstract class Item {
     private final String name;
@@ -13,7 +13,7 @@ public abstract class Item {
         this.quantity = quantity;
     }
 
-    // Getters and setters 
+    // Getters and setters
     public String getName() {
         return name;
     }
@@ -25,6 +25,7 @@ public abstract class Item {
     public int getPrice() {
         return price;
     }
+
     public void setPrice(int price) {
         this.price = price;
     }
@@ -32,6 +33,7 @@ public abstract class Item {
     public int getQuantity() {
         return quantity;
     }
+
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }

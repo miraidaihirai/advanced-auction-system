@@ -1,8 +1,8 @@
-package model;
+package com.auction.model;
 
-import item.Item;
-import observer.AuctionObserver;
-import observer.AuctionSubject;
+import com.auction.item.Item;
+import com.auction.observer.AuctionObserver;
+import com.auction.observer.AuctionSubject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,13 +15,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import exceptions.AuctionClosedException;
-import exceptions.InvalidBidException;
+import com.auction.exceptions.AuctionClosedException;
+import com.auction.exceptions.InvalidBidException;
 
 /**
  * Đại diện cho một phiên đấu giá.
- * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid mới.
- * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost Update / Race Condition.
+ * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid
+ * mới.
+ * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost
+ * Update / Race Condition.
  */
 public class Auction implements AuctionSubject {
     public enum Status {
@@ -49,7 +51,8 @@ public class Auction implements AuctionSubject {
     private final ReentrantLock lock = new ReentrantLock(true);
     private ScheduledFuture<?> finishTask;
 
-    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt thông báo
+    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt
+    // thông báo
     private final List<AuctionObserver> observers = new CopyOnWriteArrayList<>();
 
     public Auction(String id, String itemId, String sellerId, double startPrice, double stepPrice) {
@@ -97,6 +100,7 @@ public class Auction implements AuctionSubject {
     public void finishAuction() {
         transitionToFinished(true);
     }
+
     private void finishIfRunning() {
         transitionToFinished(false);
     }
@@ -157,7 +161,8 @@ public class Auction implements AuctionSubject {
 
     /**
      * Xử lý đặt giá đồng thời (Concurrency) bằng ReentrantLock.
-     * Tránh Lost Update và Race Condition khi nhiều thread đặt giá cùng một thời điểm.
+     * Tránh Lost Update và Race Condition khi nhiều thread đặt giá cùng một thời
+     * điểm.
      */
     public boolean placeBid(BidTransaction bid) {
         lock.lock();
@@ -170,7 +175,8 @@ public class Auction implements AuctionSubject {
                 throw new InvalidBidException("Bid amount must be a positive finite number");
             }
 
-            // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice + stepPrice
+            // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice +
+            // stepPrice
             double minRequired = (bidHistory.isEmpty()) ? startPrice : (currentPrice + stepPrice);
             if (bid.getAmount() < minRequired) {
                 throw new InvalidBidException(String.format(
