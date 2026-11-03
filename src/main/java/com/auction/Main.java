@@ -1,21 +1,17 @@
 package com.auction;
 
+import com.auction.item.Item;
+import com.auction.item.Factory.*;
+import com.auction.exceptions.AuthenticationException;
+import com.auction.exceptions.AuctionClosedException;
+import com.auction.exceptions.InvalidBidException;
+import com.auction.manager.AuctionManager;
+import com.auction.model.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import com.auction.Item.Factory.ElectronicsFactory;
-import com.auction.Item.Factory.ItemFactory;
-import com.auction.Item.Item;
-import com.auction.exceptions.AuctionClosedException;
-import com.auction.exceptions.AuthenticationException;
-import com.auction.exceptions.InvalidBidException;
-import com.auction.manager.AuctionManager;
-import com.auction.model.Auction;
-import com.auction.model.Bidder;
-import com.auction.model.Seller;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {

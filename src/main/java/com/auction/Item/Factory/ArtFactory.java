@@ -1,7 +1,7 @@
-package com.auction.Item.Factory;
+package com.auction.item.Factory;
 
-import com.auction.Item.Art;
-import com.auction.Item.Item;
+import com.auction.item.Art;
+import com.auction.item.Item;
 
 public class ArtFactory extends ItemFactory {
     private String name;
