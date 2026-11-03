@@ -13,7 +13,7 @@ public class App extends Application {
 
     @Override
     public void start(Stage primaryStage) throws IOException {
-        Parent root = FXMLLoader.load(getClass().getResource("/com/auction/LogIn.fxml"));
+        Parent root = FXMLLoader.load(getClass().getResource("/com/auction/fxml/LogIn.fxml"));
 
         scene = new Scene(root, 700, 500);
 
@@ -24,4 +24,3 @@ public class App extends Application {
         primaryStage.show();
     }
 }
-
