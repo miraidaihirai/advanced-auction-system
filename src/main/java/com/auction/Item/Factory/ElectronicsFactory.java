@@ -1,7 +1,7 @@
-package com.auction.Item.Factory;
+package com.auction.item.Factory;
 
-import com.auction.Item.Electronics;
-import com.auction.Item.Item;
+import com.auction.item.Electronics;
+import com.auction.item.Item;
 
 public class ElectronicsFactory extends ItemFactory {
     private String name;
@@ -12,7 +12,8 @@ public class ElectronicsFactory extends ItemFactory {
     private String model;
     private int warrantyPeriod;
 
-    public ElectronicsFactory(String name, int id, int price, int quantity, String brand, String model, int warrantyPeriod) {
+    public ElectronicsFactory(String name, int id, int price, int quantity, String brand, String model,
+            int warrantyPeriod) {
         this.name = name;
         this.id = id;
         this.price = price;
@@ -24,6 +25,7 @@ public class ElectronicsFactory extends ItemFactory {
 
     @Override
     public Item createItem() {
-        return new Electronics(this.name, this.id, this.price, this.quantity, this.brand, this.model, this.warrantyPeriod);
+        return new Electronics(this.name, this.id, this.price, this.quantity, this.brand, this.model,
+                this.warrantyPeriod);
     }
 }

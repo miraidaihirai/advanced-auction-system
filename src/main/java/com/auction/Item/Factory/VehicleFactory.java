@@ -1,7 +1,7 @@
-package com.auction.Item.Factory;
+package com.auction.item.Factory;
 
-import com.auction.Item.Item;
-import com.auction.Item.Vehicle;
+import com.auction.item.Item;
+import com.auction.item.Vehicle;
 
 public class VehicleFactory extends ItemFactory {
     private String name;
@@ -27,4 +27,3 @@ public class VehicleFactory extends ItemFactory {
         return new Vehicle(this.name, this.id, this.price, this.quantity, this.make, this.model, this.year);
     }
 }
-
