@@ -22,3 +22,4 @@ jobs:
 
     - name: Build and Test with Maven
       run: mvn -B clean test
+

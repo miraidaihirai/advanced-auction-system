@@ -29,3 +29,4 @@ public class Admin extends User implements AuctionObserver {
                 auction.getId(), auction.getCurrentPrice(), auction.getHighestBidderId());
     }
 }
+

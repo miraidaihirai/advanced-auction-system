@@ -1,4 +1,4 @@
-package model;
+package com.auction.model;
 
 import com.auction.model.Admin;
 import com.auction.model.Auction;
@@ -32,3 +32,4 @@ class AdminTest {
         assertDoesNotThrow(() -> admin.onAuctionClosed(auction));
     }
 }
+
