@@ -8,6 +8,7 @@ import com.auction.model.Auction;
 import com.auction.model.BidTransaction;
 import com.auction.model.Bidder;
 import com.auction.model.Seller;
+import com.auction.model.Admin;
 import com.auction.model.User;
 import com.auction.observer.AuctionObserver;
 
@@ -135,7 +136,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     private void handleRegister(String[] parts) {
         if (parts.length < 5) {
-            sendMessage(AuctionProtocol.formatError("Usage: REGISTER <userId> <name> <password> <BIDDER|SELLER>"));
+            sendMessage(AuctionProtocol.formatError("Usage: REGISTER <userId> <name> <password> <BIDDER|SELLER|ADMIN>"));
             return;
         }
         String userId = parts[1];
@@ -146,6 +147,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
         User newUser;
         if ("SELLER".equals(role)) {
             newUser = new Seller(userId, name, password);
+        } else if ("ADMIN".equals(role)) {
+            newUser = new Admin(userId, name, password);
         } else {
             newUser = new Bidder(userId, name, password);
         }
@@ -369,3 +372,4 @@ public class ClientHandler implements Runnable, AuctionObserver {
         return currentUser != null ? currentUser.getId() : socket.getRemoteSocketAddress().toString();
     }
 }
+
