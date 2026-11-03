@@ -1,8 +1,6 @@
 # advanced-auction-system
 Bài tập lớn Lập trình nâng cao: Hệ thống đấu giá trực tuyến (Java, JavaFX, Client-Server)
 
-> Đây là bản **đã sửa lỗi** của [miraidaihirai/advanced-auction-system](https://github.com/miraidaihirai/advanced-auction-system),
-> do [trungngo9207-commits](https://github.com/trungngo9207-commits) sửa ngày 30/10/2026.
 > Kế hoạch và phân công của nhóm: xem [TASKS.md](TASKS.md).
 
 ## Dự án hiện có gì
@@ -50,11 +48,11 @@ Cần **JDK 21** và **Maven ≥ 3.6**.
 
 | Commit | Nhánh | Nội dung |
 |---|---|---|
-| `e5ec97a` | `main`, `dev` | Xoá phần code cũ bị trùng ở 5 file trên (chỉ xoá, không thêm logic mới); khôi phục `serialVersionUID` |
-| `c52a907` | `feature/socket-server-broadcast` | Merge `main` đã sửa vào; bỏ hàm `placeBid` 3 tham số; giữ cấu hình JavaFX của `main` |
-| `ec646b7` | `feature/ui` | Merge `main` đã sửa vào; gộp 2 file `pom.xml` và trỏ `mainClass` về `com.auction.Main`; thêm `package com.auction;` |
-| `498dd46` | tất cả | Cố định `maven-surefire-plugin` 3.2.5 để JUnit 5 chạy trên mọi version Maven |
-| `1b97770` | tất cả | `exec:java` không chờ thread daemon `auction-timeout` nữa (`cleanupDaemonThreads=false`) |
+| `fix: repair broken merge resolution…` | `main`, `dev` | Xoá phần code cũ bị trùng ở 5 file trên (chỉ xoá, không thêm logic mới); khôi phục `serialVersionUID` |
+| `Merge repaired main into feature/socket-server-broadcast` | `feature/socket-server-broadcast` | Merge `main` đã sửa vào; bỏ hàm `placeBid` 3 tham số; giữ cấu hình JavaFX của `main` |
+| `Merge repaired main into feature/ui` | `feature/ui` | Merge `main` đã sửa vào; gộp 2 file `pom.xml` và trỏ `mainClass` về `com.auction.Main`; thêm `package com.auction;` |
+| `build: pin maven-surefire-plugin 3.2.5…` | tất cả | Cố định `maven-surefire-plugin` 3.2.5 để JUnit 5 chạy trên mọi version Maven |
+| `build: stop exec:java waiting 15s…` | tất cả | `exec:java` không chờ thread daemon `auction-timeout` nữa (`cleanupDaemonThreads=false`) |
 
 **Đã kiểm tra** (JDK 21, với cả Maven 3.6.3 và 3.9.9):
 - Mọi nhánh đều biên dịch được và không còn dấu conflict (`<<<<<<<`)
@@ -80,16 +78,66 @@ Cần **JDK 21** và **Maven ≥ 3.6**.
 - [ ] Trên `main`, `javafx-maven-plugin` vẫn trỏ tới `com.example.demo.HelloApplication`; sẽ hết khi merge PR #6 (`feature/ui`).
 - [ ] `groupId` / `artifactId` trong `pom.xml` vẫn là giá trị mẫu (`com.example` / `demo`).
 - [ ] Server chưa có lệnh để Seller tạo phiên mới, và 2 phiên mẫu đóng sau 1 phút nên khó demo lâu.
-- [ ] Repo gốc vẫn đang là bản lỗi; cần đưa các bản sửa ở đây về (xem bên dưới).
+- [ ] Đưa nốt `feature/ui` đã sửa về repo gốc (xem Bước 1 bên dưới).
 
-## Đưa bản sửa về repo gốc
-Repo này đang để **private**. Chủ repo cần được thêm làm collaborator (hoặc repo được chuyển sang public), sau đó chạy trong repo gốc:
+## Tình trạng repo gốc (cập nhật 31/10/2026)
+- ✅ Đại đã kéo bản sửa về `main`, `dev` và `feature/socket-server-broadcast`.
+- ⏳ `feature/ui` trên repo gốc vẫn là commit cũ `5b49dd8`, nên PR #6 còn conflict cho tới khi làm Bước 1.
+- ⚠️ `feature/thang` đang trỏ vào `main` cũ (bản lỗi, không biên dịch được). Thắng nhớ chạy `git pull --no-rebase origin dev` trước khi làm tiếp.
+
+## Hướng dẫn merge phần JavaFX của Hưng mà không bị conflict
+
+### Bước 1 – Đại đồng bộ bản sửa (chỉ làm 1 lần)
+Trong thư mục repo gốc, chạy script `dong-bo-ban-sua.sh` (đã gửi riêng):
 
 ```bash
-git remote add fixed https://github.com/trungngo9207-commits/advanced-auction-system.git
-git fetch fixed
-git checkout main && git merge fixed/main && git push origin main
-git checkout dev  && git merge fixed/dev  && git push origin dev
+bash dong-bo-ban-sua.sh
 ```
 
-Làm tương tự với `feature/ui` và `feature/socket-server-broadcast`. Tất cả đều merge sạch, vì bản sửa được làm tiếp trên lịch sử sẵn có của repo gốc.
+Script tự cập nhật `main`, `dev`, `feature/socket-server-broadcast` và `feature/ui` lên bản sửa mới nhất. Bản `feature/ui` này đã hết conflict với `dev` (đã thử). Script không đụng tới commit của người khác, và tự dừng nếu trên GitHub có commit mới mà nó chưa biết.
+
+**Sau Bước 1, cả nhóm:** lịch sử các commit sửa lỗi được làm gọn lại, nên ai đã `pull` nhánh `main`, `dev` hoặc `feature/socket-server-broadcast` từ ngày 30/10 thì đồng bộ lại (commit hoặc `git stash` code đang làm trước):
+
+```bash
+git fetch origin
+git checkout dev && git reset --hard origin/dev     # làm tương tự với main nếu có
+```
+
+### Bước 2 – Hưng chạy trên máy mình, **trước khi** push phần JavaFX
+
+```bash
+# 1. Lưu hết code JavaFX thành commit
+git add .
+git commit -m "feat: add JavaFX screens"
+
+# 2. Lấy bản feature/ui đã sửa, rồi lấy dev mới nhất
+git pull --no-rebase origin feature/ui
+git pull --no-rebase origin dev
+
+# 3. Kiểm tra trước khi đẩy
+mvn clean test        # phải thấy: Tests run: 2, Failures: 0 ... BUILD SUCCESS
+mvn javafx:run        # mở được giao diện
+
+# 4. Đẩy lên, PR #6 tự cập nhật
+git push origin feature/ui
+```
+
+Conflict, nếu có, được xử lý **trên máy Hưng**, là người hiểu code UI nhất. Nó chỉ có thể xảy ra ở `pom.xml` hoặc `Main.java`, và chỉ khi Hưng cũng sửa các file đó.
+
+### Nếu `pom.xml` bị conflict (thấy `<<<<<<<`, `=======`, `>>>>>>>`)
+1. Giữ **toàn bộ** phần của bản đã sửa: `maven-surefire-plugin` 3.2.5, `cleanupDaemonThreads`, các dependency JUnit.
+2. Thêm phần của Hưng vào, ví dụ dependency mới.
+3. Dòng `<mainClass>` của `javafx-maven-plugin` đổi thành class JavaFX của Hưng (class `extends Application`, ví dụ `com.auction.App`).
+4. Xoá 3 dòng đánh dấu, rồi chạy `git add pom.xml && git commit`.
+5. **Chạy lại `mvn clean test`** trước khi push.
+
+> ⚠️ **Đừng giữ cả hai bên một cách máy móc.** Chính kiểu giải quyết đó ở commit `a31dfb5` đã làm cả project không biên dịch được.
+
+### Quy tắc chung để sau này không bị conflict nữa
+1. **Luôn `git pull --no-rebase origin dev`** trước khi bắt đầu làm và trước khi tạo PR.
+2. **Không sửa file của người khác** nếu không cần. Phần UI chỉ nên gọi `AuctionClient` và cập nhật giao diện bằng `Platform.runLater()`, không sửa `model/` hay `network/`.
+3. **`pom.xml` chỉ thêm, không định dạng lại cả file**, và báo nhóm mỗi khi sửa.
+4. File `.fxml` để trong `src/main/resources/`. Không commit `.vscode/` hay `target/`.
+5. **Giải quyết conflict xong thì `mvn clean test` rồi mới commit.**
+
+Nếu thấy khó, Hưng có thể push phần JavaFX lên một nhánh mới (ví dụ `feature/javafx-ui`) để cả nhóm merge thử và xử lý conflict trước khi đưa vào `dev`.
