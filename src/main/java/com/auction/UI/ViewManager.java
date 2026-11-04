@@ -1,12 +1,12 @@
 package com.auction.UI;
 
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 
 public class ViewManager {
     private static Scene mainScene;
@@ -22,7 +22,7 @@ public class ViewManager {
             if (cache.containsKey(fxmlName)) {
                 root = cache.get(fxmlName);
             } else {
-                String path = fxmlName.startsWith("/") ? fxmlName : "/com/auction/" + (fxmlName.endsWith(".fxml") ? fxmlName : fxmlName + ".fxml");
+                String path = "/com/auction/fxml/"+fxmlName+".fxml";
                 root = FXMLLoader.load(ViewManager.class.getResource(path));
                 cache.put(fxmlName, root);
             }
@@ -32,4 +32,3 @@ public class ViewManager {
         }
     }
 }
-

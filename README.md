@@ -81,13 +81,13 @@ Cần **JDK 21** và **Maven ≥ 3.6**.
 - [ ] Đưa nốt `feature/ui` đã sửa về repo gốc (xem Bước 1 bên dưới).
 
 ## Tình trạng repo gốc (cập nhật 31/10/2026)
-- ✅ Đại (King Uet) đã kéo bản sửa về `main`, `dev` và `feature/socket-server-broadcast`.
+- ✅ Đại đã kéo bản sửa về `main`, `dev` và `feature/socket-server-broadcast`.
 - ⏳ `feature/ui` trên repo gốc vẫn là commit cũ `5b49dd8`, nên PR #6 còn conflict cho tới khi làm Bước 1.
 - ⚠️ `feature/thang` đang trỏ vào `main` cũ (bản lỗi, không biên dịch được). Thắng nhớ chạy `git pull --no-rebase origin dev` trước khi làm tiếp.
 
 ## Hướng dẫn merge phần JavaFX của Hưng mà không bị conflict
 
-### Bước 1 – Đại (King Uet) đồng bộ bản sửa (chỉ làm 1 lần)
+### Bước 1 – Đại đồng bộ bản sửa (chỉ làm 1 lần)
 Trong thư mục repo gốc, chạy script `dong-bo-ban-sua.sh` (đã gửi riêng):
 
 ```bash

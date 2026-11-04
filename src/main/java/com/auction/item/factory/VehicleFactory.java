@@ -1,4 +1,4 @@
-package com.auction.item.Factory;
+package com.auction.item.factory;
 
 import com.auction.item.Item;
 import com.auction.item.Vehicle;
@@ -27,3 +27,4 @@ public class VehicleFactory extends ItemFactory {
         return new Vehicle(this.name, this.id, this.price, this.quantity, this.make, this.model, this.year);
     }
 }
+
