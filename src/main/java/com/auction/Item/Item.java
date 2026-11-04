@@ -1,6 +1,10 @@
 package com.auction.item;
 
-public abstract class Item {
+import java.io.Serializable;
+
+public abstract class Item implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final String name;
     private final int id;
     private int price;

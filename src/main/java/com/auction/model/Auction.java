@@ -4,6 +4,10 @@ import com.auction.item.Item;
 import com.auction.observer.AuctionObserver;
 import com.auction.observer.AuctionSubject;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,12 +24,13 @@ import com.auction.exceptions.InvalidBidException;
 
 /**
  * Đại diện cho một phiên đấu giá.
- * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid
- * mới.
- * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost
- * Update / Race Condition.
+ * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid mới.
+ * - Triển khai Serializable để hỗ trợ lưu trữ dữ liệu phiên ra file.
+ * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost Update / Race Condition.
  */
-public class Auction implements AuctionSubject {
+public class Auction implements AuctionSubject, Serializable {
+    private static final long serialVersionUID = 1L;
+
     public enum Status {
         OPEN, RUNNING, FINISHED, PAID, CANCELED
     }
@@ -46,14 +51,14 @@ public class Auction implements AuctionSubject {
     private Status status;
     private String highestBidderId;
     private final List<BidTransaction> bidHistory;
+    private long endTimeMillis;
 
     // Concurrency control: ReentrantLock (fair lock đảm bảo FIFO cho các lượt bid)
-    private final ReentrantLock lock = new ReentrantLock(true);
-    private ScheduledFuture<?> finishTask;
+    private transient ReentrantLock lock = new ReentrantLock(true);
+    private transient ScheduledFuture<?> finishTask;
 
-    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt
-    // thông báo
-    private final List<AuctionObserver> observers = new CopyOnWriteArrayList<>();
+    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt thông báo
+    private transient List<AuctionObserver> observers = new CopyOnWriteArrayList<>();
 
     public Auction(String id, String itemId, String sellerId, double startPrice, double stepPrice) {
         this.id = id;
@@ -86,6 +91,7 @@ public class Auction implements AuctionSubject {
                 throw new IllegalStateException("Only an OPEN auction can be started");
             }
             this.status = Status.RUNNING;
+            this.endTimeMillis = System.currentTimeMillis() + duration.toMillis();
             this.finishTask = TIMER.schedule(this::finishIfRunning, duration.toMillis(), TimeUnit.MILLISECONDS);
             System.out.printf("[Auction %s] Started auction for item: %s%n", id, itemId);
         } finally {
@@ -161,8 +167,7 @@ public class Auction implements AuctionSubject {
 
     /**
      * Xử lý đặt giá đồng thời (Concurrency) bằng ReentrantLock.
-     * Tránh Lost Update và Race Condition khi nhiều thread đặt giá cùng một thời
-     * điểm.
+     * Tránh Lost Update và Race Condition khi nhiều thread đặt giá cùng một thời điểm.
      */
     public boolean placeBid(BidTransaction bid) {
         lock.lock();
@@ -175,8 +180,7 @@ public class Auction implements AuctionSubject {
                 throw new InvalidBidException("Bid amount must be a positive finite number");
             }
 
-            // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice +
-            // stepPrice
+            // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice + stepPrice
             double minRequired = (bidHistory.isEmpty()) ? startPrice : (currentPrice + stepPrice);
             if (bid.getAmount() < minRequired) {
                 throw new InvalidBidException(String.format(
@@ -275,6 +279,30 @@ public class Auction implements AuctionSubject {
             return Collections.unmodifiableList(new ArrayList<>(bidHistory));
         } finally {
             lock.unlock();
+        }
+    }
+
+    public long getEndTimeMillis() {
+        return endTimeMillis;
+    }
+
+    /**
+     * Khôi phục các trường transient sau khi Deserialization từ file.
+     * Đảm bảo ReentrantLock và danh sách Observers được khởi tạo mới an toàn.
+     * Tự động xử lý thời gian còn lại của phiên RUNNING nếu có.
+     */
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        this.lock = new ReentrantLock(true);
+        this.observers = new CopyOnWriteArrayList<>();
+
+        if (this.status == Status.RUNNING) {
+            long remaining = endTimeMillis - System.currentTimeMillis();
+            if (remaining <= 0 && endTimeMillis > 0) {
+                this.status = Status.FINISHED;
+            } else if (remaining > 0) {
+                this.finishTask = TIMER.schedule(this::finishIfRunning, remaining, TimeUnit.MILLISECONDS);
+            }
         }
     }
 
