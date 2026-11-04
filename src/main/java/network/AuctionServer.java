@@ -4,6 +4,7 @@ import com.auction.manager.AuctionManager;
 import com.auction.model.Auction;
 import com.auction.model.Bidder;
 import com.auction.model.Seller;
+import com.auction.model.Admin;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -188,11 +189,13 @@ public class AuctionServer {
         Bidder bob = new Bidder("BIDDER-01", "Bob", "password123");
         Bidder charlie = new Bidder("BIDDER-02", "Charlie", "password123");
         Bidder david = new Bidder("BIDDER-03", "David", "password123");
+        Admin admin = new Admin("ADMIN-01", "Administrator", "password123");
 
         manager.registerUser(alice);
         manager.registerUser(bob);
         manager.registerUser(charlie);
         manager.registerUser(david);
+        manager.registerUser(admin);
 
         Auction auction1 = new Auction("AUC-001", "Laptop Dell XPS 15", alice.getId(), 10_000_000, 500_000);
         auction1.startAuction();
@@ -227,3 +230,4 @@ public class AuctionServer {
         }
     }
 }
+
