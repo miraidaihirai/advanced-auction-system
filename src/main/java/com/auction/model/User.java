@@ -1,6 +1,10 @@
 package com.auction.model;
 
-public abstract class User {
+import java.io.Serializable;
+
+public abstract class User implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final String id;
     private String name;
     private String password;
@@ -43,4 +47,3 @@ public abstract class User {
 
     public abstract void displayInfo();
 }
-
