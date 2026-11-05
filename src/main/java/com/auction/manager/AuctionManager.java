@@ -5,9 +5,13 @@ import com.auction.model.BidTransaction;
 import com.auction.model.Bidder;
 import com.auction.model.User;
 import com.auction.observer.AuctionObserver;
+import com.auction.storage.AuctionDataSnapshot;
+import com.auction.storage.FileStorageService;
 import com.auction.exceptions.AuthenticationException;
 import com.auction.exceptions.AuctionClosedException;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -18,15 +22,25 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Quản lý các phiên đấu giá trong toàn hệ thống.
  * Áp dụng Singleton Pattern đảm bảo chỉ có 1 bộ quản trị duy nhất.
- * Quản lý đồng thời bằng ConcurrentHashMap và AtomicLong sinh Transaction ID duy nhất.
+ * Quản lý đồng thời bằng ConcurrentHashMap và AtomicLong sinh Transaction ID
+ * duy nhất.
+ * Tích hợp Serialization / Deserialization để lưu trữ và phục hồi trạng thái hệ
+ * thống.
  */
 public class AuctionManager {
+    public static final String DEFAULT_STORAGE_PATH = "data/auction_data.ser";
+
     // 1. Biến static duy nhất của Singleton
     private static AuctionManager instance;
 
     // Danh sách lưu trữ các phiên đấu giá theo ID (Thread-safe)
     private final Map<String, Auction> auctionMap;
     private final Map<String, User> userMap;
+
+    // Quản lý lưu trữ file
+    private FileStorageService storageService;
+    private String storagePath = DEFAULT_STORAGE_PATH;
+    private volatile boolean autoSave = false;
 
     // Bộ đếm giao dịch thread-safe tránh trùng ID khi đặt giá đồng thời
     private static final AtomicLong txCounter = new AtomicLong(0);
@@ -35,6 +49,7 @@ public class AuctionManager {
     private AuctionManager() {
         this.auctionMap = new ConcurrentHashMap<>();
         this.userMap = new ConcurrentHashMap<>();
+        this.storageService = new FileStorageService();
     }
 
     // 3. Phương thức tĩnh truy cập instance duy nhất (Thread-safe)
@@ -53,6 +68,10 @@ public class AuctionManager {
         }
         auctionMap.put(auction.getId(), auction);
         System.out.printf("[AuctionManager] Registered auction ID: %s%n", auction.getId());
+
+        if (autoSave) {
+            saveState();
+        }
     }
 
     public Auction getAuction(String auctionId) {
@@ -81,10 +100,18 @@ public class AuctionManager {
         if (existingUser != null && existingUser != user) {
             throw new IllegalArgumentException("User ID is already registered: " + user.getId());
         }
+
+        if (autoSave) {
+            saveState();
+        }
     }
 
     public User getUser(String userId) {
         return userMap.get(userId);
+    }
+
+    public List<User> getAllUsers() {
+        return new ArrayList<>(userMap.values());
     }
 
     public User authenticate(String userId, String password) {
@@ -117,6 +144,124 @@ public class AuctionManager {
 
         String transactionId = "TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
         BidTransaction tx = new BidTransaction(transactionId, auctionId, bidderId, amount);
-        return auction.placeBid(tx);
+        boolean success = auction.placeBid(tx);
+
+        if (success && autoSave) {
+            saveState();
+        }
+
+        return success;
+    }
+
+    /**
+     * Dọn sạch toàn bộ dữ liệu người dùng và phiên đấu giá trong bộ nhớ RAM.
+     */
+    public synchronized void clear() {
+        auctionMap.clear();
+        userMap.clear();
+    }
+
+    /**
+     * Lưu trạng thái hệ thống ra tệp tin mặc định.
+     */
+    public synchronized void saveState() {
+        saveState(new File(storagePath));
+    }
+
+    /**
+     * Lưu trạng thái hệ thống ra đường dẫn tệp chỉ định.
+     */
+    public synchronized void saveState(String filePath) {
+        saveState(new File(filePath));
+    }
+
+    /**
+     * Lưu trạng thái hệ thống (tất cả User và Auction) ra file qua
+     * FileStorageService.
+     */
+    public synchronized void saveState(File file) {
+        try {
+            AuctionDataSnapshot snapshot = new AuctionDataSnapshot(getAllUsers(), getAllAuctions());
+            storageService.saveSnapshot(snapshot, file);
+            System.out.printf("[AuctionManager] Successfully saved state (%d users, %d auctions) to: %s%n",
+                    snapshot.getUsers().size(), snapshot.getAuctions().size(), file.getPath());
+        } catch (IOException e) {
+            System.err.printf("[AuctionManager] Error saving state to %s: %s%n", file.getPath(), e.getMessage());
+        }
+    }
+
+    /**
+     * Nạp trạng thái hệ thống từ tệp tin mặc định.
+     * 
+     * @return true nếu đọc file thành công và nạp dữ liệu vào bộ nhớ, false nếu
+     *         không tìm thấy file hoặc lỗi
+     */
+    public synchronized boolean loadState() {
+        return loadState(new File(storagePath));
+    }
+
+    /**
+     * Nạp trạng thái hệ thống từ đường dẫn tệp chỉ định.
+     */
+    public synchronized boolean loadState(String filePath) {
+        return loadState(new File(filePath));
+    }
+
+    /**
+     * Nạp trạng thái hệ thống từ tệp tin chỉ định.
+     */
+    public synchronized boolean loadState(File file) {
+        if (!storageService.exists(file)) {
+            return false;
+        }
+
+        try {
+            AuctionDataSnapshot snapshot = storageService.loadSnapshot(file);
+            if (snapshot == null) {
+                return false;
+            }
+
+            for (User user : snapshot.getUsers()) {
+                this.userMap.put(user.getId(), user);
+            }
+            for (Auction auction : snapshot.getAuctions()) {
+                this.auctionMap.put(auction.getId(), auction);
+            }
+
+            System.out.printf("[AuctionManager] Successfully restored state (%d users, %d auctions) from: %s%n",
+                    snapshot.getUsers().size(), snapshot.getAuctions().size(), file.getPath());
+            return true;
+        } catch (Exception e) {
+            System.err.printf("[AuctionManager] Error restoring state from %s: %s%n", file.getPath(), e.getMessage());
+            return false;
+        }
+    }
+
+    public String getStoragePath() {
+        return storagePath;
+    }
+
+    public void setStoragePath(String storagePath) {
+        if (storagePath != null && !storagePath.trim().isEmpty()) {
+            this.storagePath = storagePath;
+        }
+    }
+
+    public boolean isAutoSave() {
+        return autoSave;
+    }
+
+    public void setAutoSave(boolean autoSave) {
+        this.autoSave = autoSave;
+    }
+
+    public FileStorageService getStorageService() {
+        return storageService;
+    }
+
+    public void setStorageService(FileStorageService storageService) {
+        if (storageService != null) {
+            this.storageService = storageService;
+        }
     }
 }

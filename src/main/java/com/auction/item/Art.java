@@ -1,6 +1,8 @@
 package com.auction.item;
 
 public class Art extends Item {
+    private static final long serialVersionUID = 1L;
+
     private String artist;
     private String medium;
     private int yearCreated;

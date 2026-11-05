@@ -17,13 +17,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Socket Multi-threaded Server cho hệ thống đấu giá trực tuyến.
- * - Lắng nghe kết nối từ các Client và cấp phát mỗi Client một Thread riêng
- * (ClientHandler).
+ * - Lắng nghe kết nối từ các Client và cấp phát mỗi Client một Thread riêng (ClientHandler).
  * - Quản lý vòng đời Server và danh sách Client kết nối đồng thời.
+ * - Tự động nạp và lưu trữ dữ liệu (Serialization / Deserialization) tránh mất dữ liệu khi khởi động lại server.
  */
 public class AuctionServer {
 
     public static final int DEFAULT_PORT = 8888;
+    public static final String DEFAULT_DATA_FILE = AuctionManager.DEFAULT_STORAGE_PATH;
 
     private final int port;
     private ServerSocket serverSocket;
@@ -75,8 +76,7 @@ public class AuctionServer {
     }
 
     /**
-     * Khởi động server bất đồng bộ (chạy trên thread riêng, hữu ích cho testing /
-     * nhúng).
+     * Khởi động server bất đồng bộ (chạy trên thread riêng, hữu ích cho testing / nhúng).
      */
     public void startAsync() {
         Thread serverThread = new Thread(() -> {
@@ -94,6 +94,7 @@ public class AuctionServer {
 
     /**
      * Dừng server và giải phóng toàn bộ kết nối.
+     * Tự động lưu trạng thái dữ liệu ra file nếu autoSave đang bật.
      */
     public void stop() {
         if (!running) {
@@ -101,6 +102,12 @@ public class AuctionServer {
         }
         running = false;
         System.out.println("[AuctionServer] Stopping server...");
+
+        // Lưu trạng thái trước khi tắt server
+        AuctionManager manager = AuctionManager.getInstance();
+        if (manager.isAutoSave()) {
+            manager.saveState();
+        }
 
         // Đóng server socket
         if (serverSocket != null && !serverSocket.isClosed()) {
@@ -146,6 +153,30 @@ public class AuctionServer {
     }
 
     /**
+     * Khởi tạo dữ liệu hệ thống: Ưu tiên nạp dữ liệu đã lưu từ file (Deserialization).
+     * Nếu chưa có dữ liệu lưu trữ, khởi tạo dữ liệu mẫu và lưu lại thành file ban đầu.
+     */
+    public static void initData() {
+        initData(DEFAULT_DATA_FILE);
+    }
+
+    public static void initData(String dataFilePath) {
+        AuctionManager manager = AuctionManager.getInstance();
+        manager.setStoragePath(dataFilePath);
+        manager.setAutoSave(true);
+
+        boolean loaded = manager.loadState(dataFilePath);
+        if (loaded && (!manager.getAllUsers().isEmpty() || !manager.getAllAuctions().isEmpty())) {
+            System.out.printf("[AuctionServer] Restored persistent data: %d users, %d auctions from %s%n",
+                    manager.getAllUsers().size(), manager.getAllAuctions().size(), dataFilePath);
+            return;
+        }
+
+        initSampleData();
+        manager.saveState(dataFilePath);
+    }
+
+    /**
      * Khởi tạo dữ liệu mẫu nếu AuctionManager đang trống.
      */
     public static void initSampleData() {
@@ -187,7 +218,7 @@ public class AuctionServer {
             }
         }
 
-        initSampleData();
+        initData();
 
         AuctionServer server = new AuctionServer(port);
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));

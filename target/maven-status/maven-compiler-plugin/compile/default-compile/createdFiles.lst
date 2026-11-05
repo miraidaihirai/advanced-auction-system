@@ -1,0 +1,9 @@
+com\auction\exceptions\AuctionClosedException.class
+com\auction\item\Art.class
+com\auction\exceptions\InvalidBidException.class
+com\auction\item\Factory\ElectronicsFactory.class
+com\auction\item\Factory\VehicleFactory.class
+com\auction\item\Electronics.class
+com\auction\item\Factory\ArtFactory.class
+com\auction\item\Factory\ItemFactory.class
+com\auction\exceptions\AuthenticationException.class
