@@ -17,8 +17,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,8 +32,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ClientHandler implements Runnable, AuctionObserver {
 
+    public static final int DEFAULT_SO_TIMEOUT_MS = 60_000;
+
     private final Socket socket;
     private final AuctionServer server;
+    private int soTimeoutMillis = DEFAULT_SO_TIMEOUT_MS;
     private BufferedReader in;
     private PrintWriter out;
 
@@ -40,13 +45,21 @@ public class ClientHandler implements Runnable, AuctionObserver {
     private volatile boolean running = true;
 
     public ClientHandler(Socket socket, AuctionServer server) {
+        this(socket, server, DEFAULT_SO_TIMEOUT_MS);
+    }
+
+    public ClientHandler(Socket socket, AuctionServer server, int soTimeoutMillis) {
         this.socket = socket;
         this.server = server;
+        this.soTimeoutMillis = soTimeoutMillis;
     }
 
     @Override
     public void run() {
         try {
+            if (soTimeoutMillis > 0) {
+                socket.setSoTimeout(soTimeoutMillis);
+            }
             in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             out = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
 
@@ -59,6 +72,11 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     continue;
                 }
                 handleCommand(line);
+            }
+        } catch (SocketTimeoutException e) {
+            if (running) {
+                System.out.printf("[ClientHandler] Client %s timed out (heartbeat failure): %s%n",
+                        getClientInfo(), e.getMessage());
             }
         } catch (IOException e) {
             if (running) {
@@ -99,6 +117,15 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     break;
                 case AuctionProtocol.CMD_START:
                     handleStart(parts);
+                    break;
+                case AuctionProtocol.CMD_CLOSE:
+                    handleClose(parts);
+                    break;
+                case AuctionProtocol.CMD_PAY:
+                    handlePay(parts);
+                    break;
+                case AuctionProtocol.CMD_PING:
+                    sendMessage(AuctionProtocol.RES_PONG);
                     break;
                 case AuctionProtocol.CMD_INFO:
                     handleInfo(parts);
@@ -242,6 +269,12 @@ public class ClientHandler implements Runnable, AuctionObserver {
             boolean success = AuctionManager.getInstance().placeBid(
                     auctionId, currentUser.getId(), currentUser.getPassword(), amount);
             if (success) {
+                if (subscribedAuctions.add(auctionId)) {
+                    Auction auction = AuctionManager.getInstance().getAuction(auctionId);
+                    if (auction != null) {
+                        auction.addObserver(this);
+                    }
+                }
                 sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_BID,
                         String.format(Locale.US, "%s %.2f", auctionId, amount)));
             } else {
@@ -271,7 +304,81 @@ public class ClientHandler implements Runnable, AuctionObserver {
             } else {
                 auction.startAuction();
             }
+            if (subscribedAuctions.add(auctionId)) {
+                auction.addObserver(this);
+            }
             sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_START, auctionId));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleClose(String[] parts) {
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: CLOSE <auctionId>"));
+            return;
+        }
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        String auctionId = parts[1];
+        Auction auction = AuctionManager.getInstance().getAuction(auctionId);
+        if (auction == null) {
+            sendMessage(AuctionProtocol.formatError("Auction not found: " + auctionId));
+            return;
+        }
+        boolean isSeller = currentUser instanceof Seller && currentUser.getId().equals(auction.getSellerId());
+        boolean isAdmin = currentUser instanceof Admin;
+        if (!isSeller && !isAdmin) {
+            sendMessage(AuctionProtocol.formatError("Only the Seller or Admin can close this auction"));
+            return;
+        }
+
+        try {
+            auction.finishAuction();
+            if (AuctionManager.getInstance().isAutoSave()) {
+                AuctionManager.getInstance().saveState();
+            }
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_CLOSE, auctionId));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handlePay(String[] parts) {
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: PAY <auctionId>"));
+            return;
+        }
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first to pay"));
+            return;
+        }
+        String auctionId = parts[1];
+        Auction auction = AuctionManager.getInstance().getAuction(auctionId);
+        if (auction == null) {
+            sendMessage(AuctionProtocol.formatError("Auction not found: " + auctionId));
+            return;
+        }
+        if (auction.getStatus() != Auction.Status.FINISHED) {
+            sendMessage(AuctionProtocol.formatError("Only FINISHED auctions can be paid (current: " + auction.getStatus() + ")"));
+            return;
+        }
+        boolean isWinner = currentUser.getId().equals(auction.getHighestBidderId());
+        boolean isAdmin = currentUser instanceof Admin;
+        if (!isWinner && !isAdmin) {
+            sendMessage(AuctionProtocol.formatError("Only the winning bidder can make payment for this auction"));
+            return;
+        }
+
+        try {
+            auction.markPaid();
+            if (AuctionManager.getInstance().isAutoSave()) {
+                AuctionManager.getInstance().saveState();
+            }
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_PAY,
+                    String.format(Locale.US, "%s %.2f", auctionId, auction.getCurrentPrice())));
         } catch (Exception e) {
             sendMessage(AuctionProtocol.formatError(e.getMessage()));
         }
@@ -316,19 +423,60 @@ public class ClientHandler implements Runnable, AuctionObserver {
     /**
      * Observer Pattern Callback: Tự động bắn thông báo realtime khi phiên đấu giá
      * kết thúc.
+     * Gửi thông báo riêng đến Seller và Winner, kèm thông báo phòng chung cho các client đang xem.
      */
     @Override
     public void onAuctionClosed(Auction auction) {
         if (!running) {
             return;
         }
+        String winner = auction.getHighestBidderId() != null ? auction.getHighestBidderId() : "NONE";
+
+        // 1. Thông báo riêng cho Winner
+        if (currentUser != null && auction.getHighestBidderId() != null
+                && currentUser.getId().equals(auction.getHighestBidderId())) {
+            sendMessage(AuctionProtocol.formatWinnerNotification(
+                    auction.getId(),
+                    auction.getCurrentPrice(),
+                    auction.getItemId()));
+        }
+
+        // 2. Thông báo riêng cho Seller
+        if (currentUser != null && auction.getSellerId() != null
+                && currentUser.getId().equals(auction.getSellerId())) {
+            sendMessage(AuctionProtocol.formatSellerNotification(
+                    auction.getId(),
+                    auction.getCurrentPrice(),
+                    winner,
+                    auction.getItemId()));
+        }
+
+        // 3. Thông báo phòng chung cho các Client đang theo dõi phiên
         if (subscribedAuctions.contains(auction.getId())) {
-            String winner = auction.getHighestBidderId() != null ? auction.getHighestBidderId() : "NONE";
             String notification = AuctionProtocol.formatClosedNotification(
                     auction.getId(),
                     auction.getCurrentPrice(),
                     winner);
             sendMessage(notification);
+        }
+    }
+
+    /**
+     * Observer Pattern Callback: Tự động bắn thông báo khi phiên đã thanh toán (PAID).
+     */
+    @Override
+    public void onAuctionPaid(Auction auction) {
+        if (!running) {
+            return;
+        }
+        String winner = auction.getHighestBidderId() != null ? auction.getHighestBidderId() : "NONE";
+        if (subscribedAuctions.contains(auction.getId())
+                || (currentUser != null && (currentUser.getId().equals(auction.getHighestBidderId())
+                        || currentUser.getId().equals(auction.getSellerId())))) {
+            sendMessage(AuctionProtocol.formatPaidNotification(
+                    auction.getId(),
+                    auction.getCurrentPrice(),
+                    winner));
         }
     }
 
@@ -343,6 +491,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     /**
      * Dọn dẹp tài nguyên khi client ngắt kết nối.
+     * Tự động gỡ đăng ký Observers, dọn Session trên Server và đóng Socket/Stream.
      */
     public void close() {
         if (!running) {
@@ -359,13 +508,56 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
         subscribedAuctions.clear();
 
-        server.removeClient(this);
+        if (server != null) {
+            server.removeClient(this);
+        }
 
         try {
-            socket.close();
+            if (in != null) {
+                in.close();
+            }
+        } catch (IOException ignored) {
+        }
+        if (out != null) {
+            out.close();
+        }
+        try {
+            if (!socket.isClosed()) {
+                socket.close();
+            }
         } catch (IOException ignored) {
         }
         System.out.printf("[ClientHandler] Client %s closed and cleaned up%n", getClientInfo());
+    }
+
+    public User getCurrentUser() {
+        return currentUser;
+    }
+
+    public Set<String> getSubscribedAuctions() {
+        return Collections.unmodifiableSet(subscribedAuctions);
+    }
+
+    public boolean isSubscribed(String auctionId) {
+        return subscribedAuctions.contains(auctionId);
+    }
+
+    public boolean isRunning() {
+        return running;
+    }
+
+    public int getSoTimeout() {
+        return soTimeoutMillis;
+    }
+
+    public void setSoTimeout(int timeoutMillis) {
+        this.soTimeoutMillis = timeoutMillis;
+        if (socket != null && !socket.isClosed()) {
+            try {
+                socket.setSoTimeout(Math.max(0, timeoutMillis));
+            } catch (IOException ignored) {
+            }
+        }
     }
 
     public String getClientInfo() {

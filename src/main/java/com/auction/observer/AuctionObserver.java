@@ -10,4 +10,5 @@ import com.auction.model.BidTransaction;
 public interface AuctionObserver {
     void onNewBid(Auction auction, BidTransaction bid);
     default void onAuctionClosed(Auction auction) {}
+    default void onAuctionPaid(Auction auction) {}
 }
