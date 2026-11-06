@@ -373,12 +373,12 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
 
         try {
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_PAY,
+                    String.format(Locale.US, "%s %.2f", auctionId, auction.getCurrentPrice())));
             auction.markPaid();
             if (AuctionManager.getInstance().isAutoSave()) {
                 AuctionManager.getInstance().saveState();
             }
-            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_PAY,
-                    String.format(Locale.US, "%s %.2f", auctionId, auction.getCurrentPrice())));
         } catch (Exception e) {
             sendMessage(AuctionProtocol.formatError(e.getMessage()));
         }

@@ -382,13 +382,17 @@ class ClientHandlerTest {
 
                         // Start auction & place bid
                         sellerConn.sendCommand("START " + auction.getId());
-                        winnerConn.sendCommand("BID " + auction.getId() + " 21000000");
+                        winnerConn.writer.println("BID " + auction.getId() + " 21000000");
 
-                        // Đọc thông báo nhảy giá realtime của 3 client
+                        // Winner nhận được 2 dòng: NOTIFY BID và SUCCESS BID
+                        String wLine1 = winnerConn.reader.readLine();
+                        String wLine2 = winnerConn.reader.readLine();
+                        assertTrue(wLine1.startsWith("NOTIFY BID") || wLine2.startsWith("NOTIFY BID"));
+                        assertTrue(wLine1.startsWith("SUCCESS BID") || wLine2.startsWith("SUCCESS BID"));
+
+                        // Seller và Spectator nhận NOTIFY BID
                         String bidNotifySeller = sellerConn.reader.readLine();
                         assertTrue(bidNotifySeller.startsWith("NOTIFY BID"));
-                        String bidNotifyWinner = winnerConn.reader.readLine();
-                        assertTrue(bidNotifyWinner.startsWith("NOTIFY BID"));
                         String bidNotifySpectator = spectatorConn.reader.readLine();
                         assertTrue(bidNotifySpectator.startsWith("NOTIFY BID"));
 
@@ -433,11 +437,12 @@ class ClientHandlerTest {
                         winnerConn.sendCommand("JOIN " + auction.getId());
 
                         sellerConn.sendCommand("START " + auction.getId());
-                        winnerConn.sendCommand("BID " + auction.getId() + " 52000000");
+                        winnerConn.writer.println("BID " + auction.getId() + " 52000000");
 
-                        // Xả lượt bid realtime
-                        sellerConn.reader.readLine();
+                        // Xả lượt bid realtime của winner và seller
                         winnerConn.reader.readLine();
+                        winnerConn.reader.readLine();
+                        sellerConn.reader.readLine();
 
                         // Kết thúc phiên
                         auction.finishAuction();
@@ -489,6 +494,12 @@ class ClientHandlerTest {
                         // Seller nhận thông báo NOTIFY SELLER với người thắng là NONE
                         String sellerNotice = sellerConn.reader.readLine();
                         assertEquals("NOTIFY SELLER " + auction.getId() + " 10000000.00 NONE " + auction.getItemId(), sellerNotice);
+                        String sellerClosed = sellerConn.reader.readLine();
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 10000000.00 NONE", sellerClosed);
+
+                        // BidderConn đã tham gia nên nhận NOTIFY CLOSED
+                        String bidderClosed = bidderConn.reader.readLine();
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 10000000.00 NONE", bidderClosed);
 
                         // Bidder không thể PAY vì không phải người thắng
                         String payError = bidderConn.sendCommand("PAY " + auction.getId());
