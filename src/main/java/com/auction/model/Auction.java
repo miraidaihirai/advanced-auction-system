@@ -142,14 +142,33 @@ public class Auction implements AuctionSubject, Serializable {
     }
 
     public void markPaid() {
+        List<AuctionObserver> observersToNotify;
         lock.lock();
         try {
             if (status != Status.FINISHED || highestBidderId == null) {
                 throw new IllegalStateException("Only a finished auction with a winner can be marked PAID");
             }
             status = Status.PAID;
+            observersToNotify = new ArrayList<>(observers);
         } finally {
             lock.unlock();
+        }
+
+        System.out.printf("[Auction %s] Auction marked PAID for winner: %s (%.2f)%n",
+                id, highestBidderId, currentPrice);
+        for (AuctionObserver observer : observersToNotify) {
+            try {
+                observer.onAuctionPaid(this);
+            } catch (Exception e) {
+                System.err.printf("[Observer Error] %s: %s%n", observer.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+    }
+
+    public void finishAndPay() {
+        finishAuction();
+        if (getHighestBidderId() != null) {
+            markPaid();
         }
     }
 

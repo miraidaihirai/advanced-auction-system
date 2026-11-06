@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -36,6 +37,7 @@ public class AuctionManager {
     // Danh sách lưu trữ các phiên đấu giá theo ID (Thread-safe)
     private final Map<String, Auction> auctionMap;
     private final Map<String, User> userMap;
+    private final List<AuctionObserver> globalObservers = new CopyOnWriteArrayList<>();
 
     // Quản lý lưu trữ file
     private FileStorageService storageService;
@@ -66,12 +68,57 @@ public class AuctionManager {
                     auction != null ? auction.getId() : "null");
             return;
         }
+        for (AuctionObserver observer : globalObservers) {
+            auction.addObserver(observer);
+        }
         auctionMap.put(auction.getId(), auction);
         System.out.printf("[AuctionManager] Registered auction ID: %s%n", auction.getId());
 
         if (autoSave) {
             saveState();
         }
+    }
+
+    public void addGlobalObserver(AuctionObserver observer) {
+        if (observer != null && !globalObservers.contains(observer)) {
+            globalObservers.add(observer);
+            for (Auction a : auctionMap.values()) {
+                a.addObserver(observer);
+            }
+        }
+    }
+
+    public void removeGlobalObserver(AuctionObserver observer) {
+        if (observer != null) {
+            globalObservers.remove(observer);
+            for (Auction a : auctionMap.values()) {
+                a.removeObserver(observer);
+            }
+        }
+    }
+
+    public boolean finishAuction(String auctionId) {
+        Auction auction = auctionMap.get(auctionId);
+        if (auction != null) {
+            auction.finishAuction();
+            if (autoSave) {
+                saveState();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public boolean markAuctionPaid(String auctionId) {
+        Auction auction = auctionMap.get(auctionId);
+        if (auction != null) {
+            auction.markPaid();
+            if (autoSave) {
+                saveState();
+            }
+            return true;
+        }
+        return false;
     }
 
     public Auction getAuction(String auctionId) {

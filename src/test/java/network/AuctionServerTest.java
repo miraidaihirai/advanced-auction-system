@@ -135,4 +135,93 @@ public class AuctionServerTest {
             charlieClient.disconnect();
         }
     }
+
+    @Test
+    void testAuctionFinishAndPaymentViaAuctionClient() throws Exception {
+        AuctionClient sellerClient = new AuctionClient("localhost", testPort);
+        AuctionClient winnerClient = new AuctionClient("localhost", testPort);
+
+        CountDownLatch winnerNotifiedLatch = new CountDownLatch(1);
+        CountDownLatch sellerNotifiedLatch = new CountDownLatch(1);
+        CountDownLatch winnerPaidLatch = new CountDownLatch(1);
+        CountDownLatch sellerPaidLatch = new CountDownLatch(1);
+
+        AtomicReference<Double> winPriceRef = new AtomicReference<>(0.0);
+        AtomicReference<String> sellerWinnerRef = new AtomicReference<>("");
+
+        winnerClient.addListener(new AuctionClient.AuctionEventListener() {
+            @Override
+            public void onBidUpdate(String id, double newPrice, String bidderId, String itemId) {}
+
+            @Override
+            public void onWinnerNotification(String id, double finalPrice, String itemId) {
+                if (auctionId.equals(id)) {
+                    winPriceRef.set(finalPrice);
+                    winnerNotifiedLatch.countDown();
+                }
+            }
+
+            @Override
+            public void onAuctionPaid(String id, double finalPrice, String winnerId) {
+                if (auctionId.equals(id)) {
+                    winnerPaidLatch.countDown();
+                }
+            }
+        });
+
+        sellerClient.addListener(new AuctionClient.AuctionEventListener() {
+            @Override
+            public void onBidUpdate(String id, double newPrice, String bidderId, String itemId) {}
+
+            @Override
+            public void onSellerNotification(String id, double finalPrice, String winnerId, String itemId) {
+                if (auctionId.equals(id)) {
+                    sellerWinnerRef.set(winnerId);
+                    sellerNotifiedLatch.countDown();
+                }
+            }
+
+            @Override
+            public void onAuctionPaid(String id, double finalPrice, String winnerId) {
+                if (auctionId.equals(id)) {
+                    sellerPaidLatch.countDown();
+                }
+            }
+        });
+
+        try {
+            sellerClient.connect();
+            winnerClient.connect();
+
+            // Seller logs in
+            sellerClient.login(sellerId, "password123");
+            sellerClient.joinAuction(auctionId);
+
+            // Winner logs in & places bid
+            winnerClient.login(bobId, "password123");
+            winnerClient.joinAuction(auctionId);
+            Thread.sleep(150);
+
+            winnerClient.placeBid(auctionId, 21_000_000);
+            Thread.sleep(150);
+
+            // Server / Manager finishes auction
+            AuctionManager.getInstance().finishAuction(auctionId);
+
+            assertTrue(winnerNotifiedLatch.await(3, TimeUnit.SECONDS), "Winner phai nhan duoc private winner notification");
+            assertTrue(sellerNotifiedLatch.await(3, TimeUnit.SECONDS), "Seller phai nhan duoc private seller notification");
+            assertEquals(21_000_000.0, winPriceRef.get(), 0.01);
+            assertEquals(bobId, sellerWinnerRef.get());
+
+            // Winner conducts payment
+            winnerClient.payAuction(auctionId);
+
+            assertTrue(winnerPaidLatch.await(3, TimeUnit.SECONDS), "Winner phai nhan thong bao NOTIFY PAID");
+            assertTrue(sellerPaidLatch.await(3, TimeUnit.SECONDS), "Seller phai nhan thong bao NOTIFY PAID");
+            assertEquals(Auction.Status.PAID, AuctionManager.getInstance().getAuction(auctionId).getStatus());
+        } finally {
+            sellerClient.disconnect();
+            winnerClient.disconnect();
+        }
+    }
 }
