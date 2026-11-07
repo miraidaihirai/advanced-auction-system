@@ -7,10 +7,16 @@ on:
     branches: [ "main", "dev" ]
   workflow_dispatch:
 
+# Tự động hủy các lần chạy trước nếu có commit mới được đẩy lên cùng nhánh
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     name: Build, Test & Code Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -23,8 +29,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build and Test with Maven
-        run: mvn -B clean verify --file pom.xml
+      - name: Build, Test and Verify with Maven
+        run: mvn -B -V clean verify --file pom.xml
 
       - name: Upload JaCoCo Coverage Report
         if: always()
@@ -32,7 +38,7 @@ jobs:
         with:
           name: jacoco-coverage-report
           path: target/site/jacoco/
-          retention-days: 14
+          retention-days: 7
 
       - name: Upload Surefire Test Reports
         if: always()
@@ -40,4 +46,15 @@ jobs:
         with:
           name: surefire-test-reports
           path: target/surefire-reports/
-          retention-days: 14
+          retention-days: 7
+
+      - name: Publish Test Summary
+        if: always()
+        run: |
+          echo "## 📊 Kết quả kiểm thử CI/CD" >> $GITHUB_STEP_SUMMARY
+          echo "- **Nhánh:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Người kích hoạt:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f target/site/jacoco/index.html ]; then
+            echo "- **Báo cáo JaCoCo:** Đã tạo thành công tại \`target/site/jacoco/index.html\`" >> $GITHUB_STEP_SUMMARY
+          fi

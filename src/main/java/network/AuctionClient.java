@@ -16,18 +16,31 @@ import com.auction.model.BidTransaction;
 /**
  * Socket Client kết nối tới AuctionServer.
  * - Gửi các bản tin yêu cầu (Login, Register, Join, Bid, Leave).
- * - Nhận và lắng nghe các thông báo realtime từ Server (Observer Pattern qua Socket).
+ * - Nhận và lắng nghe các thông báo realtime từ Server (Observer Pattern qua
+ * Socket).
  */
 public class AuctionClient {
 
     public interface AuctionEventListener {
         void onBidUpdate(String auctionId, double newPrice, String bidderId, String itemId);
-        default void onAuctionClosed(String auctionId, double finalPrice, String winnerId) {}
-        default void onWinnerNotification(String auctionId, double finalPrice, String itemId) {}
-        default void onSellerNotification(String auctionId, double finalPrice, String winnerId, String itemId) {}
-        default void onAuctionPaid(String auctionId, double finalPrice, String winnerId) {}
-        default void onHistoryReceived(String auctionId, List<BidTransaction> history) {}
-        default void onMessageReceived(String rawMessage) {}
+
+        default void onAuctionClosed(String auctionId, double finalPrice, String winnerId) {
+        }
+
+        default void onWinnerNotification(String auctionId, double finalPrice, String itemId) {
+        }
+
+        default void onSellerNotification(String auctionId, double finalPrice, String winnerId, String itemId) {
+        }
+
+        default void onAuctionPaid(String auctionId, double finalPrice, String winnerId) {
+        }
+
+        default void onHistoryReceived(String auctionId, List<BidTransaction> history) {
+        }
+
+        default void onMessageReceived(String rawMessage) {
+        }
     }
 
     private final String host;
@@ -190,7 +203,8 @@ public class AuctionClient {
                     // HISTORY_END <auctionId>
                     String[] parts = line.split("\\s+");
                     String aucId = parts.length >= 2 ? parts[1] : currentHistoryAuctionId;
-                    List<BidTransaction> history = (currentHistoryBuffer != null) ? currentHistoryBuffer : Collections.emptyList();
+                    List<BidTransaction> history = (currentHistoryBuffer != null) ? currentHistoryBuffer
+                            : Collections.emptyList();
                     for (AuctionEventListener l : listeners) {
                         try {
                             l.onHistoryReceived(aucId, history);
