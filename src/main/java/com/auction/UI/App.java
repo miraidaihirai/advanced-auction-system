@@ -1,4 +1,4 @@
-package com.auction.UI;
+package com.auction.ui;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;

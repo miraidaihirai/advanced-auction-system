@@ -1,7 +1,7 @@
 package com.auction;
 
 import com.auction.item.Item;
-import com.auction.item.factory.*;
+import com.auction.item.Factory.*;
 import com.auction.exceptions.AuthenticationException;
 import com.auction.exceptions.AuctionClosedException;
 import com.auction.exceptions.InvalidBidException;
