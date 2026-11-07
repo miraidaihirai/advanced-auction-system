@@ -42,17 +42,16 @@ class SellerTest {
                 "TX-001",
                 auction.getId(),
                 "BIDDER-01",
-                15_000_000
-        );
+                15_000_000);
 
         String output = captureOutput(
-                () -> seller.onNewBid(auction, bid)
-        );
+                () -> seller.onNewBid(auction, bid));
 
-        assertTrue(output.contains("Seller Alice"));
-        assertTrue(output.contains("ITEM-001"));
-        assertTrue(output.contains("BIDDER-01"));
-        assertTrue(output.contains("nhan bid moi"));
+        assertAll(
+                () -> assertTrue(output.contains("Notification")),
+                () -> assertTrue(output.contains("Your item")),
+                () -> assertTrue(output.contains("ITEM-001")),
+                () -> assertTrue(output.contains("BIDDER-01")));
     }
 
     @Test
@@ -62,13 +61,15 @@ class SellerTest {
         Auction auction = createFinishedAuction();
 
         String output = captureOutput(
-                () -> seller.onAuctionClosed(auction)
-        );
+                () -> seller.onAuctionClosed(auction));
 
-        assertTrue(output.contains("Seller Alice"));
-        assertTrue(output.contains("AUC-001"));
-        assertTrue(output.contains("BIDDER-01"));
-        assertTrue(output.contains("da dong"));
+        assertAll(
+                () -> assertTrue(output.contains("Notification")),
+                () -> assertTrue(output.contains("Auction")),
+                () -> assertTrue(output.contains("has closed")),
+                () -> assertTrue(output.contains("AUC-001")),
+                () -> assertTrue(output.contains("Final price:")),
+                () -> assertTrue(output.contains("Winner: BIDDER-01")));
     }
 
     // ==========================================
@@ -79,8 +80,7 @@ class SellerTest {
         return new Seller(
                 "SELLER-01",
                 "Alice",
-                "password123"
-        );
+                "password123");
     }
 
     private Auction createAuction() {
@@ -89,8 +89,7 @@ class SellerTest {
                 "ITEM-001",
                 "SELLER-01",
                 10_000_000,
-                500_000
-        );
+                500_000);
     }
 
     private Auction createFinishedAuction() {
@@ -102,8 +101,7 @@ class SellerTest {
                 "TX-001",
                 auction.getId(),
                 "BIDDER-01",
-                10_500_000
-        );
+                10_500_000);
 
         auction.placeBid(bid);
         auction.finishAuction();
@@ -114,14 +112,12 @@ class SellerTest {
     private String captureOutput(Runnable action) {
         PrintStream originalOut = System.out;
 
-        ByteArrayOutputStream output =
-                new ByteArrayOutputStream();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
 
         try (PrintStream testOut = new PrintStream(
                 output,
                 true,
-                StandardCharsets.UTF_8
-        )) {
+                StandardCharsets.UTF_8)) {
             System.setOut(testOut);
 
             action.run();
@@ -135,4 +131,3 @@ class SellerTest {
         }
     }
 }
-
