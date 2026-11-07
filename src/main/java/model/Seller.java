@@ -3,8 +3,8 @@ package model;
 import observer.AuctionObserver;
 
 /**
- * Nguoi ban trong phien dau gia.
- * Ke thua User (LSP), implement AuctionObserver (ISP, OCP, DIP).
+ * Seller in an auction.
+ * Extends User (LSP), implements AuctionObserver (ISP, OCP, DIP).
  */
 public class Seller extends User implements AuctionObserver {
 
@@ -14,18 +14,29 @@ public class Seller extends User implements AuctionObserver {
 
     @Override
     public void displayInfo() {
-        System.out.printf("Seller [ID: %s, Name: %s]%n", getId(), getName());
+        System.out.printf("Seller [ID: %s, Name: %s]%n",
+                getId(), getName());
     }
 
     @Override
     public void onNewBid(Auction auction, BidTransaction bid) {
-        System.out.printf("  [Thong bao -> Seller %s] San pham [%s] nhan bid moi: %.2f tu [%s]%n",
-                getName(), auction.getItemId(), bid.getAmount(), bid.getBidderId());
+        System.out.printf(
+                "  [Notification -> Seller %s] Your item [%s] has received a new bid: %.2f from [%s]%n",
+                getName(),
+                auction.getItemId(),
+                bid.getAmount(),
+                bid.getBidderId()
+        );
     }
 
     @Override
     public void onAuctionClosed(Auction auction) {
-        System.out.printf("  [Thong bao -> Seller %s] Phien [%s] da dong. Gia cuoi: %.2f (Nguoi thang: %s)%n",
-                getName(), auction.getId(), auction.getCurrentPrice(), auction.getHighestBidderId());
+        System.out.printf(
+                "  [Notification -> Seller %s] Auction [%s] has closed. Final price: %.2f (Winner: %s)%n",
+                getName(),
+                auction.getId(),
+                auction.getCurrentPrice(),
+                auction.getHighestBidderId()
+        );
     }
 }
