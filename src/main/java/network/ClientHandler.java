@@ -21,6 +21,7 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -129,6 +130,9 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     break;
                 case AuctionProtocol.CMD_INFO:
                     handleInfo(parts);
+                    break;
+                case AuctionProtocol.CMD_HISTORY:
+                    handleHistory(parts);
                     break;
                 case AuctionProtocol.CMD_QUIT:
                     sendMessage(AuctionProtocol.formatSuccess("BYE", "Goodbye!"));
@@ -399,6 +403,26 @@ public class ClientHandler implements Runnable, AuctionObserver {
         sendMessage(String.format(Locale.US, "AUCTION_INFO %s %s %s %.2f %.2f %s %s",
                 a.getId(), a.getItemId(), a.getSellerId(), a.getCurrentPrice(), a.getStepPrice(), winner,
                 a.getStatus()));
+    }
+
+    private void handleHistory(String[] parts) {
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: HISTORY <auctionId>"));
+            return;
+        }
+        String auctionId = parts[1];
+        Auction auction = AuctionManager.getInstance().getAuction(auctionId);
+        if (auction == null) {
+            sendMessage(AuctionProtocol.formatError("Auction not found: " + auctionId));
+            return;
+        }
+
+        List<BidTransaction> history = auction.getBidHistory();
+        sendMessage(String.format("%s %s %d", AuctionProtocol.HISTORY_BEGIN, auctionId, history.size()));
+        for (BidTransaction tx : history) {
+            sendMessage(AuctionProtocol.formatTransactionRecord(tx));
+        }
+        sendMessage(String.format("%s %s", AuctionProtocol.HISTORY_END, auctionId));
     }
 
     /**
