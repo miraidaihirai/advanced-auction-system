@@ -537,6 +537,13 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
 
         try {
+            if (!socket.isClosed()) {
+                socket.shutdownInput();
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
             if (in != null) {
                 in.close();
             }

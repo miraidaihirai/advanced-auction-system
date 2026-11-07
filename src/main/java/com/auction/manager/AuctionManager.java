@@ -278,9 +278,14 @@ public class AuctionManager {
     // -------------------------------------------------------------------------
 
     /**
-     * Dọn sạch toàn bộ dữ liệu người dùng và phiên đấu giá trong bộ nhớ RAM.
+     * Dọn sạch toàn bộ dữ liệu người dùng và phiên đấu giá trong bộ nhớ RAM, đồng thời hủy bỏ các timer đang chạy.
      */
     public synchronized void clear() {
+        for (Auction a : auctionMap.values()) {
+            if (a != null) {
+                a.cancelTimer();
+            }
+        }
         auctionMap.clear();
         userMap.clear();
     }
