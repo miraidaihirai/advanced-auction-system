@@ -1,4 +1,4 @@
-package com.auction.item.factory;
+package com.auction.item.Factory;
 
 import com.auction.item.Item;
 import com.auction.item.Vehicle;
