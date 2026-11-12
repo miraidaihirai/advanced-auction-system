@@ -318,9 +318,202 @@ class ClientHandlerTest {
                 }
         }
 
+        @Test
+        void ping_shouldReturnPong() throws Exception {
+                try (TestConnection connection = openConnection()) {
+                        assertEquals("PONG", connection.sendCommand("PING"));
+                }
+        }
+
+        @Test
+        void heartbeatTimeout_shouldCloseClientAndTerminateThread() throws Exception {
+                // Khởi tạo connection với heartbeat timeout cực ngắn (250ms)
+                TestConnection connection = openConnection(250);
+                // Client không gửi bất kỳ bản tin nào; đợi 400ms để server kích hoạt timeout
+                Thread.sleep(400);
+
+                // Luồng handler phải tự động kết thúc và giải phóng tài nguyên
+                connection.handlerThread.join(1000);
+                assertFalse(connection.handlerThread.isAlive(), "Handler thread phai tu giai phong sau heartbeat timeout");
+                assertFalse(connection.handler.isRunning(), "Handler khong duoc o trang thai running sau timeout");
+                connection.close();
+        }
+
+        @Test
+        void suddenDisconnect_shouldCleanUpSubscriptionsAndActiveClients() throws Exception {
+                Auction auction = createAuction();
+                TestConnection connection = openConnection();
+
+                // Join phòng đấu giá
+                connection.sendCommand("JOIN " + auction.getId());
+                assertTrue(connection.handler.isSubscribed(auction.getId()));
+
+                // Đột ngột ngắt kết nối phía client (không gửi QUIT)
+                connection.clientSocket.close();
+
+                // Luồng handler phải phát hiện EOF/connection closed và dọn dẹp
+                connection.handlerThread.join(1000);
+                assertFalse(connection.handlerThread.isAlive(), "Handler thread phai ket thuc khi client disconnect dot ngot");
+                assertFalse(connection.handler.isSubscribed(auction.getId()), "Subscription phai duoc don dep hoan toan");
+                connection.close();
+        }
+
+        @Test
+        void auctionFinish_shouldDeliverTargetedWinnerAndSellerNotifications() throws Exception {
+                Seller seller = registerSeller();
+                Bidder winner = registerBidder();
+                Bidder spectator = registerBidder();
+
+                Auction auction = new Auction(uniqueId("AUC"), "MacBook M3 Pro", seller.getId(), 20_000_000, 1_000_000);
+                manager.addAuction(auction);
+
+                try (TestConnection sellerConn = openConnection();
+                     TestConnection winnerConn = openConnection();
+                     TestConnection spectatorConn = openConnection()) {
+
+                        sellerConn.sendCommand("LOGIN " + seller.getId() + " password123");
+                        sellerConn.sendCommand("JOIN " + auction.getId());
+
+                        winnerConn.sendCommand("LOGIN " + winner.getId() + " password123");
+                        winnerConn.sendCommand("JOIN " + auction.getId());
+
+                        spectatorConn.sendCommand("LOGIN " + spectator.getId() + " password123");
+                        spectatorConn.sendCommand("JOIN " + auction.getId());
+
+                        // Start auction & place bid
+                        sellerConn.sendCommand("START " + auction.getId());
+                        winnerConn.writer.println("BID " + auction.getId() + " 21000000");
+
+                        // Winner nhận được 2 dòng: NOTIFY BID và SUCCESS BID
+                        String wLine1 = winnerConn.reader.readLine();
+                        String wLine2 = winnerConn.reader.readLine();
+                        assertTrue(wLine1.startsWith("NOTIFY BID") || wLine2.startsWith("NOTIFY BID"));
+                        assertTrue(wLine1.startsWith("SUCCESS BID") || wLine2.startsWith("SUCCESS BID"));
+
+                        // Seller và Spectator nhận NOTIFY BID
+                        String bidNotifySeller = sellerConn.reader.readLine();
+                        assertTrue(bidNotifySeller.startsWith("NOTIFY BID"));
+                        String bidNotifySpectator = spectatorConn.reader.readLine();
+                        assertTrue(bidNotifySpectator.startsWith("NOTIFY BID"));
+
+                        // Kết thúc phiên đấu giá
+                        auction.finishAuction();
+                        assertEquals(Auction.Status.FINISHED, auction.getStatus());
+                        assertEquals(winner.getId(), auction.getHighestBidderId());
+
+                        // Winner nhận thông báo riêng NOTIFY WINNER và thông báo phòng NOTIFY CLOSED
+                        String winnerFirst = winnerConn.reader.readLine();
+                        assertEquals("NOTIFY WINNER " + auction.getId() + " 21000000.00 " + auction.getItemId(), winnerFirst);
+                        String winnerSecond = winnerConn.reader.readLine();
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(), winnerSecond);
+
+                        // Seller nhận thông báo riêng NOTIFY SELLER và thông báo phòng NOTIFY CLOSED
+                        String sellerFirst = sellerConn.reader.readLine();
+                        assertEquals("NOTIFY SELLER " + auction.getId() + " 21000000.00 " + winner.getId() + " " + auction.getItemId(), sellerFirst);
+                        String sellerSecond = sellerConn.reader.readLine();
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(), sellerSecond);
+
+                        // Spectator chỉ nhận thông báo phòng NOTIFY CLOSED
+                        String spectatorMsg = spectatorConn.reader.readLine();
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(), spectatorMsg);
+                }
+        }
+
+        @Test
+        void auctionPay_shouldTransitionStatusToPaidAndNotify() throws Exception {
+                Seller seller = registerSeller();
+                Bidder winner = registerBidder();
+
+                Auction auction = new Auction(uniqueId("AUC"), "Rolex Submariner", seller.getId(), 50_000_000, 2_000_000);
+                manager.addAuction(auction);
+
+                try (TestConnection sellerConn = openConnection();
+                     TestConnection winnerConn = openConnection()) {
+
+                        sellerConn.sendCommand("LOGIN " + seller.getId() + " password123");
+                        sellerConn.sendCommand("JOIN " + auction.getId());
+
+                        winnerConn.sendCommand("LOGIN " + winner.getId() + " password123");
+                        winnerConn.sendCommand("JOIN " + auction.getId());
+
+                        sellerConn.sendCommand("START " + auction.getId());
+                        winnerConn.writer.println("BID " + auction.getId() + " 52000000");
+
+                        // Xả lượt bid realtime của winner và seller
+                        winnerConn.reader.readLine();
+                        winnerConn.reader.readLine();
+                        sellerConn.reader.readLine();
+
+                        // Kết thúc phiên
+                        auction.finishAuction();
+                        assertEquals(Auction.Status.FINISHED, auction.getStatus());
+
+                        // Xả các thông báo close
+                        winnerConn.reader.readLine(); // NOTIFY WINNER
+                        winnerConn.reader.readLine(); // NOTIFY CLOSED
+                        sellerConn.reader.readLine(); // NOTIFY SELLER
+                        sellerConn.reader.readLine(); // NOTIFY CLOSED
+
+                        // Winner gửi lệnh PAY
+                        String payRes = winnerConn.sendCommand("PAY " + auction.getId());
+                        assertEquals("SUCCESS PAY " + auction.getId() + " 52000000.00", payRes);
+                        assertEquals(Auction.Status.PAID, auction.getStatus());
+
+                        // Cả Winner và Seller đều nhận được bản tin NOTIFY PAID
+                        String paidWinnerNotify = winnerConn.reader.readLine();
+                        assertEquals("NOTIFY PAID " + auction.getId() + " 52000000.00 " + winner.getId(), paidWinnerNotify);
+                        String paidSellerNotify = sellerConn.reader.readLine();
+                        assertEquals("NOTIFY PAID " + auction.getId() + " 52000000.00 " + winner.getId(), paidSellerNotify);
+                }
+        }
+
+        @Test
+        void auctionFinish_noBids_sellerNotifiedNoneAndCannotPay() throws Exception {
+                Seller seller = registerSeller();
+                Bidder bidder = registerBidder();
+
+                Auction auction = new Auction(uniqueId("AUC"), "Rare Antique", seller.getId(), 10_000_000, 500_000);
+                manager.addAuction(auction);
+
+                try (TestConnection sellerConn = openConnection();
+                     TestConnection bidderConn = openConnection()) {
+
+                        sellerConn.sendCommand("LOGIN " + seller.getId() + " password123");
+                        sellerConn.sendCommand("JOIN " + auction.getId());
+
+                        bidderConn.sendCommand("LOGIN " + bidder.getId() + " password123");
+                        bidderConn.sendCommand("JOIN " + auction.getId());
+
+                        sellerConn.sendCommand("START " + auction.getId());
+
+                        // Đóng phiên khi không có ai bid
+                        auction.finishAuction();
+                        assertEquals(Auction.Status.FINISHED, auction.getStatus());
+                        assertNull(auction.getHighestBidderId());
+
+                        // Seller nhận thông báo NOTIFY SELLER với người thắng là NONE
+                        String sellerNotice = sellerConn.reader.readLine();
+                        assertEquals("NOTIFY SELLER " + auction.getId() + " 10000000.00 NONE " + auction.getItemId(), sellerNotice);
+                        String sellerClosed = sellerConn.reader.readLine();
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 10000000.00 NONE", sellerClosed);
+
+                        // BidderConn đã tham gia nên nhận NOTIFY CLOSED
+                        String bidderClosed = bidderConn.reader.readLine();
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 10000000.00 NONE", bidderClosed);
+
+                        // Bidder không thể PAY vì không phải người thắng
+                        String payError = bidderConn.sendCommand("PAY " + auction.getId());
+                        assertEquals("ERROR Only the winning bidder can make payment for this auction", payError);
+                }
+        }
+
         // -------------------- Helper Methods --------------------
 
         private TestConnection openConnection() throws IOException {
+                return openConnection(ClientHandler.DEFAULT_SO_TIMEOUT_MS);
+        }
+
+        private TestConnection openConnection(int soTimeoutMillis) throws IOException {
 
                 ServerSocket listenerSocket = new ServerSocket(0);
 
@@ -334,7 +527,8 @@ class ClientHandlerTest {
 
                 ClientHandler handler = new ClientHandler(
                                 handlerSocket,
-                                server);
+                                server,
+                                soTimeoutMillis);
                 // Bọc socket + server vào handler
                 Thread handlerThread = new Thread(
                                 handler,

@@ -26,5 +26,9 @@ target/
 hs_err_pid*
 replay_pid*
 
-# Antigravity context-mode
+# Persistent data storage
+data/
+*.ser
+
+# IDE / AI tooling cache
 .github/context-mode/

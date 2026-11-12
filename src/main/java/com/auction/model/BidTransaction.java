@@ -1,11 +1,14 @@
 package com.auction.model;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
  * Đại diện cho một giao dịch đặt giá trong phiên đấu giá.
  */
-public class BidTransaction {
+public class BidTransaction implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String id;
     private String auctionId;
     private String bidderId;

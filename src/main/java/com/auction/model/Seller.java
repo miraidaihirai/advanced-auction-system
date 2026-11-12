@@ -7,6 +7,7 @@ import com.auction.observer.AuctionObserver;
  * Ke thua User (LSP), implement AuctionObserver (ISP, OCP, DIP).
  */
 public class Seller extends User implements AuctionObserver {
+    private static final long serialVersionUID = 1L;
 
     public Seller(String id, String name, String password) {
         super(id, name, password);
