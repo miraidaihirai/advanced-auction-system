@@ -20,6 +20,9 @@ public class AuctionClient {
     public interface AuctionEventListener {
         void onBidUpdate(String auctionId, double newPrice, String bidderId, String itemId);
         default void onAuctionClosed(String auctionId, double finalPrice, String winnerId) {}
+        default void onWinnerNotification(String auctionId, double finalPrice, String itemId) {}
+        default void onSellerNotification(String auctionId, double finalPrice, String winnerId, String itemId) {}
+        default void onAuctionPaid(String auctionId, double finalPrice, String winnerId) {}
         default void onMessageReceived(String rawMessage) {}
     }
 
@@ -110,6 +113,49 @@ public class AuctionClient {
                             }
                         }
                     }
+                } else if (line.startsWith(AuctionProtocol.NOTIFY_WINNER_PREFIX)) {
+                    // NOTIFY WINNER <auctionId> <finalPrice> <itemId>
+                    String[] parts = line.split("\\s+");
+                    if (parts.length >= 5) {
+                        String auctionId = parts[2];
+                        double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
+                        String itemId = line.substring(line.indexOf(parts[4]));
+                        for (AuctionEventListener l : listeners) {
+                            try {
+                                l.onWinnerNotification(auctionId, finalPrice, itemId);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                } else if (line.startsWith(AuctionProtocol.NOTIFY_SELLER_PREFIX)) {
+                    // NOTIFY SELLER <auctionId> <finalPrice> <winnerId> <itemId>
+                    String[] parts = line.split("\\s+");
+                    if (parts.length >= 6) {
+                        String auctionId = parts[2];
+                        double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
+                        String winnerId = parts[4];
+                        String itemId = line.substring(line.indexOf(parts[5]));
+                        for (AuctionEventListener l : listeners) {
+                            try {
+                                l.onSellerNotification(auctionId, finalPrice, winnerId, itemId);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                } else if (line.startsWith(AuctionProtocol.NOTIFY_PAID_PREFIX)) {
+                    // NOTIFY PAID <auctionId> <finalPrice> <winnerId>
+                    String[] parts = line.split("\\s+");
+                    if (parts.length >= 5) {
+                        String auctionId = parts[2];
+                        double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
+                        String winnerId = parts[4];
+                        for (AuctionEventListener l : listeners) {
+                            try {
+                                l.onAuctionPaid(auctionId, finalPrice, winnerId);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
                 }
             }
         } catch (IOException e) {
@@ -154,6 +200,26 @@ public class AuctionClient {
 
     public void requestInfo(String auctionId) {
         sendRaw(String.format("%s %s", AuctionProtocol.CMD_INFO, auctionId));
+    }
+
+    public void ping() {
+        sendRaw(AuctionProtocol.CMD_PING);
+    }
+
+    public void startAuction(String auctionId) {
+        sendRaw(String.format("%s %s", AuctionProtocol.CMD_START, auctionId));
+    }
+
+    public void startAuction(String auctionId, int durationSeconds) {
+        sendRaw(String.format("%s %s %d", AuctionProtocol.CMD_START, auctionId, durationSeconds));
+    }
+
+    public void closeAuction(String auctionId) {
+        sendRaw(String.format("%s %s", AuctionProtocol.CMD_CLOSE, auctionId));
+    }
+
+    public void payAuction(String auctionId) {
+        sendRaw(String.format("%s %s", AuctionProtocol.CMD_PAY, auctionId));
     }
 
     public synchronized void disconnect() {
