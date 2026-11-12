@@ -2,24 +2,59 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: [ "main", "dev", "feature/*" ]
+    branches: [ "main", "dev", "feature/**" ]
   pull_request:
     branches: [ "main", "dev" ]
+  workflow_dispatch:
+
+# Tự động hủy các lần chạy trước nếu có commit mới được đẩy lên cùng nhánh
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-test:
+    name: Build, Test & Code Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: maven
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
 
-    - name: Build and Test with Maven
-      run: mvn -B clean test
+      - name: Build, Test and Verify with Maven
+        run: mvn -B -V clean verify --file pom.xml
 
+      - name: Upload JaCoCo Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-report
+          path: target/site/jacoco/
+          retention-days: 7
+
+      - name: Upload Surefire Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-test-reports
+          path: target/surefire-reports/
+          retention-days: 7
+
+      - name: Publish Test Summary
+        if: always()
+        run: |
+          echo "## 📊 Kết quả kiểm thử CI/CD" >> $GITHUB_STEP_SUMMARY
+          echo "- **Nhánh:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Người kích hoạt:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f target/site/jacoco/index.html ]; then
+            echo "- **Báo cáo JaCoCo:** Đã tạo thành công tại \`target/site/jacoco/index.html\`" >> $GITHUB_STEP_SUMMARY
+          fi

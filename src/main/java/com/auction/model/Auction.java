@@ -24,9 +24,11 @@ import com.auction.exceptions.InvalidBidException;
 
 /**
  * Đại diện cho một phiên đấu giá.
- * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid mới.
+ * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid
+ * mới.
  * - Triển khai Serializable để hỗ trợ lưu trữ dữ liệu phiên ra file.
- * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost Update / Race Condition.
+ * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost
+ * Update / Race Condition.
  */
 public class Auction implements AuctionSubject, Serializable {
     private static final long serialVersionUID = 1L;
@@ -57,7 +59,8 @@ public class Auction implements AuctionSubject, Serializable {
     private transient ReentrantLock lock = new ReentrantLock(true);
     private transient ScheduledFuture<?> finishTask;
 
-    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt thông báo
+    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt
+    // thông báo
     private transient List<AuctionObserver> observers = new CopyOnWriteArrayList<>();
 
     public Auction(String id, String itemId, String sellerId, double startPrice, double stepPrice) {
@@ -184,9 +187,25 @@ public class Auction implements AuctionSubject, Serializable {
         }
     }
 
-    /**
+    /*
+     * Hủy bỏ tác vụ đếm ngược kết thúc phiên (nếu đang chạy), dùng khi reset/dọn
+     * dẹp phiên.
+     */
+    public void cancelTimer() {
+        lock.lock();
+        try {
+            if (finishTask != null && !finishTask.isDone()) {
+                finishTask.cancel(false);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /*
      * Xử lý đặt giá đồng thời (Concurrency) bằng ReentrantLock.
-     * Tránh Lost Update và Race Condition khi nhiều thread đặt giá cùng một thời điểm.
+     * Tránh Lost Update và Race Condition khi nhiều thread đặt giá cùng một thời
+     * điểm.
      */
     public boolean placeBid(BidTransaction bid) {
         lock.lock();
@@ -199,7 +218,8 @@ public class Auction implements AuctionSubject, Serializable {
                 throw new InvalidBidException("Bid amount must be a positive finite number");
             }
 
-            // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice + stepPrice
+            // Lượt đầu tiên chỉ cần >= startPrice, các lượt sau cần >= currentPrice +
+            // stepPrice
             double minRequired = (bidHistory.isEmpty()) ? startPrice : (currentPrice + stepPrice);
             if (bid.getAmount() < minRequired) {
                 throw new InvalidBidException(String.format(
