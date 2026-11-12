@@ -334,7 +334,8 @@ class ClientHandlerTest {
 
                 // Luồng handler phải tự động kết thúc và giải phóng tài nguyên
                 connection.handlerThread.join(1000);
-                assertFalse(connection.handlerThread.isAlive(), "Handler thread phai tu giai phong sau heartbeat timeout");
+                assertFalse(connection.handlerThread.isAlive(),
+                                "Handler thread phai tu giai phong sau heartbeat timeout");
                 assertFalse(connection.handler.isRunning(), "Handler khong duoc o trang thai running sau timeout");
                 connection.close();
         }
@@ -353,8 +354,10 @@ class ClientHandlerTest {
 
                 // Luồng handler phải phát hiện EOF/connection closed và dọn dẹp
                 connection.handlerThread.join(1000);
-                assertFalse(connection.handlerThread.isAlive(), "Handler thread phai ket thuc khi client disconnect dot ngot");
-                assertFalse(connection.handler.isSubscribed(auction.getId()), "Subscription phai duoc don dep hoan toan");
+                assertFalse(connection.handlerThread.isAlive(),
+                                "Handler thread phai ket thuc khi client disconnect dot ngot");
+                assertFalse(connection.handler.isSubscribed(auction.getId()),
+                                "Subscription phai duoc don dep hoan toan");
                 connection.close();
         }
 
@@ -368,8 +371,8 @@ class ClientHandlerTest {
                 manager.addAuction(auction);
 
                 try (TestConnection sellerConn = openConnection();
-                     TestConnection winnerConn = openConnection();
-                     TestConnection spectatorConn = openConnection()) {
+                                TestConnection winnerConn = openConnection();
+                                TestConnection spectatorConn = openConnection()) {
 
                         sellerConn.sendCommand("LOGIN " + seller.getId() + " password123");
                         sellerConn.sendCommand("JOIN " + auction.getId());
@@ -403,19 +406,24 @@ class ClientHandlerTest {
 
                         // Winner nhận thông báo riêng NOTIFY WINNER và thông báo phòng NOTIFY CLOSED
                         String winnerFirst = winnerConn.reader.readLine();
-                        assertEquals("NOTIFY WINNER " + auction.getId() + " 21000000.00 " + auction.getItemId(), winnerFirst);
+                        assertEquals("NOTIFY WINNER " + auction.getId() + " 21000000.00 " + auction.getItemId(),
+                                        winnerFirst);
                         String winnerSecond = winnerConn.reader.readLine();
-                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(), winnerSecond);
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(),
+                                        winnerSecond);
 
                         // Seller nhận thông báo riêng NOTIFY SELLER và thông báo phòng NOTIFY CLOSED
                         String sellerFirst = sellerConn.reader.readLine();
-                        assertEquals("NOTIFY SELLER " + auction.getId() + " 21000000.00 " + winner.getId() + " " + auction.getItemId(), sellerFirst);
+                        assertEquals("NOTIFY SELLER " + auction.getId() + " 21000000.00 " + winner.getId() + " "
+                                        + auction.getItemId(), sellerFirst);
                         String sellerSecond = sellerConn.reader.readLine();
-                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(), sellerSecond);
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(),
+                                        sellerSecond);
 
                         // Spectator chỉ nhận thông báo phòng NOTIFY CLOSED
                         String spectatorMsg = spectatorConn.reader.readLine();
-                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(), spectatorMsg);
+                        assertEquals("NOTIFY CLOSED " + auction.getId() + " 21000000.00 " + winner.getId(),
+                                        spectatorMsg);
                 }
         }
 
@@ -424,11 +432,12 @@ class ClientHandlerTest {
                 Seller seller = registerSeller();
                 Bidder winner = registerBidder();
 
-                Auction auction = new Auction(uniqueId("AUC"), "Rolex Submariner", seller.getId(), 50_000_000, 2_000_000);
+                Auction auction = new Auction(uniqueId("AUC"), "Rolex Submariner", seller.getId(), 50_000_000,
+                                2_000_000);
                 manager.addAuction(auction);
 
                 try (TestConnection sellerConn = openConnection();
-                     TestConnection winnerConn = openConnection()) {
+                                TestConnection winnerConn = openConnection()) {
 
                         sellerConn.sendCommand("LOGIN " + seller.getId() + " password123");
                         sellerConn.sendCommand("JOIN " + auction.getId());
@@ -461,9 +470,11 @@ class ClientHandlerTest {
 
                         // Cả Winner và Seller đều nhận được bản tin NOTIFY PAID
                         String paidWinnerNotify = winnerConn.reader.readLine();
-                        assertEquals("NOTIFY PAID " + auction.getId() + " 52000000.00 " + winner.getId(), paidWinnerNotify);
+                        assertEquals("NOTIFY PAID " + auction.getId() + " 52000000.00 " + winner.getId(),
+                                        paidWinnerNotify);
                         String paidSellerNotify = sellerConn.reader.readLine();
-                        assertEquals("NOTIFY PAID " + auction.getId() + " 52000000.00 " + winner.getId(), paidSellerNotify);
+                        assertEquals("NOTIFY PAID " + auction.getId() + " 52000000.00 " + winner.getId(),
+                                        paidSellerNotify);
                 }
         }
 
@@ -476,7 +487,7 @@ class ClientHandlerTest {
                 manager.addAuction(auction);
 
                 try (TestConnection sellerConn = openConnection();
-                     TestConnection bidderConn = openConnection()) {
+                                TestConnection bidderConn = openConnection()) {
 
                         sellerConn.sendCommand("LOGIN " + seller.getId() + " password123");
                         sellerConn.sendCommand("JOIN " + auction.getId());
@@ -493,7 +504,8 @@ class ClientHandlerTest {
 
                         // Seller nhận thông báo NOTIFY SELLER với người thắng là NONE
                         String sellerNotice = sellerConn.reader.readLine();
-                        assertEquals("NOTIFY SELLER " + auction.getId() + " 10000000.00 NONE " + auction.getItemId(), sellerNotice);
+                        assertEquals("NOTIFY SELLER " + auction.getId() + " 10000000.00 NONE " + auction.getItemId(),
+                                        sellerNotice);
                         String sellerClosed = sellerConn.reader.readLine();
                         assertEquals("NOTIFY CLOSED " + auction.getId() + " 10000000.00 NONE", sellerClosed);
 
@@ -690,6 +702,12 @@ class ClientHandlerTest {
 
                 @Override
                 public void close() {
+                        try {
+                                if (!clientSocket.isClosed()) {
+                                        clientSocket.shutdownOutput();
+                                }
+                        } catch (Exception ignored) {
+                        }
 
                         handler.close();
 
@@ -698,7 +716,7 @@ class ClientHandlerTest {
                                 handlerSocket.close();
                                 listenerSocket.close();
 
-                                handlerThread.join(1000);
+                                handlerThread.join(500);
 
                         } catch (IOException e) {
                                 throw new RuntimeException("Failed to close test sockets", e);

@@ -1,6 +1,7 @@
 package com.auction.storage;
 
 import com.auction.model.Auction;
+import com.auction.model.BidTransaction;
 import com.auction.model.User;
 
 import java.io.BufferedInputStream;
@@ -27,14 +28,14 @@ import java.util.List;
 public class FileStorageService {
 
     /**
-     * Lưu trữ toàn bộ snapshot (người dùng + phiên) ra file.
+     * Lưu trữ toàn bộ snapshot (người dùng + phiên + lịch sử giao dịch) ra file.
      */
     public void saveSnapshot(AuctionDataSnapshot snapshot, File file) throws IOException {
         writeObjectSafely(snapshot, file);
     }
 
     /**
-     * Tải snapshot (người dùng + phiên) từ file.
+     * Tải snapshot (người dùng + phiên + lịch sử giao dịch) từ file.
      */
     public AuctionDataSnapshot loadSnapshot(File file) throws IOException, ClassNotFoundException {
         return readObjectSafely(file, AuctionDataSnapshot.class);
@@ -69,6 +70,22 @@ public class FileStorageService {
      */
     @SuppressWarnings("unchecked")
     public List<Auction> loadAuctions(File file) throws IOException, ClassNotFoundException {
+        return readObjectSafely(file, List.class);
+    }
+
+    /**
+     * Lưu trữ danh sách giao dịch đấu giá (BidTransaction) riêng lẻ ra file.
+     */
+    public void saveTransactions(Collection<BidTransaction> transactions, File file) throws IOException {
+        List<BidTransaction> list = (transactions != null) ? new ArrayList<>(transactions) : new ArrayList<>();
+        writeObjectSafely(list, file);
+    }
+
+    /**
+     * Tải danh sách giao dịch đấu giá (BidTransaction) từ file.
+     */
+    @SuppressWarnings("unchecked")
+    public List<BidTransaction> loadTransactions(File file) throws IOException, ClassNotFoundException {
         return readObjectSafely(file, List.class);
     }
 
@@ -138,4 +155,3 @@ public class FileStorageService {
         }
     }
 }
-
