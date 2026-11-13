@@ -1,4 +1,4 @@
-package com.auction.item.Factory;
+package com.auction.item.factory;
 
 import com.auction.item.Electronics;
 import com.auction.item.Item;
@@ -29,4 +29,3 @@ public class ElectronicsFactory extends ItemFactory {
                 this.warrantyPeriod);
     }
 }
-

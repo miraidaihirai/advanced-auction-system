@@ -1,4 +1,4 @@
-package com.auction.item.Factory;
+package com.auction.item.factory;
 
 import com.auction.item.Item;
 
@@ -15,4 +15,3 @@ public abstract class ItemFactory {
     }
 
 }
-

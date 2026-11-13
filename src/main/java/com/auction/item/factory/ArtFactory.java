@@ -1,4 +1,4 @@
-package com.auction.item.Factory;
+package com.auction.item.factory;
 
 import com.auction.item.Art;
 import com.auction.item.Item;
@@ -27,4 +27,3 @@ public class ArtFactory extends ItemFactory {
         return new Art(this.name, this.id, this.price, this.quantity, this.artist, this.medium, this.yearCreated);
     }
 }
-
