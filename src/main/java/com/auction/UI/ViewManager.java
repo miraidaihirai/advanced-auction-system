@@ -1,4 +1,4 @@
-package com.auction.UI;
+package com.auction.ui;
 
 import java.io.IOException;
 import java.util.HashMap;
