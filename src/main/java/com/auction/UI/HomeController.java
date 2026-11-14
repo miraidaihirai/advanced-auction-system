@@ -7,6 +7,7 @@ import javafx.application.Platform;
 import java.util.Locale;
 import network.AuctionClient;
 import javafx.scene.control.Label;
+import javafx.scene.control.Alert;
 
 public class HomeController implements ViewLifecycle, SessionAware, AuctionClient.AuctionEventListener {
     // ViewLifecycle cho biết khi nào Home xuất hiện hoặc bị ẩn
@@ -23,6 +24,10 @@ public class HomeController implements ViewLifecycle, SessionAware, AuctionClien
 
     // Check Home có đang hiển thị hay không. "volatile" giúp thread thấy giá trị
     // cập nhật của biến này
+    @FXML
+    private void SwitchToAuction(){
+        ViewManager.SwitchView("Auction");
+    }
     @Override
     public void setClientSession(ClientSession session) {
         this.clientSession = session;
@@ -54,23 +59,87 @@ public class HomeController implements ViewLifecycle, SessionAware, AuctionClien
         // Giải phóng Listener, không đóng Socket dùng chung
     }
 
-    @Override 
-    public void onBidUpdate(String auctionId, double newPrice, String bidderId, String itemId){
-        Platform.runLater(() ->{
-            if (!viewActive || eventLabel == null){
+    @Override
+    public void onBidUpdate(String auctionId, double newPrice, String bidderId, String itemId) {
+        Platform.runLater(() -> {
+            if (!viewActive || eventLabel == null) {
                 return;
             }
             eventLabel.setText(String.format(Locale.US,
-                "New bid on %s | Item: %s | Price: %,.2f | Bidder: %s",
-                auctionId,
-                itemId,
-                newPrice,
-                bidderId));
+                    "New bid on %s | Item: %s | Price: %,.2f | Bidder: %s",
+                    auctionId,
+                    itemId,
+                    newPrice,
+                    bidderId));
         });
-        // AuctionClient listener thread nhận thông báo -> HomeController gọi onBidUpdate để chạy Platform.runLater() -> JavaFX Application Thread cập nhật event Label
+        // AuctionClient listener thread nhận thông báo -> HomeController gọi
+        // onBidUpdate để chạy Platform.runLater() -> JavaFX Application Thread cập nhật
+        // event Label
     }
-    @FXML 
+
+    @FXML
     public void SwitchToLogin() throws IOException {
         ViewManager.SwitchView("LogIn");
+    }
+
+    @Override
+    public void onDisconnected(String reason) {
+        Platform.runLater(() -> {
+            if (!viewActive) {
+                return;
+            }
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Connection lost");
+            alert.setHeaderText("Server connection was lost");
+            alert.setContentText(reason + "\nPlease check your connection and restart the application");
+            alert.showAndWait();
+        });
+    }
+    // Sever bị tắt sẽ có AuctionClient.listenLoop() phát hiện kết nổi
+    // Auction Client gọi onDisconnected(reason)
+    // HomeController nhận callback
+    // Platform.runLater() đưa các thao tác hiển thị Alert về JavaFX Application Thread để in ra màn hình
+    private void showAuctionAlert(String title, String header, String message){
+        Platform.runLater(() -> {
+            if (!viewActive){
+                return;
+            }
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle(title);
+            alert.setHeaderText(header);
+            alert.setContentText(message);
+            alert.show();
+        });
+    }
+    @Override
+    public void onAuctionClosed(String auctionId, double finalPrice, String winnerId){
+        String message = String.format(Locale.US,
+            "Auction ID: %s\nFinal price: %,.2f\nWinner: %s",
+            auctionId,
+            finalPrice,
+            winnerId
+        );
+        showAuctionAlert("Auction Ended", "The auction has ended", message);
+
+    }
+    @Override
+    public void onWinnerNotification(String auctionId, double finalPrice, String itemId){
+        String message = String.format(Locale.US,
+            "Congratulations!\nYou won the auction for: %s\nFinal price: %,.2f",
+            itemId,
+            finalPrice
+        );
+        showAuctionAlert("Auction Won", "Congratulations! You are the winner", message);
+    }
+    @Override
+    public void onSellerNotification(String auctionId, double finalPrice, String winnerId, String itemId){
+        String message = String.format(Locale.US,
+            "Item: %s\nAuction ID: %s\nFinal price: %,.2f\nWinner: %s",
+            itemId,
+            auctionId,
+            finalPrice,
+            winnerId
+        );
+        showAuctionAlert("Auction Complete", "Your auction has ended", message);
     }
 }

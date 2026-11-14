@@ -41,6 +41,9 @@ public class AuctionClient {
 
         default void onMessageReceived(String rawMessage) {
         }
+
+        default void onDisconnected(String reason) {
+        }
     }
 
     private final String host;
@@ -86,6 +89,7 @@ public class AuctionClient {
     private void listenLoop() {
         List<BidTransaction> currentHistoryBuffer = null;
         String currentHistoryAuctionId = null;
+        String disconnectedReason = "Server closed the connection";
         try {
             String line;
             while (connected && (line = in.readLine()) != null) {
@@ -217,13 +221,24 @@ public class AuctionClient {
             }
         } catch (IOException e) {
             if (connected) {
+                disconnectedReason = "Connection lost: " + e.getMessage();
                 System.out.printf("[AuctionClient] Connection lost: %s%n", e.getMessage());
             }
         } finally {
+            boolean unexpectedDisconnect = connected;
             disconnect();
+            if (unexpectedDisconnect) {
+                for (AuctionEventListener listener : listeners) {
+                    try {
+                        listener.onDisconnected(disconnectedReason);
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
         }
     }
-
+    // Sever bị tắt, đóng kết nối hiển thị Alert
+    // Người dùng đóng ứng dụng và ứng dụng chủ động gọi disconnect() sẽ không hiển thị alert
     public synchronized void sendRaw(String command) {
         if (!connected || out == null) {
             throw new IllegalStateException("Client is not connected to server");
