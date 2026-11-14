@@ -1,0 +1,62 @@
+/* style.css */
+.productCard {
+    -fx-background-color: #1a1d24;
+    -fx-background-radius: 12px;
+    -fx-border-radius: 12px;
+    -fx-border-color: #2a2f3a;
+    -fx-border-width: 1px;
+    -fx-padding: 10px;
+    -fx-cursor: hand;
+}
+
+.productCard:hover {
+    -fx-border-color: #f59e0b; /* Viền sáng lên khi rê chuột vào */
+    -fx-translate-y: -2px;     /* Hiệu ứng nhấc nhẹ card lên */
+}
+
+.product-name {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.product-id{
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.price-label {
+    -fx-text-fill: #9ca3af;
+    -fx-font-size: 11px;
+}
+
+.product-price {
+    -fx-text-fill: #f59e0b;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.time-label {
+    -fx-text-fill: #ef4444;
+    -fx-font-size: 12px;
+}
+
+.bids-label {
+    -fx-text-fill: #9ca3af;
+    -fx-font-size: 12px;
+}
+
+.bid-button {
+    -fx-background-color: transparent;
+    -fx-border-color: #f59e0b;
+    -fx-border-radius: 6px;
+    -fx-text-fill: #f59e0b;
+    -fx-font-weight: bold;
+    -fx-padding: 6px 0;
+}
+
+.bid-button:hover {
+    -fx-background-color: #f59e0b;
+    -fx-text-fill: #000000;
+}

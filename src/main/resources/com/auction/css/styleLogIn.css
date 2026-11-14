@@ -1,59 +1,59 @@
-.Login-pane {
-    -fx-background-color: linear-gradient(to bottom, #131232, #c1cf07);
-}
+    .Login-pane {
+        -fx-background-color: linear-gradient(to bottom, #f9f9f7, #959591);
+    }
 
-.login-card {
-    -fx-background-color: rgba(255, 255, 255, 0.9);
-    -fx-background-radius: 20px;
-    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.08), 20, 0, 0, 8);
-    /*Hiệu ứng đổ bóng*/
-}
+    .login-card {
+        -fx-background-color: rgba(255, 255, 255, 0.9);
+        -fx-background-radius: 20px;
+        -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.08), 20, 0, 0, 8);
+        /*Hiệu ứng đổ bóng*/
+    }
 
-.title-label {
-    -fx-font-size: 26px;
-    -fx-font-weight: 400;
-    -fx-text-fill: #2C3E50;
-}
+    .title-label {
+        -fx-font-size: 26px;
+        -fx-font-weight: 400;
+        -fx-text-fill: #2C3E50;
+    }
 
-.sub-label {
-    -fx-font-size: 13px;
-    -fx-text-fill: #7F8C8D;
-}
+    .sub-label {
+        -fx-font-size: 13px;
+        -fx-text-fill: #7F8C8D;
+    }
 
-.text-field,
-.password-field {
-    -fx-background-color: #F8F9FA;
-    /*màu của nền*/
-    -fx-background-radius: 12px;
-    /*độ cong của nền*/
-    -fx-border-color: #E2E8F0;
-    /*màu của viên*/
-    -fx-border-radius: 12px;
-    /*độ cong viền*/
-    -fx-border-width: 1.5px;
-    /*độ dày của viền*/
-    -fx-padding: 10px 14px;
-    /*khoảng cách từ lề tới chữ*/
-    -fx-text-fill: #2D3748;
-    /*màu của chữ*/
-    -fx-prompt-text-fill: #A0AEC0;
-    /*màu của chữ khi chưa nhập*/
-}
+    .text-field,
+    .password-field {
+        -fx-background-color: #F8F9FA;
+        /*màu của nền*/
+        -fx-background-radius: 12px;
+        /*độ cong của nền*/
+        -fx-border-color: #E2E8F0;
+        /*màu của viên*/
+        -fx-border-radius: 12px;
+        /*độ cong viền*/
+        -fx-border-width: 1.5px;
+        /*độ dày của viền*/
+        -fx-padding: 10px 14px;
+        /*khoảng cách từ lề tới chữ*/
+        -fx-text-fill: #2D3748;
+        /*màu của chữ*/
+        -fx-prompt-text-fill: #A0AEC0;
+        /*màu của chữ khi chưa nhập*/
+    }
 
-.text-field:focused,
-.password-field:focused {
-    -fx-border-color: #918f0e;
-    /*màu của viền khi focus*/
-    -fx-background-color: #FFFFFF;
-    /*màu của nền khi focus*/
-}
+    .text-field:focused,
+    .password-field:focused {
+        -fx-border-color: #918f0e;
+        /*màu của viền khi focus*/
+        -fx-background-color: #FFFFFF;
+        /*màu của nền khi focus*/
+    }
 
-.button {
-    -fx-background-color: linear-gradient(to right, #FF4081, #D81B60);
-    -fx-text-fill: white;
-    -fx-font-weight: bold;
-    -fx-font-size: 14px;
-    -fx-background-radius: 12px;
-    -fx-cursor: hand;
-    -fx-padding: 12px;
-}
+    .button {
+        -fx-background-color: linear-gradient(to right, #FF4081, #D81B60);
+        -fx-text-fill: white;
+        -fx-font-weight: bold;
+        -fx-font-size: 14px;
+        -fx-background-radius: 12px;
+        -fx-cursor: hand;
+        -fx-padding: 12px;
+    }
