@@ -1,0 +1,29 @@
+/* styleHome.css - Placeholder, tự bổ sung style sau */
+.home-pane {
+    -fx-background-color: #0f1115;
+}
+
+.search-field {
+    -fx-background-color: #1a1d24;
+    -fx-text-fill: white;
+    -fx-prompt-text-fill: #6b7280;
+    -fx-border-color: #374151;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 8px 12px;
+}
+
+.create-button {
+    -fx-background-color: #3b82f6;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 8px 16px;
+    -fx-cursor: hand;
+}
+
+.create-button:hover {
+    -fx-background-color: #2563eb;
+}
+

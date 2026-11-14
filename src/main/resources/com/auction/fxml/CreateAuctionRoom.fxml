@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<!-- Sử dụng ScrollPane làm gốc, gắn styleClass nền và đường dẫn file CSS -->
+<ScrollPane fitToWidth="true" styleClass="root-pane" stylesheets="@../css/styleCreateRoom.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.ui.CreateRoomUIController">
+  <content>
+    <!-- Khung card chính chứa form tạo phòng -->
+    <VBox fx:id="createRoom" alignment="TOP_LEFT" spacing="14" styleClass="room-card" style="-fx-padding: 30px; -fx-margin: 20px;">
+      <!-- Tiêu đề lớn -->
+      <Label styleClass="title-label" text="Tạo Phòng Đấu Giá Mới"/>
+
+      <!-- ComboBox Chọn sản phẩm -->
+      <VBox spacing="4">
+        <Label styleClass="field-label" text="Chọn sản phẩm"/>
+        <ComboBox fx:id="selectItem" prefWidth="400.0" promptText="-- Chọn sản phẩm --" styleClass="combo-box"/>
+      </VBox>
+
+      <!-- Các trường chung -->
+      <!-- Tên sản phẩm -->
+      <VBox fx:id="boxProductName" spacing="4">
+        <Label styleClass="field-label" text="Tên sản phẩm"/>
+        <TextField fx:id="txtProductName" promptText="Nhập tên sản phẩm..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Giá khởi điểm -->
+      <VBox fx:id="boxStartPrice" spacing="4">
+        <Label styleClass="field-label" text="Giá khởi điểm"/>
+        <TextField fx:id="txtStartPrice" promptText="Nhập giá khởi điểm..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- ID sản phẩm -->
+      <VBox fx:id="boxId" spacing="4">
+        <Label styleClass="field-label" text="ID sản phẩm"/>
+        <TextField fx:id="txtId" promptText="Nhập ID sản phẩm..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Chất lượng sản phẩm -->
+      <VBox fx:id="boxQuantity" spacing="4">
+        <Label styleClass="field-label" text="Chất lượng sản phẩm"/>
+        <TextField fx:id="txtQuantity" promptText="Nhập chất lượng..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Các trường riêng cho Đồ nghệ thuật -->
+      <!-- Tên người sáng tác -->
+      <VBox fx:id="boxArtist" spacing="4">
+        <Label styleClass="field-label" text="Tên người sáng tác"/>
+        <TextField fx:id="txtArtist" promptText="Nhập tên người sáng tác..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Chất liệu sản phẩm -->
+      <VBox fx:id="boxMedium" spacing="4">
+        <Label styleClass="field-label" text="Chất liệu sản phẩm"/>
+        <TextField fx:id="txtMedium" promptText="Nhập chất liệu..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Năm sáng tác -->
+      <VBox fx:id="boxYearCreated" spacing="4">
+        <Label styleClass="field-label" text="Năm sáng tác"/>
+        <TextField fx:id="txtYearCreated" promptText="Nhập năm sáng tác..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Các trường riêng cho Đồ điện & Phương tiện giao thông -->
+      <!-- Hãng sản phẩm -->
+      <VBox fx:id="boxBrand" spacing="4">
+        <Label styleClass="field-label" text="Hãng sản phẩm"/>
+        <TextField fx:id="txtBrand" promptText="Nhập hãng sản phẩm..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Mẫu sản phẩm -->
+      <VBox fx:id="boxModel" spacing="4">
+        <Label styleClass="field-label" text="Mẫu sản phẩm"/>
+        <TextField fx:id="txtModel" promptText="Nhập mẫu sản phẩm..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Thời hạn bảo hành (Chỉ Đồ điện) -->
+      <VBox fx:id="boxWarrantyPeriod" spacing="4">
+        <Label styleClass="field-label" text="Thời hạn bảo hành"/>
+        <TextField fx:id="txtWarrantyPeriod" promptText="Nhập thời hạn bảo hành..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Năm sản xuất (Chỉ Phương tiện giao thông) -->
+      <VBox fx:id="boxYear" spacing="4">
+        <Label styleClass="field-label" text="Năm sản xuất"/>
+        <TextField fx:id="txtYear" promptText="Nhập năm sản xuất..." styleClass="text-field"/>
+      </VBox>
+
+      <!-- Khu vực nút bấm thao tác -->
+      <HBox alignment="CENTER_RIGHT" spacing="12" style="-fx-padding: 10 0 0 0;">
+        <Button onAction="#handleClose" styleClass="cancel-button" text="Hủy"/>
+        <Button onAction="#handleCreate" styleClass="create-button" text="Tạo Phòng"/>
+      </HBox>
+    </VBox>
+  </content>
+</ScrollPane>

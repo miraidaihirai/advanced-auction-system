@@ -1,6 +1,6 @@
 package com.auction.ui;
 
-import java.io.IOException;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,12 +22,22 @@ public class ViewManager {
             if (cache.containsKey(fxmlName)) {
                 root = cache.get(fxmlName);
             } else {
-                String path = "/com/auction/fxml/"+fxmlName+".fxml";
-                root = FXMLLoader.load(ViewManager.class.getResource(path));
+                String path = "/com/auction/fxml/" + fxmlName + ".fxml";
+                URL resource = ViewManager.class.getResource(path);
+                if (resource == null) {
+                    System.err.println("[ViewManager] Không tìm thấy file FXML: " + path);
+                    return;
+                }
+                root = FXMLLoader.load(resource);
                 cache.put(fxmlName, root);
             }
-            mainScene.setRoot(root);
-        } catch (IOException e) {
+            if (mainScene != null && root != null) {
+                mainScene.setRoot(root);
+            } else {
+                System.err.println("[ViewManager] mainScene hoặc root bị null! mainScene=" + mainScene + ", root=" + root);
+            }
+        } catch (Exception e) {
+            System.err.println("[ViewManager] Lỗi khi chuyển sang view '" + fxmlName + "':");
             e.printStackTrace();
         }
     }
