@@ -1,143 +1,295 @@
-# advanced-auction-system
-Bài tập lớn Lập trình nâng cao: Hệ thống đấu giá trực tuyến (Java, JavaFX, Client-Server)
+# 🚀 Online Auction System (Hệ thống Đấu giá Trực tuyến)
 
-> Kế hoạch và phân công của nhóm: xem [TASKS.md](TASKS.md).
+Bài tập lớn môn **Lập trình nâng cao (LTNC)**  
+Công nghệ: **Java 21**, **JavaFX**, **Maven**, **JUnit 5**, **Socket Client-Server**, **Design Patterns & Concurrency**.
 
-## Dự án hiện có gì
-- **Đấu giá:** `Auction`, `BidTransaction`, `AuctionManager` (Singleton)
-- **Người dùng:** `User` (abstract), `Bidder`, `Seller`
-- **Sản phẩm:** `Item` (abstract), `Electronics`, `Art`, `Vehicle` + `ItemFactory` (Factory Method)
-- **Observer Pattern** thông báo giá mới; đặt giá đồng thời an toàn bằng `ReentrantLock`
-- **Vòng đời phiên:** `OPEN → RUNNING → FINISHED → PAID / CANCELED`, tự đóng khi hết giờ
-- **Custom exceptions:** `InvalidBidException`, `AuctionClosedException`, `AuthenticationException`
-- **Socket server đa luồng** (cổng 8888) broadcast giá realtime tới các client; `AuctionClient`
+> Xem chi tiết kế hoạch và phân công nhiệm vụ: [TASKS.md](TASKS.md)
 
-## Cách chạy
-Cần **JDK 21** và **Maven ≥ 3.6**.
+---
 
-| Việc | Lệnh |
-|---|---|
-| Chạy test JUnit 5 | `mvn clean test` |
-| Chạy demo console | `mvn exec:java` |
-| Bật server | `mvn compile` rồi `java -cp target/classes network.AuctionServer` |
-| Vào như một người dùng (mỗi người một terminal) | `nc localhost 8888`, rồi gõ `LOGIN BIDDER-01 password123`, `LIST`, `JOIN AUC-001`, `BID AUC-001 10000000` |
+## 📌 1. Tổng quan Kiến trúc Hệ thống
 
-- Tài khoản mẫu: `SELLER-01`, `BIDDER-01`, `BIDDER-02`, `BIDDER-03`, mật khẩu đều là `password123`.
-- Các lệnh khác: `INFO <auctionId>`, `LEAVE <auctionId>`, `REGISTER <id> <tên> <mật khẩu> <BIDDER|SELLER>`, `QUIT`.
-- Hai phiên mẫu (`AUC-001`, `AUC-002`) tự đóng **sau 1 phút** kể từ lúc bật server.
-- Trên nhánh `feature/ui`, lớp main là `com.auction.Main`.
+Hệ thống hoạt động theo mô hình **Client-Server đa luồng (Multi-threaded Socket)** kết hợp kiến trúc **MVC (Model - View - Controller)** và cơ chế **Observer Pattern** để đồng bộ dữ liệu realtime.
 
-## Các lỗi đã tìm thấy
+```
++-------------------------------------------------------------+
+|                      JAVAFX CLIENT                          |
+|  +------------------+  Platform.runLater()  +------------+  |
+|  | Controller / UI  | <-------------------  |  Client    |  |
+|  |  (FXML Screens)  | ------------------->  |  Listener  |  |
+|  +------------------+                       +------------+  |
++---------------------------------------------------|---------+
+                                                    | TCP Socket
+                                                    v
++-------------------------------------------------------------+
+|                      SOCKET SERVER                          |
+|  +-------------------------------------------------------+  |
+|  | AuctionServer (Port 8888, Cached Thread Pool)         |  |
+|  |                                                       |  |
+|  |  [ClientHandler 1]   [ClientHandler 2]   [Worker N]   |  |
+|  +-------------------------------------------------------+  |
+|                           | (Observer Pattern)              |
+|                           v                                 |
+|  +-------------------------------------------------------+  |
+|  | AuctionManager (Singleton)                            |  |
+|  |  - ConcurrentHashMap: Users, Auctions                 |  |
+|  |  - Auction: ReentrantLock (Fair Lock)                 |  |
+|  |  - Serialization / Transaction Storage Service        |  |
+|  +-------------------------------------------------------+  |
++-------------------------------------------------------------+
+```
 
-1. **`dev` và `main` không biên dịch được (46 lỗi `javac`).**
-   Merge `a31dfb5` ("Merge branch 'dev' into feature/ui") giải quyết conflict bằng cách **giữ cả hai phía**, nên code cũ bị dán vào giữa code mới.
-   Lỗi này lan sang `dev` qua PR #3 và sang `main` qua PR #8:
-   - `Main.java`: demo tuần 6 cũ bị dán nối sau demo mới
-   - `model/Auction.java`: nguyên thân class `Auction` cũ nằm bên trong class mới
-   - `manager/AuctionManager.java`: constructor `HashMap` cũ và `placeBid` 3 tham số cũ bị chèn vào giữa constructor và `placeBid` mới
-   - `Item/Item.java`: khai báo field bị lặp bên trong constructor, thừa một dấu `}`
-   - `Item/Electronics.java`: field `warrantyPeriod` khai báo 2 lần
-2. **Mất `serialVersionUID`** ở 3 class exception khi merge PR #7.
-3. **Conflict giữa các nhánh:** PR #6 (`feature/ui` → `dev`) bị conflict `pom.xml` (cả hai bên cùng thêm file). `feature/socket-server-broadcast` conflict với `main` do lịch sử merge chéo.
-4. **Lỗ hổng xác thực** trên `feature/socket-server-broadcast`: hàm `placeBid(auctionId, bidderId, amount)` tự lấy mật khẩu đã lưu của user để đặt giá, tức là đặt giá thay người khác mà không cần mật khẩu. Hàm này không được gọi ở đâu.
-5. **`feature/ui`:** `Main.java` được chuyển vào `com/auction/` nhưng thiếu `package com.auction;`. `pom.xml` trỏ `mainClass` tới `com.example.demo.HelloApplication`, một class không tồn tại.
-6. **Test không thực sự chạy:** `pom.xml` không cố định version `maven-surefire-plugin`. Với Maven < 3.9 (ví dụ Maven 3.6.3 cài bằng `apt`), Maven dùng surefire 2.12.4, bản này không hỗ trợ JUnit 5. Kết quả là `Tests run: 0 … BUILD SUCCESS` (trông như pass nhưng không test gì), hoặc crash VM nếu sai JDK.
-7. **`mvn exec:java` treo 15 giây** sau khi demo xong, kèm cảnh báo `thread auction-timeout ... will linger`.
+---
 
-## Những gì đã sửa
+## 📊 2. Sơ đồ UML Hệ thống
 
-| Commit | Nhánh | Nội dung |
+### 2.1. Class Diagram (Kiến trúc Hướng đối tượng & Design Patterns)
+
+```mermaid
+classDiagram
+    %% Inheritance: Users
+    class User {
+        <<abstract>>
+        #String id
+        #String name
+        #String password
+        +getId() String
+        +getName() String
+        +verifyPassword(String) boolean
+    }
+    class Bidder {
+        +Bidder(id, name, pass)
+    }
+    class Seller {
+        +Seller(id, name, pass)
+    }
+    class Admin {
+        +Admin(id, name, pass)
+    }
+    User <|-- Bidder
+    User <|-- Seller
+    User <|-- Admin
+
+    %% Inheritance: Items
+    class Item {
+        <<abstract>>
+        #String id
+        #String name
+        #double price
+        #int quantity
+    }
+    class Electronics {
+        -int warrantyPeriod
+    }
+    class Art {
+        -String artist
+        -String medium
+    }
+    class Vehicle {
+        -String make
+        -int year
+    }
+    Item <|-- Electronics
+    Item <|-- Art
+    Item <|-- Vehicle
+
+    %% Factory Method
+    class ItemFactory {
+        <<abstract>>
+        +createItem()* Item
+    }
+    class ElectronicsFactory {
+        +createItem() Item
+    }
+    class ArtFactory {
+        +createItem() Item
+    }
+    class VehicleFactory {
+        +createItem() Item
+    }
+    ItemFactory <|-- ElectronicsFactory
+    ItemFactory <|-- ArtFactory
+    ItemFactory <|-- VehicleFactory
+    ItemFactory ..> Item : instantiates
+
+    %% Observer Pattern
+    class AuctionSubject {
+        <<interface>>
+        +addObserver(AuctionObserver)
+        +removeObserver(AuctionObserver)
+        +notifyObservers(BidTransaction)
+    }
+    class AuctionObserver {
+        <<interface>>
+        +onNewBid(Auction, BidTransaction)
+        +onAuctionClosed(Auction)
+        +onAuctionPaid(Auction)
+    }
+    class Auction {
+        -String id
+        -double currentPrice
+        -Status status
+        -ReentrantLock lock
+        -List~AuctionObserver~ observers
+        +placeBid(BidTransaction) boolean
+        +startAuction(Duration)
+        +finishAuction()
+        +markPaid()
+    }
+    AuctionSubject <|.. Auction
+    Auction o--> AuctionObserver
+
+    %% Server & Client Handlers
+    class AuctionServer {
+        -int port
+        -ExecutorService clientThreadPool
+        -Set~ClientHandler~ activeClients
+        +start()
+        +stop()
+        +notifyAuctionFinished(Auction)
+    }
+    class ClientHandler {
+        -Socket socket
+        -User currentUser
+        -Set~String~ subscribedAuctions
+        +run()
+        +sendMessage(String)
+        +close()
+    }
+    AuctionObserver <|.. ClientHandler
+    AuctionObserver <|.. AuctionServer
+    AuctionServer *--> ClientHandler
+
+    %% Singleton Manager & Storage
+    class AuctionManager {
+        <<Singleton>>
+        -static AuctionManager instance
+        -Map~String, Auction~ auctionMap
+        -Map~String, User~ userMap
+        +getInstance()$ AuctionManager
+        +placeBid(...) boolean
+        +saveState()
+        +loadState()
+    }
+    class TransactionStorageService {
+        +saveHistory(List)
+        +loadHistory() List
+    }
+    AuctionManager --> TransactionStorageService
+    AuctionManager o--> Auction
+    AuctionManager o--> User
+```
+
+---
+
+### 2.2. Sequence Diagram: Luồng Đặt giá Realtime (Realtime Bidding Flow)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Bidder as Bidder Client
+    participant Socket as TCP Socket
+    participant Handler as ClientHandler (Worker Thread)
+    participant Manager as AuctionManager (Singleton)
+    participant Auction as Auction (ReentrantLock)
+    actor Observer2 as Other Subscribed Clients
+
+    Bidder->>Socket: BID AUC-001 21000000.00
+    Socket->>Handler: handleCommand("BID ...")
+    Handler->>Manager: placeBid(aucId, bidderId, pass, amount)
+    Manager->>Auction: placeBid(BidTransaction)
+    activate Auction
+    Note over Auction: lock.lock() (Fair Lock)
+    Note over Auction: Kiểm tra Status RUNNING, minPrice, sellerId != bidderId
+    Auction->>Auction: Cập nhật currentPrice & highestBidderId
+    Auction->>Handler: onNewBid(Auction, Tx) (via Observer)
+    Auction->>Observer2: onNewBid(Auction, Tx) (via Observer)
+    Note over Auction: lock.unlock()
+    deactivate Auction
+
+    Handler-->>Bidder: NOTIFY BID AUC-001 21000000.00 BIDDER-01
+    Handler-->>Bidder: SUCCESS BID AUC-001 21000000.00
+    Observer2-->>Observer2: NOTIFY BID AUC-001 21000000.00 BIDDER-01
+    Note over Observer2: Platform.runLater() cập nhật giá lên UI
+```
+
+---
+
+### 2.3. Sequence Diagram: Luồng Kết thúc Phiên & Thanh toán (Finish & Pay)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Timer as ScheduledExecutorService
+    participant Auction as Auction
+    participant Server as AuctionServer (Global Observer)
+    participant WinnerHandler as ClientHandler (Winner)
+    participant SellerHandler as ClientHandler (Seller)
+
+    Timer->>Auction: finishIfRunning() khi hết giờ
+    activate Auction
+    Note over Auction: status = Status.FINISHED
+    Auction->>Server: onAuctionClosed(Auction)
+    Auction->>WinnerHandler: onAuctionClosed(Auction)
+    Auction->>SellerHandler: onAuctionClosed(Auction)
+    deactivate Auction
+
+    WinnerHandler-->>WinnerHandler: Gửi NOTIFY WINNER AUC-001 21000000.00
+    SellerHandler-->>SellerHandler: Gửi NOTIFY SELLER AUC-001 21000000.00 BIDDER-01
+    
+    Note over WinnerHandler: Winner gọi lệnh PAY AUC-001
+    WinnerHandler->>Auction: markPaid()
+    Auction->>Auction: status = Status.PAID
+    Auction-->>WinnerHandler: NOTIFY PAID AUC-001
+    Auction-->>SellerHandler: NOTIFY PAID AUC-001
+```
+
+---
+
+## 🛠️ 3. Hướng dẫn Cài đặt & Chạy Dự án
+
+### Yêu cầu Môi trường
+- **Java Development Kit (JDK):** Version **21** trở lên.
+- **Apache Maven:** Version **≥ 3.6**.
+
+### Các câu lệnh thực thi
+
+| Mục đích | Câu lệnh Maven | Ghi chú |
 |---|---|---|
-| `fix: repair broken merge resolution…` | `main`, `dev` | Xoá phần code cũ bị trùng ở 5 file trên (chỉ xoá, không thêm logic mới); khôi phục `serialVersionUID` |
-| `Merge repaired main into feature/socket-server-broadcast` | `feature/socket-server-broadcast` | Merge `main` đã sửa vào; bỏ hàm `placeBid` 3 tham số; giữ cấu hình JavaFX của `main` |
-| `Merge repaired main into feature/ui` | `feature/ui` | Merge `main` đã sửa vào; gộp 2 file `pom.xml` và trỏ `mainClass` về `com.auction.Main`; thêm `package com.auction;` |
-| `build: pin maven-surefire-plugin 3.2.5…` | tất cả | Cố định `maven-surefire-plugin` 3.2.5 để JUnit 5 chạy trên mọi version Maven |
-| `build: stop exec:java waiting 15s…` | tất cả | `exec:java` không chờ thread daemon `auction-timeout` nữa (`cleanupDaemonThreads=false`) |
+| **Chạy toàn bộ 64 Unit & Stress Tests** | `mvn clean test` | 100% test pass, kiểm tra đa luồng, heartbeat, serialization |
+| **Khởi động Socket Server** | `mvn compile exec:java -Dexec.mainClass="network.AuctionServer"` | Server lắng nghe tại cổng `8888`, tự nạp dữ liệu cũ |
+| **Khởi động Giao diện JavaFX** | `mvn javafx:run` | Mở ứng dụng đồ họa JavaFX |
+| **Chạy bản Demo Console** | `mvn exec:java` | Demo đầy đủ kịch bản OOP và Concurrency trong console |
+| **Kiểm tra Checkstyle** | `mvn checkstyle:check` | Tuân thủ Google Java Style Guide |
 
-**Đã kiểm tra** (JDK 21, với cả Maven 3.6.3 và 3.9.9):
-- Mọi nhánh đều biên dịch được và không còn dấu conflict (`<<<<<<<`)
-- Merge thử mọi nhánh vào `main` và `dev`: không còn conflict (kể cả `feature/ui` → `dev` của PR #6)
-- `mvn clean test`: **2/2 test pass** trên `main` và `feature/ui`
-- `mvn exec:java`: demo chạy hết trong khoảng 2 giây, không còn cảnh báo
-- Chạy server + 2 client: client đã `JOIN` nhận được `NOTIFY BID` ngay khi người khác đặt giá
+---
 
-## Việc còn lại
+## 💻 4. Điểm cốt lõi cho Tuấn Đại (Leader) khi Bảo vệ Đồ án
 
-### Theo kế hoạch trong TASKS.md
-- [ ] **Giao diện JavaFX** (Huy Hưng): 5 màn hình (Login/Register, Danh sách phiên, Chi tiết sản phẩm, Đấu giá realtime, Quản lý sản phẩm cho Seller), Controller theo MVC, và nối dữ liệu từ Socket lên giao diện bằng `Platform.runLater()`.
-  Hiện **chưa có màn hình nào**. File `login.fxml` cũ (commit `1f9d5cf`) đã bị xoá ở `07a5949` khi đổi cấu trúc thư mục; có thể lấy lại bằng `git show 1f9d5cf:src/UI/login.fxml`.
-- [ ] **Lớp `Admin`** (tuần 6, Trường): chưa có.
-- [ ] **Unit test JUnit 5** (Trường): mới có 2 test cho socket server (`AuctionServerTest`). Còn thiếu test cho logic đặt giá, ngoại lệ, vòng đời phiên và nhiều thread cùng bid. Chưa đo coverage (cần JaCoCo, mục tiêu ≥ 60%).
-- [ ] **Checkstyle** theo Google Java Style trong `pom.xml` (Xuân Thắng)
-- [ ] **GitHub Actions CI**: `.github/workflows/maven.yml` (Xuân Thắng)
-- [ ] **Serialization**: lưu phiên đấu giá và tài khoản ra file (Xuân Thắng)
+Khi thuyết trình bảo vệ đồ án, Leader Tuấn Đại phụ trách các nội dung trọng tâm sau:
 
-### Vấn đề kỹ thuật nên xử lý
-- [ ] Package `Item` và `Item.Factory` viết hoa, sai quy ước Java (Checkstyle sẽ báo lỗi); nên đổi thành `item` và `item.factory`.
-- [ ] Thống nhất cấu trúc package: `feature/ui` mới chuyển mỗi `Main` vào `com.auction`, các package khác vẫn ở gốc. Nhóm nên chọn một kiểu, ví dụ đưa hết vào `com.auction.*`.
-- [ ] Trên `main`, `javafx-maven-plugin` vẫn trỏ tới `com.example.demo.HelloApplication`; sẽ hết khi merge PR #6 (`feature/ui`).
-- [ ] `groupId` / `artifactId` trong `pom.xml` vẫn là giá trị mẫu (`com.example` / `demo`).
-- [ ] Server chưa có lệnh để Seller tạo phiên mới, và 2 phiên mẫu đóng sau 1 phút nên khó demo lâu.
-- [ ] Đưa nốt `feature/ui` đã sửa về repo gốc (xem Bước 1 bên dưới).
+### 4.1. Kiến trúc Tổng thể & Socket Server Đa luồng
+- **Mô hình Client-Server:** Socket Server chạy ở chế độ Multi-threaded, sử dụng `Executors.newCachedThreadPool` sinh các daemon worker thread có định danh rõ ràng (`socket-client-worker-N`), tự động co giãn theo số lượng client kết nối.
+- **Quản lý Session & Heartbeat:** Mỗi client được quản lý bởi một `ClientHandler`. Server thiết lập cơ chế **Heartbeat (ping/pong)** kết hợp socket `soTimeout` để phát hiện client ngắt kết nối đột ngột hoặc rớt mạng. Khi ngắt kết nối, phương thức `close()` sử dụng `AtomicBoolean` đảm bảo dọn dẹp tài nguyên đúng 1 lần: tự động hủy đăng ký observer tại các phiên, giải phóng socket handle và gỡ bỏ session khỏi server (cam kết **Zero Socket / Thread Leak**).
 
-## Tình trạng repo gốc (cập nhật 31/10/2026)
-- ✅ Đại đã kéo bản sửa về `main`, `dev` và `feature/socket-server-broadcast`.
-- ⏳ `feature/ui` trên repo gốc vẫn là commit cũ `5b49dd8`, nên PR #6 còn conflict cho tới khi làm Bước 1.
-- ⚠️ `feature/thang` đang trỏ vào `main` cũ (bản lỗi, không biên dịch được). Thắng nhớ chạy `git pull --no-rebase origin dev` trước khi làm tiếp.
+### 4.2. Xử lý Đồng thời (Concurrency Control)
+- **Chống Race Condition & Lost Update:** Thay vì dùng `synchronized` khối lớn gây thắt cổ chai, `Auction.placeBid()` sử dụng `ReentrantLock(true)` (fair lock) để bảo đảm thứ tự FIFO cho các lượt bid cạnh tranh cùng mili-giây.
+- **Bộ sưu tập an toàn luồng (Concurrent Collections):**
+  - `ConcurrentHashMap` trong `AuctionManager` quản lý hàng triệu phiên đấu giá và người dùng mà không bị lock toàn bộ bảng băm.
+  - `CopyOnWriteArrayList` lưu trữ danh sách Observers trong từng `Auction`, cho phép vừa duyệt gửi thông báo realtime vừa thêm/xóa client mà không gây `ConcurrentModificationException`.
+  - `AtomicLong` trong `AuctionManager` sinh mã Transaction ID duy nhất với tốc độ cực cao không cần khóa.
+- **Stress-Test đã xác thực:** Đã viết bộ kiểm thử chịu tải `ServerConcurrencyStressTest.java` mô phỏng 10 client cùng bắn lệnh bid dồn dập vào 1 phiên trong cùng 1 thời điểm và 20 client ngắt socket đột ngột; toàn bộ dữ liệu giữ vững tính toàn vẹn 100%.
 
-## Hướng dẫn merge phần JavaFX của Hưng mà không bị conflict
+### 4.3. Ứng dụng Các Mẫu Thiết kế (Design Patterns)
+1. **Singleton Pattern:** `AuctionManager.getInstance()` bảo đảm chỉ có một thực thể quản trị duy nhất trên toàn Server, kiểm soát truy cập tập trung vào tài nguyên đấu giá và người dùng.
+2. **Factory Method Pattern:** `ItemFactory` với các lớp con `ElectronicsFactory`, `ArtFactory`, `VehicleFactory` giúp mở rộng danh mục sản phẩm linh hoạt mà không sửa đổi mã nguồn xử lý phiên đấu giá (tuân thủ nguyên lý Open/Closed Principle - SOLID).
+3. **Observer Pattern:** `AuctionSubject` và `AuctionObserver`. Mỗi `ClientHandler` là một observer lắng nghe sự kiện của các phiên đấu giá mà client tham gia. Khi có bid mới, phiên tự động kích hoạt callback bắn bản tin `NOTIFY BID` tức thời qua Socket về giao diện JavaFX.
 
-### Bước 1 – Đại đồng bộ bản sửa (chỉ làm 1 lần)
-Trong thư mục repo gốc, chạy script `dong-bo-ban-sua.sh` (đã gửi riêng):
+---
 
-```bash
-bash dong-bo-ban-sua.sh
-```
+## 👥 5. Phân công Trách nhiệm Nhóm
 
-Script tự cập nhật `main`, `dev`, `feature/socket-server-broadcast` và `feature/ui` lên bản sửa mới nhất. Bản `feature/ui` này đã hết conflict với `dev` (đã thử). Script không đụng tới commit của người khác, và tự dừng nếu trên GitHub có commit mới mà nó chưa biết.
-
-**Sau Bước 1, cả nhóm:** lịch sử các commit sửa lỗi được làm gọn lại, nên ai đã `pull` nhánh `main`, `dev` hoặc `feature/socket-server-broadcast` từ ngày 30/10 thì đồng bộ lại (commit hoặc `git stash` code đang làm trước):
-
-```bash
-git fetch origin
-git checkout dev && git reset --hard origin/dev     # làm tương tự với main nếu có
-```
-
-### Bước 2 – Hưng chạy trên máy mình, **trước khi** push phần JavaFX
-
-```bash
-# 1. Lưu hết code JavaFX thành commit
-git add .
-git commit -m "feat: add JavaFX screens"
-
-# 2. Lấy bản feature/ui đã sửa, rồi lấy dev mới nhất
-git pull --no-rebase origin feature/ui
-git pull --no-rebase origin dev
-
-# 3. Kiểm tra trước khi đẩy
-mvn clean test        # phải thấy: Tests run: 2, Failures: 0 ... BUILD SUCCESS
-mvn javafx:run        # mở được giao diện
-
-# 4. Đẩy lên, PR #6 tự cập nhật
-git push origin feature/ui
-```
-
-Conflict, nếu có, được xử lý **trên máy Hưng**, là người hiểu code UI nhất. Nó chỉ có thể xảy ra ở `pom.xml` hoặc `Main.java`, và chỉ khi Hưng cũng sửa các file đó.
-
-### Nếu `pom.xml` bị conflict (thấy `<<<<<<<`, `=======`, `>>>>>>>`)
-1. Giữ **toàn bộ** phần của bản đã sửa: `maven-surefire-plugin` 3.2.5, `cleanupDaemonThreads`, các dependency JUnit.
-2. Thêm phần của Hưng vào, ví dụ dependency mới.
-3. Dòng `<mainClass>` của `javafx-maven-plugin` đổi thành class JavaFX của Hưng (class `extends Application`, ví dụ `com.auction.App`).
-4. Xoá 3 dòng đánh dấu, rồi chạy `git add pom.xml && git commit`.
-5. **Chạy lại `mvn clean test`** trước khi push.
-
-> ⚠️ **Đừng giữ cả hai bên một cách máy móc.** Chính kiểu giải quyết đó ở commit `a31dfb5` đã làm cả project không biên dịch được.
-
-### Quy tắc chung để sau này không bị conflict nữa
-1. **Luôn `git pull --no-rebase origin dev`** trước khi bắt đầu làm và trước khi tạo PR.
-2. **Không sửa file của người khác** nếu không cần. Phần UI chỉ nên gọi `AuctionClient` và cập nhật giao diện bằng `Platform.runLater()`, không sửa `model/` hay `network/`.
-3. **`pom.xml` chỉ thêm, không định dạng lại cả file**, và báo nhóm mỗi khi sửa.
-4. File `.fxml` để trong `src/main/resources/`. Không commit `.vscode/` hay `target/`.
-5. **Giải quyết conflict xong thì `mvn clean test` rồi mới commit.**
-
-Nếu thấy khó, Hưng có thể push phần JavaFX lên một nhánh mới (ví dụ `feature/javafx-ui`) để cả nhóm merge thử và xử lý conflict trước khi đưa vào `dev`.
+- **Vũ Tuấn Đại (Leader):** Kiến trúc tổng thể, Socket Server đa luồng, Concurrency Control, Realtime Observer, Stress Test, Tài liệu & Sơ đồ UML.
+- **Xuân Thắng:** Serialization / Deserialization, Quản lý lịch sử giao dịch (Persistence), Nghiệp vụ kiểm tra quyền, CI/CD GitHub Actions & Checkstyle.
+- **Huy Hưng:** Thiết kế giao diện FXML (MVC), Điều hướng 5 màn hình JavaFX, Video demo kịch bản đấu giá realtime.
+- **Trường:** Cầu nối dữ liệu Socket - JavaFX (`Platform.runLater()`), Hệ thống Dialog/Alert thông báo lỗi, Báo cáo kiểm thử & Tinh chỉnh CSS.

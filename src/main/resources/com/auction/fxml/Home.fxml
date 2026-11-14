@@ -18,10 +18,10 @@
       <HBox spacing="15" alignment="CENTER_LEFT" style="-fx-padding: 15px; -fx-background-color: #161922;">
         <!-- Thanh tìm kiếm theo tên hoặc ID sản phẩm -->
         <TextField fx:id="searchField" promptText="Tìm kiếm theo tên hoặc ID sản phẩm..."
-                           HBox.hgrow="ALWAYS" styleClass="search-field" />
+                                   HBox.hgrow="ALWAYS" styleClass="search-field" />
         <!-- Nút tạo phòng đấu giá sản phẩm -->
         <Button fx:id="btnCreateAuctionRoom" text="Tạo phòng đấu giá"
-                        styleClass="create-button" onAction="#handleCreateAuctionRoom" />
+                                styleClass="create-button" onAction="#handleCreateAuctionRoom" />
       </HBox>
     </top>
 

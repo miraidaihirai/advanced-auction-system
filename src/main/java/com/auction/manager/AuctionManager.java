@@ -7,6 +7,7 @@ import com.auction.model.User;
 import com.auction.observer.AuctionObserver;
 import com.auction.storage.AuctionDataSnapshot;
 import com.auction.storage.FileStorageService;
+import com.auction.storage.TransactionStorageService;
 import com.auction.exceptions.AuthenticationException;
 import com.auction.exceptions.AuctionClosedException;
 
@@ -23,10 +24,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Quản lý các phiên đấu giá trong toàn hệ thống.
  * Áp dụng Singleton Pattern đảm bảo chỉ có 1 bộ quản trị duy nhất.
- * Quản lý đồng thời bằng ConcurrentHashMap và AtomicLong sinh Transaction ID
- * duy nhất.
- * Tích hợp Serialization / Deserialization để lưu trữ và phục hồi trạng thái hệ
- * thống.
+ * Quản lý đồng thời bằng ConcurrentHashMap và AtomicLong sinh Transaction ID duy nhất.
+ * Tích hợp Serialization / Deserialization và TransactionStorageService để lưu trữ và phục hồi trạng thái hệ thống.
  */
 public class AuctionManager {
     public static final String DEFAULT_STORAGE_PATH = "data/auction_data.ser";
@@ -39,8 +38,9 @@ public class AuctionManager {
     private final Map<String, User> userMap;
     private final List<AuctionObserver> globalObservers = new CopyOnWriteArrayList<>();
 
-    // Quản lý lưu trữ file
+    // Quản lý lưu trữ file và lịch sử giao dịch
     private FileStorageService storageService;
+    private TransactionStorageService transactionStorageService;
     private String storagePath = DEFAULT_STORAGE_PATH;
     private volatile boolean autoSave = false;
 
@@ -52,6 +52,7 @@ public class AuctionManager {
         this.auctionMap = new ConcurrentHashMap<>();
         this.userMap = new ConcurrentHashMap<>();
         this.storageService = new FileStorageService();
+        this.transactionStorageService = new TransactionStorageService(this.storageService);
     }
 
     // 3. Phương thức tĩnh truy cập instance duy nhất (Thread-safe)
@@ -200,10 +201,91 @@ public class AuctionManager {
         return success;
     }
 
+    // -------------------------------------------------------------------------
+    // Quản lý & truy vấn lịch sử giao dịch đấu giá (Transaction History)
+    // -------------------------------------------------------------------------
+
     /**
-     * Dọn sạch toàn bộ dữ liệu người dùng và phiên đấu giá trong bộ nhớ RAM.
+     * Lấy toàn bộ danh sách lịch sử giao dịch đặt giá từ tất cả các phiên đấu giá.
+     */
+    public List<BidTransaction> getAllTransactions() {
+        List<BidTransaction> all = new ArrayList<>();
+        for (Auction auction : auctionMap.values()) {
+            all.addAll(auction.getBidHistory());
+        }
+        return Collections.unmodifiableList(all);
+    }
+
+    /**
+     * Lấy danh sách lịch sử giao dịch đặt giá theo một phiên đấu giá cụ thể.
+     */
+    public List<BidTransaction> getTransactionsByAuction(String auctionId) {
+        Auction auction = auctionMap.get(auctionId);
+        if (auction != null) {
+            return auction.getBidHistory();
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Lấy danh sách lịch sử giao dịch đặt giá theo người tham gia (Bidder).
+     */
+    public List<BidTransaction> getTransactionsByBidder(String bidderId) {
+        if (bidderId == null) {
+            return Collections.emptyList();
+        }
+        List<BidTransaction> list = new ArrayList<>();
+        for (Auction auction : auctionMap.values()) {
+            for (BidTransaction tx : auction.getBidHistory()) {
+                if (bidderId.equals(tx.getBidderId())) {
+                    list.add(tx);
+                }
+            }
+        }
+        return Collections.unmodifiableList(list);
+    }
+
+    /**
+     * Xuất toàn bộ lịch sử giao dịch ra tệp CSV.
+     */
+    public void exportTransactionsToCsv(File file) throws IOException {
+        transactionStorageService.exportToCsv(getAllTransactions(), file);
+    }
+
+    /**
+     * Xuất toàn bộ lịch sử giao dịch ra đường dẫn tệp CSV.
+     */
+    public void exportTransactionsToCsv(String filePath) throws IOException {
+        exportTransactionsToCsv(new File(filePath));
+    }
+
+    /**
+     * Xuất lịch sử giao dịch của một phiên đấu giá cụ thể ra tệp CSV.
+     */
+    public void exportAuctionTransactionsToCsv(String auctionId, File file) throws IOException {
+        transactionStorageService.exportToCsv(getTransactionsByAuction(auctionId), file);
+    }
+
+    /**
+     * Xuất lịch sử giao dịch của một phiên đấu giá cụ thể ra đường dẫn tệp CSV.
+     */
+    public void exportAuctionTransactionsToCsv(String auctionId, String filePath) throws IOException {
+        exportAuctionTransactionsToCsv(auctionId, new File(filePath));
+    }
+
+    // -------------------------------------------------------------------------
+    // Persistence & Snapshot
+    // -------------------------------------------------------------------------
+
+    /**
+     * Dọn sạch toàn bộ dữ liệu người dùng và phiên đấu giá trong bộ nhớ RAM, đồng thời hủy bỏ các timer đang chạy.
      */
     public synchronized void clear() {
+        for (Auction a : auctionMap.values()) {
+            if (a != null) {
+                a.cancelTimer();
+            }
+        }
         auctionMap.clear();
         userMap.clear();
     }
@@ -223,15 +305,16 @@ public class AuctionManager {
     }
 
     /**
-     * Lưu trạng thái hệ thống (tất cả User và Auction) ra file qua
-     * FileStorageService.
+     * Lưu trạng thái hệ thống (tất cả User, Auction và Transaction) ra file qua FileStorageService.
      */
     public synchronized void saveState(File file) {
         try {
-            AuctionDataSnapshot snapshot = new AuctionDataSnapshot(getAllUsers(), getAllAuctions());
+            AuctionDataSnapshot snapshot = new AuctionDataSnapshot(
+                    getAllUsers(), getAllAuctions(), getAllTransactions());
             storageService.saveSnapshot(snapshot, file);
-            System.out.printf("[AuctionManager] Successfully saved state (%d users, %d auctions) to: %s%n",
-                    snapshot.getUsers().size(), snapshot.getAuctions().size(), file.getPath());
+            System.out.printf("[AuctionManager] Successfully saved state (%d users, %d auctions, %d txs) to: %s%n",
+                    snapshot.getUsers().size(), snapshot.getAuctions().size(),
+                    snapshot.getTransactions().size(), file.getPath());
         } catch (IOException e) {
             System.err.printf("[AuctionManager] Error saving state to %s: %s%n", file.getPath(), e.getMessage());
         }
@@ -239,9 +322,7 @@ public class AuctionManager {
 
     /**
      * Nạp trạng thái hệ thống từ tệp tin mặc định.
-     * 
-     * @return true nếu đọc file thành công và nạp dữ liệu vào bộ nhớ, false nếu
-     *         không tìm thấy file hoặc lỗi
+     * @return true nếu đọc file thành công và nạp dữ liệu vào bộ nhớ, false nếu không tìm thấy file hoặc lỗi
      */
     public synchronized boolean loadState() {
         return loadState(new File(storagePath));
@@ -275,8 +356,9 @@ public class AuctionManager {
                 this.auctionMap.put(auction.getId(), auction);
             }
 
-            System.out.printf("[AuctionManager] Successfully restored state (%d users, %d auctions) from: %s%n",
-                    snapshot.getUsers().size(), snapshot.getAuctions().size(), file.getPath());
+            System.out.printf("[AuctionManager] Successfully restored state (%d users, %d auctions, %d txs) from: %s%n",
+                    snapshot.getUsers().size(), snapshot.getAuctions().size(),
+                    snapshot.getTransactions().size(), file.getPath());
             return true;
         } catch (Exception e) {
             System.err.printf("[AuctionManager] Error restoring state from %s: %s%n", file.getPath(), e.getMessage());
@@ -309,6 +391,17 @@ public class AuctionManager {
     public void setStorageService(FileStorageService storageService) {
         if (storageService != null) {
             this.storageService = storageService;
+            this.transactionStorageService = new TransactionStorageService(this.storageService);
+        }
+    }
+
+    public TransactionStorageService getTransactionStorageService() {
+        return transactionStorageService;
+    }
+
+    public void setTransactionStorageService(TransactionStorageService transactionStorageService) {
+        if (transactionStorageService != null) {
+            this.transactionStorageService = transactionStorageService;
         }
     }
 }

@@ -1,5 +1,7 @@
 package network;
 
+import com.auction.model.BidTransaction;
+
 import java.util.Locale;
 
 /**
@@ -26,6 +28,7 @@ public final class AuctionProtocol {
     public static final String CMD_PING = "PING";
     public static final String CMD_CLOSE = "CLOSE";
     public static final String CMD_PAY = "PAY";
+    public static final String CMD_HISTORY = "HISTORY";
 
     // Server -> Client Status Responses
     public static final String RES_SUCCESS = "SUCCESS";
@@ -41,6 +44,9 @@ public final class AuctionProtocol {
 
     public static final String AUCTIONS_BEGIN = "AUCTIONS_BEGIN";
     public static final String AUCTIONS_END = "AUCTIONS_END";
+
+    public static final String HISTORY_BEGIN = "HISTORY_BEGIN";
+    public static final String HISTORY_END = "HISTORY_END";
 
     /**
      * Tạo bản tin broadcast nhảy giá realtime tới các Client đang xem phiên.
@@ -75,6 +81,17 @@ public final class AuctionProtocol {
      */
     public static String formatPaidNotification(String auctionId, double finalPrice, String winnerId) {
         return String.format(Locale.US, "%s %s %.2f %s", NOTIFY_PAID_PREFIX, auctionId, finalPrice, winnerId);
+    }
+
+    /**
+     * Tạo bản tin định dạng một bản ghi lịch sử đặt giá.
+     */
+    public static String formatTransactionRecord(BidTransaction tx) {
+        if (tx == null) {
+            return "";
+        }
+        return String.format(Locale.US, "TX %s %s %s %.2f %s",
+                tx.getId(), tx.getAuctionId(), tx.getBidderId(), tx.getAmount(), tx.getTimestamp());
     }
 
     /**

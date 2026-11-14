@@ -6,24 +6,41 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
+import com.auction.model.BidTransaction;
 
 /**
  * Socket Client kết nối tới AuctionServer.
  * - Gửi các bản tin yêu cầu (Login, Register, Join, Bid, Leave).
- * - Nhận và lắng nghe các thông báo realtime từ Server (Observer Pattern qua Socket).
+ * - Nhận và lắng nghe các thông báo realtime từ Server (Observer Pattern qua
+ * Socket).
  */
 public class AuctionClient {
 
     public interface AuctionEventListener {
         void onBidUpdate(String auctionId, double newPrice, String bidderId, String itemId);
-        default void onAuctionClosed(String auctionId, double finalPrice, String winnerId) {}
-        default void onWinnerNotification(String auctionId, double finalPrice, String itemId) {}
-        default void onSellerNotification(String auctionId, double finalPrice, String winnerId, String itemId) {}
-        default void onAuctionPaid(String auctionId, double finalPrice, String winnerId) {}
-        default void onMessageReceived(String rawMessage) {}
+
+        default void onAuctionClosed(String auctionId, double finalPrice, String winnerId) {
+        }
+
+        default void onWinnerNotification(String auctionId, double finalPrice, String itemId) {
+        }
+
+        default void onSellerNotification(String auctionId, double finalPrice, String winnerId, String itemId) {
+        }
+
+        default void onAuctionPaid(String auctionId, double finalPrice, String winnerId) {
+        }
+
+        default void onHistoryReceived(String auctionId, List<BidTransaction> history) {
+        }
+
+        default void onMessageReceived(String rawMessage) {
+        }
     }
 
     private final String host;
@@ -67,6 +84,8 @@ public class AuctionClient {
     }
 
     private void listenLoop() {
+        List<BidTransaction> currentHistoryBuffer = null;
+        String currentHistoryAuctionId = null;
         try {
             String line;
             while (connected && (line = in.readLine()) != null) {
@@ -156,6 +175,44 @@ public class AuctionClient {
                             }
                         }
                     }
+                } else if (line.startsWith(AuctionProtocol.HISTORY_BEGIN)) {
+                    // HISTORY_BEGIN <auctionId> <count>
+                    String[] parts = line.split("\\s+");
+                    if (parts.length >= 2) {
+                        currentHistoryAuctionId = parts[1];
+                        currentHistoryBuffer = new ArrayList<>();
+                    }
+                } else if (line.startsWith("TX ") && currentHistoryBuffer != null) {
+                    // TX <id> <auctionId> <bidderId> <amount> <timestamp>
+                    String[] parts = line.split("\\s+");
+                    if (parts.length >= 5) {
+                        try {
+                            String txId = parts[1];
+                            String aucId = parts[2];
+                            String bidderId = parts[3];
+                            double amt = Double.parseDouble(parts[4].replace(',', '.'));
+                            BidTransaction tx = new BidTransaction(txId, aucId, bidderId, amt);
+                            if (parts.length >= 6) {
+                                tx.setTimestamp(java.time.LocalDateTime.parse(parts[5]));
+                            }
+                            currentHistoryBuffer.add(tx);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                } else if (line.startsWith(AuctionProtocol.HISTORY_END)) {
+                    // HISTORY_END <auctionId>
+                    String[] parts = line.split("\\s+");
+                    String aucId = parts.length >= 2 ? parts[1] : currentHistoryAuctionId;
+                    List<BidTransaction> history = (currentHistoryBuffer != null) ? currentHistoryBuffer
+                            : Collections.emptyList();
+                    for (AuctionEventListener l : listeners) {
+                        try {
+                            l.onHistoryReceived(aucId, history);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    currentHistoryBuffer = null;
+                    currentHistoryAuctionId = null;
                 }
             }
         } catch (IOException e) {
@@ -200,6 +257,10 @@ public class AuctionClient {
 
     public void requestInfo(String auctionId) {
         sendRaw(String.format("%s %s", AuctionProtocol.CMD_INFO, auctionId));
+    }
+
+    public void requestHistory(String auctionId) {
+        sendRaw(String.format("%s %s", AuctionProtocol.CMD_HISTORY, auctionId));
     }
 
     public void ping() {

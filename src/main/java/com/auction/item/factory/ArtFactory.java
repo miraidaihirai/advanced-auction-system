@@ -27,4 +27,3 @@ public class ArtFactory extends ItemFactory {
         return new Art(this.name, this.id, this.price, this.quantity, this.artist, this.medium, this.yearCreated);
     }
 }
-
