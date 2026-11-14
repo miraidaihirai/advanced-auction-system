@@ -16,7 +16,7 @@
             styleClass="Login-pane"
             xmlns="http://javafx.com/javafx/21" 
             xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.auction.UI.RegisterController">
+            fx:controller="com.auction.ui.RegisterController">
     <children>
         <!--Thẻ ngoài bao quát-->
         <VBox alignment="CENTER" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">

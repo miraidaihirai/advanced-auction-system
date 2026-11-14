@@ -1,4 +1,4 @@
-package com.auction.UI;
+package com.auction.ui;
 
 import java.io.IOException;
 
@@ -26,7 +26,7 @@ public class LogInController {
         if(true) {//Xử lý tài khoản mật khẩu
         ViewManager.SwitchView("Home");
         } else{
-            errorLabel.setText("Incorrect username or password!");
+            errorLabel.setText("Sai tài khoản hoặc mât khẩu!");
         }
     }
     @FXML 
