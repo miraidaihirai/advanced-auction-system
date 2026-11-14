@@ -1,4 +1,4 @@
-package com.auction.UI;
+package com.auction.ui;
 
 import java.io.IOException;
 
@@ -27,7 +27,7 @@ public class RegisterController {
         if(true){ //Nếu đky được tài khoản
             ViewManager.SwitchView("LogIn");
         }else{
-            errorRegister.setText("Username or password already exists!");
+            errorRegister.setText("Tài khoản hoặc mật khẩu không tồn tại!");
         }
     }
     

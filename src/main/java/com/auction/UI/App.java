@@ -1,12 +1,12 @@
-package com.auction.UI;
+package com.auction.ui;
+
+import java.io.IOException;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-
-import java.io.IOException;
 
 public class App extends Application {
     private static Scene scene;
@@ -20,7 +20,7 @@ public class App extends Application {
         ViewManager.Initialize(scene);
 
         primaryStage.setScene(scene);
-        primaryStage.setTitle("Online auction system");
+        primaryStage.setTitle("Hệ thống đấu giá trực tuyến");
         primaryStage.show();
     }
 }

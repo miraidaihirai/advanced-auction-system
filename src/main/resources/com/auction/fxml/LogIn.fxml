@@ -15,7 +15,7 @@
             styleClass="Login-pane"
             xmlns="http://javafx.com/javafx/21" 
             xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.auction.UI.LogInController">
+            fx:controller="com.auction.ui.LogInController">
   <children>
       <VBox alignment="CENTER" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
         <children>
@@ -27,7 +27,7 @@
               <!--Phần tiêu đề-->
               <VBox spacing="6.0">
                 <children>
-                  <Label styleClass="title-label" text="Log In"/>
+                  <Label styleClass="title-label" text="Đăng nhập"/>
                 </children>
                 <VBox.margin>
                   <Insets bottom="10.0"/>
@@ -36,15 +36,15 @@
                 <!--Ô nhập username-->
                 <VBox spacing="6.0">
                   <children>
-                    <Label styleClass="sub-label" text="Username"/>
-                    <TextField fx:id="usernameField" promptText="Enter username..."/>
+                    <Label styleClass="sub-label" text="Tài khoản"/>
+                    <TextField fx:id="usernameField" promptText="Nhập tài khoản..."/>
                   </children>
                 </VBox>
                 <!--Ô nhập password-->
                 <VBox spacing="6.0">
                   <children>
-                    <Label styleClass="sub-label" text="Password"/>
-                    <PasswordField fx:id="passwordField" promptText="Enter password...">
+                    <Label styleClass="sub-label" text="Mật khẩu"/>
+                    <PasswordField fx:id="passwordField" promptText="Nhập mật khẩu...">
                       <VBox.margin>
                         <Insets bottom="10.0"/>
                       </VBox.margin>
@@ -55,9 +55,9 @@
                 <VBox alignment="CENTER" spacing="10.0">
                   <children>
                     <!--Nút submit-->
-                    <Button fx:id="LoginButton" maxWidth="Infinity" styleClass="button" text="Submit" onAction="#SwitchToHome"/>
+                    <Button fx:id="LoginButton" maxWidth="Infinity" styleClass="button" text="Đăng nhập" onAction="#SwitchToHome"/>
                     <!--Nút đăng ký tài khoản-->
-                    <Button fx:id="RegisterAccount" maxWidth="Infinity" styleClass="button" text="Register an account" onAction="#SwitchToRegister"/>
+                    <Button fx:id="RegisterAccount" maxWidth="Infinity" styleClass="button" text="Đăng ký" onAction="#SwitchToRegister"/>
                   </children>
                 </VBox>
             </children>
