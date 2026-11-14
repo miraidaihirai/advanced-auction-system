@@ -29,4 +29,3 @@ public class ElectronicsFactory extends ItemFactory {
                 this.warrantyPeriod);
     }
 }
-

@@ -15,4 +15,3 @@ public abstract class ItemFactory {
     }
 
 }
-
