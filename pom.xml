@@ -72,7 +72,7 @@
                         <id>default-cli</id>
                         <configuration>
                             <!-- QUAN TRỌNG: Cấu trúc mainClass dạng Tên_Module/Tên_Package.Tên_Class -->
-                            <mainClass>com.auction.UI.Launcher</mainClass>
+                            <mainClass>com.auction.ui.Launcher</mainClass>
                             <launcher>app</launcher>
                             <jlinkZipName>app</jlinkZipName>
                             <jlinkImageName>app</jlinkImageName>
