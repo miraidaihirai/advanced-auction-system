@@ -41,6 +41,7 @@ public class AuctionClient {
 
         default void onMessageReceived(String rawMessage) {
         }
+        default void onDisconnected(){}
     }
 
     private final String host;
@@ -220,10 +221,20 @@ public class AuctionClient {
                 System.out.printf("[AuctionClient] Connection lost: %s%n", e.getMessage());
             }
         } finally {
+            if (connected){
+                for (AuctionEventListener listener : listeners){
+                    try {
+                        listener.onDisconnected();
+                    } catch (Exception ignored){
+                    }
+                }
+            }
             disconnect();
         }
     }
-
+    // Khi sever đóng kết nối hoặc mạng bị gián đoạn, vòng lặp nhận dữ liệu sẽ kết thúc
+    // finally sẽ luôn thực thi, nếu còn connected, tức kết thúc bất ngờ
+    // Client gọi onDisconnected cho tất cả listener vag disconnect() để giải phóng Socket
     public synchronized void sendRaw(String command) {
         if (!connected || out == null) {
             throw new IllegalStateException("Client is not connected to server");

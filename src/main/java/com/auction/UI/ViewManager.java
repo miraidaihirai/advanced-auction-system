@@ -4,41 +4,76 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.auction.session.ClientSession;
+
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 
 public class ViewManager {
+
     private static Scene mainScene;
-    private static final Map<String, Parent> cache = new HashMap<>();
+    private static ClientSession clientSession;
+    // Lưu ClientSession dùng chung, mỗi màn hình có thể nhận cùng một Socket Client thay vì tạo một kết nối riêng
+    private static final Map<String, ViewEntry> cache = new HashMap<>();
 
     public static void Initialize(Scene scene) {
-        mainScene = scene;
+        Initialize(scene, null);
     }
 
+    public static void Initialize(Scene scene, ClientSession session) {
+        mainScene = scene;
+        clientSession = session;
+    }
+    // Khởi tạo ViewManager với Session
     public static void SwitchView(String fxmlName) {
+        if (mainScene == null) {
+            System.err.println("[ViewManager] mainScene chưa được khởi tạo!");
+            return;
+        }
+
         try {
-            Parent root;
-            if (cache.containsKey(fxmlName)) {
-                root = cache.get(fxmlName);
-            } else {
+            ViewEntry entry = cache.get(fxmlName);
+
+            if (entry == null) {
                 String path = "/com/auction/fxml/" + fxmlName + ".fxml";
                 URL resource = ViewManager.class.getResource(path);
+
                 if (resource == null) {
                     System.err.println("[ViewManager] Không tìm thấy file FXML: " + path);
                     return;
                 }
-                root = FXMLLoader.load(resource);
-                cache.put(fxmlName, root);
+
+                FXMLLoader loader = new FXMLLoader(resource);
+                Parent root = loader.load();
+                
+                entry = new ViewEntry(root, loader.getController());
+                // Lấy controller từ FXMLLoader
+                cache.put(fxmlName, entry);
             }
-            if (mainScene != null && root != null) {
-                mainScene.setRoot(root);
-            } else {
-                System.err.println("[ViewManager] mainScene hoặc root bị null! mainScene=" + mainScene + ", root=" + root);
+
+            if (entry.controller instanceof SessionAware aware
+                    && clientSession != null) {
+                aware.setClientSession(clientSession);
             }
+            // Kiểm tra Controller có triển khai SessionAware không, nếu có , ta lấy nó dưới kiểu SessionAware
+            // Gọi setClientSession(clientSession) để truyền kết nối Socket dùng chung
+
+            mainScene.setRoot(entry.root);
+
         } catch (Exception e) {
             System.err.println("[ViewManager] Lỗi khi chuyển sang view '" + fxmlName + "':");
             e.printStackTrace();
+        }
+    }
+
+    private static class ViewEntry {
+        private final Parent root;
+        private final Object controller;
+
+        private ViewEntry(Parent root, Object controller) {
+            this.root = root;
+            this.controller = controller;
         }
     }
 }
