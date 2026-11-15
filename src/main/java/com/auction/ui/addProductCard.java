@@ -1,4 +1,5 @@
 package com.auction.ui;
+
 import java.io.IOException;
 import java.time.LocalDateTime;
 
@@ -8,13 +9,15 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
+import network.AuctionSummary;
 
-public class addProductCard{
+public class addProductCard {
     @FXML
-    public static void addNewAuctionCard(FlowPane productGridContainer, Item product, LocalDateTime endTime){
-        if (product == null || productGridContainer == null) return;
+    public static void addNewAuctionCard(FlowPane productGridContainer, Item product, LocalDateTime endTime) {
+        if (product == null || productGridContainer == null)
+            return;
 
-        try{
+        try {
             // 1. Nạp file FXML của một khung sản phẩm lẻ (product_card.fxml)
             FXMLLoader loader = new FXMLLoader(addProductCard.class.getResource("/com/auction/fxml/ProductCard.fxml"));
             VBox productCard = loader.load();
@@ -23,10 +26,39 @@ public class addProductCard{
             // 3. Truyền dữ liệu vào card
             cardController.setData(product, "0", endTime);
             // 4. Đẩy card mới lên vị trí đầu tiên (index = 0) của FlowPane
-            productGridContainer.getChildren().add(0,productCard);
-        }catch(IOException e){
+            productGridContainer.getChildren().add(0, productCard);
+        } catch (IOException e) {
             e.printStackTrace();
             System.err.println("Không thể khởi tạo thẻ sản phẩm.");
+        }
+    }
+
+    public static VBox addServerAuctionCard(
+            FlowPane productGridContainer,
+            AuctionSummary auction) {
+        if (productGridContainer == null || auction == null) {
+            return null;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    addProductCard.class.getResource(
+                            "/com/auction/fxml/ProductCard.fxml"));
+
+            VBox productCard = loader.load();
+
+            ProductCardController cardController = loader.getController();
+
+            cardController.setAuctionData(auction);
+
+            productGridContainer.getChildren().add(productCard);
+
+            return productCard;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.err.println("Không thể tạo thẻ đấu giá từ dữ liệu Server.");
+            return null;
         }
     }
 }
