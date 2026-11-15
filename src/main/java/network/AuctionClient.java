@@ -41,7 +41,14 @@ public class AuctionClient {
 
         default void onMessageReceived(String rawMessage) {
         }
-        default void onDisconnected(){}
+
+        default void onDisconnected() {
+        }
+
+        default void onAuctionListReceived(List<AuctionSummary> auctions) {
+        }
+        // Được gọi khi Client nhận đủ danh sách đấu giá
+        // auctions chứa toàn bộ các phiên đấu giá đã xong
     }
 
     private final String host;
@@ -87,6 +94,9 @@ public class AuctionClient {
     private void listenLoop() {
         List<BidTransaction> currentHistoryBuffer = null;
         String currentHistoryAuctionId = null;
+
+        List<AuctionSummary> currentAuctionBuffer = null;
+        // Server gửi danh sách đấu giá theo từng dòng riêng biệt
         try {
             String line;
             while (connected && (line = in.readLine()) != null) {
@@ -102,6 +112,42 @@ public class AuctionClient {
                     } catch (Exception ignored) {
                     }
                 }
+                if (line.equals(AuctionProtocol.AUCTIONS_BEGIN)) {
+
+                    currentAuctionBuffer = new ArrayList<>();
+
+                } else if (line.startsWith("AUCTION ")
+                        && currentAuctionBuffer != null) {
+
+                    try {
+                        currentAuctionBuffer.add(parseAuctionLine(line));
+                    } catch (IllegalArgumentException e) {
+                        System.err.println(
+                                "[AuctionClient] Dữ liệu phiên đấu giá không hợp lệ: " + line
+                        );
+                    }
+
+                } else if (line.equals(AuctionProtocol.AUCTIONS_END)
+                        && currentAuctionBuffer != null) {
+
+                    List<AuctionSummary> auctionList =
+                            List.copyOf(currentAuctionBuffer);
+
+                    for (AuctionEventListener listener : listeners) {
+                        try {
+                            listener.onAuctionListReceived(auctionList);
+                        } catch (Exception ignored) {
+                        }
+                    }
+
+                    currentAuctionBuffer = null;
+                }
+                                
+                // AUCTIONS_BIGINS tạo bộ đệm mới
+                // AUCTION gọi parseAuctionLine() để chuyển String[] thành AuctionSummary
+                // AUCTIONS_END tạo danh sách bất biến bằng List.copyOf() rồi gửi cho listener
+                // Cuối cùng reset bộ đệm về null để kết thúc nhận dữ liệu
+
 
                 // Parse realtime broadcast notifications
                 if (line.startsWith(AuctionProtocol.NOTIFY_BID_PREFIX)) {
@@ -221,20 +267,72 @@ public class AuctionClient {
                 System.out.printf("[AuctionClient] Connection lost: %s%n", e.getMessage());
             }
         } finally {
-            if (connected){
-                for (AuctionEventListener listener : listeners){
+            if (connected) {
+                for (AuctionEventListener listener : listeners) {
                     try {
                         listener.onDisconnected();
-                    } catch (Exception ignored){
+                    } catch (Exception ignored) {
                     }
                 }
             }
             disconnect();
         }
     }
-    // Khi sever đóng kết nối hoặc mạng bị gián đoạn, vòng lặp nhận dữ liệu sẽ kết thúc
+    private AuctionSummary parseAuctionLine(String line) {
+
+        String[] parts = line.trim().split("\\s+");
+
+        if (parts.length < 7 || !parts[0].equals("AUCTION")) {
+            throw new IllegalArgumentException("Sai định dạng AUCTION");
+        }
+        // E.g AUCTION AUC-001 Laptop Dell XPS 15 25000000.00 500000.00 BIDDER-01 ACTIVE
+        // Tránh sản phẩm có dấu cách ở giữa
+        int currentPriceIndex = parts.length - 4;
+
+        String auctionId = parts[1];
+
+        String itemId = String.join(
+                " ",
+                java.util.Arrays.copyOfRange(
+                        parts,
+                        2,
+                        currentPriceIndex
+                )
+        );
+
+        try {
+            double currentPrice = Double.parseDouble(
+                    parts[currentPriceIndex].replace(',', '.')
+            );
+
+            double stepPrice = Double.parseDouble(
+                    parts[currentPriceIndex + 1].replace(',', '.')
+            );
+
+            String highestBidderId = parts[currentPriceIndex + 2];
+            String status = parts[currentPriceIndex + 3];
+
+            return new AuctionSummary(
+                    auctionId,
+                    itemId,
+                    currentPrice,
+                    stepPrice,
+                    highestBidderId,
+                    status
+            );
+
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "Giá đấu không đúng định dạng", e
+            );
+        }
+    }
+
+    // Khi sever đóng kết nối hoặc mạng bị gián đoạn, vòng lặp nhận dữ liệu sẽ kết
+    // thúc
     // finally sẽ luôn thực thi, nếu còn connected, tức kết thúc bất ngờ
-    // Client gọi onDisconnected cho tất cả listener vag disconnect() để giải phóng Socket
+    // Client gọi onDisconnected cho tất cả listener vag disconnect() để giải phóng
+    // Socket
     public synchronized void sendRaw(String command) {
         if (!connected || out == null) {
             throw new IllegalStateException("Client is not connected to server");
