@@ -34,7 +34,14 @@ public class ProductCardController {
     @FXML
     private VBox card;
 
+    private Item product;
+    private HomeController homeController;
+
     private final TimelineCard timeline = new TimelineCard();
+
+    public void setHomeController(HomeController homeController) {
+        this.homeController = homeController;
+    }
 
     public void setData(Item product, String bids, LocalDateTime endTime) {
         if (product == null) return;
@@ -43,6 +50,8 @@ public class ProductCardController {
         lblName.setText(product.getName());
         lblPrice.setText(String.valueOf(product.getPrice()));
         lblBids.setText(bids);
+
+        this.product = product;
 
         timeline.startCountdown(endTime, lblTime);
     }
@@ -72,7 +81,6 @@ public class ProductCardController {
         lblTime.setText("Trạng thái: " + translateStatus(auction.status()));
 
         btnBid.setDisable(true);
-        // Tránh người dùng nhấn vào nút đặt giá khi chưa có luồng điều hướng đến phòng đấu giá thực tế
     }
 
     private String translateStatus(String status) {
@@ -102,6 +110,20 @@ public class ProductCardController {
             ViewManager.SwitchView(idAuctionRoom);
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    @FXML
+    private void handleViewDetails() {
+        if (product == null) {
+            System.err.println("Lỗi: Card này chưa có dữ liệu sản phẩm!");
+            return;
+        }
+
+        if (homeController != null) {
+            homeController.showProductDetailsOverlay(product);
+        } else {
+            System.err.println("Lỗi: Chưa liên kết HomeController với ProductCardController!");
         }
     }
 }
