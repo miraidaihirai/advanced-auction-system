@@ -25,7 +25,14 @@ public class ProductCardController {
     @FXML 
     private VBox card;
 
+    private Item Product;
+    private HomeController homeController;
+
     private final TimelineCard timeline = new TimelineCard();
+
+    public void setHomeController(HomeController homeController) {
+        this.homeController = homeController;
+    }
 
     public void setData(Item product, String bids, LocalDateTime endTime){
         //In miêu tả cho thẻ sản phẩm
@@ -35,6 +42,7 @@ public class ProductCardController {
         String price = String.valueOf(product.getPrice());
         lblPrice.setText(price);
         lblBids.setText(bids);
+        this.Product = product;
         
         //thiết lập thời gian đếm ngược
         timeline.startCountdown(endTime, lblTime);
@@ -56,6 +64,20 @@ public class ProductCardController {
             ViewManager.SwitchView(idAuctionRoom);
         }catch(Exception e){
             e.printStackTrace();
+        }
+    }
+    @FXML
+    private void handleViewDetails() {
+        if (Product == null) {
+            System.err.println("Lỗi: Card này chưa có dữ liệu sản phẩm!");
+            return;
+        }
+
+        // Gọi hàm bật overlay hiển thị chi tiết sản phẩm ngay trên màn hình Home
+        if (homeController != null) {
+            homeController.showProductDetailsOverlay(Product);
+        } else {
+            System.err.println("Lỗi: Chưa liên kết HomeController với ProductCardController!");
         }
     }
 }
