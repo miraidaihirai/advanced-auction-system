@@ -27,7 +27,7 @@ public class RegisterController {
         if(true){ //Nếu đky được tài khoản
             ViewManager.SwitchView("LogIn");
         }else{
-            errorRegister.setText("Username or password already exists!");
+            errorRegister.setText("Tài khoản hoặc mật khẩu không tồn tại!");
         }
     }
     

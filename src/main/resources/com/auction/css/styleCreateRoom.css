@@ -1,0 +1,76 @@
+/* Nền tổng thể bao trọn khung */
+.root-pane {
+    -fx-background: linear-gradient(to bottom, #f9f9f7, #959591);
+    -fx-background-color: linear-gradient(to bottom, #f9f9f7, #959591);
+}
+
+/* Khung chứa form (Card trắng bo tròn có đổ bóng giống màn đăng nhập) */
+.room-card {
+    -fx-background-color: rgba(255, 255, 255, 0.92);
+    -fx-background-radius: 20px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.1), 25, 0, 0, 10);
+}
+
+/* Tiêu đề chính của form */
+.title-label {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2C3E50;
+}
+
+/* Nhãn tên các trường nhập liệu */
+.field-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #7F8C8D;
+    -fx-font-weight: 600;
+}
+
+/* Định dạng chung cho TextField và ComboBox */
+.text-field,
+.combo-box {
+    -fx-background-color: #F8F9FA;
+    -fx-background-radius: 12px;
+    -fx-border-color: #E2E8F0;
+    -fx-border-radius: 12px;
+    -fx-border-width: 1.5px;
+    -fx-padding: 8px 12px;
+    -fx-text-fill: #2D3748;
+    -fx-prompt-text-fill: #A0AEC0;
+}
+
+/* Hiệu ứng khi bấm vào (focus) TextField hoặc ComboBox */
+.text-field:focused,
+.combo-box:focused {
+    -fx-border-color: #918f0e;
+    -fx-background-color: #FFFFFF;
+}
+
+/* Nút Hủy */
+.cancel-button {
+    -fx-background-color: #E2E8F0;
+    -fx-text-fill: #4A5568;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-background-radius: 12px;
+    -fx-cursor: hand;
+    -fx-padding: 10px 20px;
+}
+
+.cancel-button:hover {
+    -fx-background-color: #CBD5E1;
+}
+
+/* Nút Tạo (Gradient màu hồng đỏ giống nút Đăng nhập) */
+.create-button {
+    -fx-background-color: linear-gradient(to right, #FF4081, #D81B60);
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-background-radius: 12px;
+    -fx-cursor: hand;
+    -fx-padding: 10px 20px;
+}
+
+.create-button:hover {
+    -fx-opacity: 0.9;
+}
