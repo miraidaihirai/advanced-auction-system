@@ -9,6 +9,7 @@ import com.auction.item.Item;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 import network.AuctionSummary;
 
@@ -18,6 +19,9 @@ public class ProductCardController {
 
     @FXML
     private Label lblId;
+
+    @FXML
+    private ImageView imgProduct;
 
     @FXML
     private Label lblName;
@@ -59,6 +63,10 @@ public class ProductCardController {
         if (lblBids != null) lblBids.setText(bids + " Bids");
         if (lblCategory != null) lblCategory.setText(detectCategory(product.getName()));
 
+        if (imgProduct != null) {
+            ProductImageService.loadIntoImageView(imgProduct, "ITEM-" + product.getId(), product.getName(), product.getImagePath(), 232, 135);
+        }
+
         if (endTime != null && lblTime != null) {
             timeline.startCountdown(endTime, lblTime);
         }
@@ -85,6 +93,10 @@ public class ProductCardController {
 
         if (lblTime != null) {
             lblTime.setText("03h 10m 15s");
+        }
+
+        if (imgProduct != null) {
+            ProductImageService.loadIntoImageView(imgProduct, auction.auctionId(), auction.itemId(), null, 232, 135);
         }
 
         if (btnBid != null) {

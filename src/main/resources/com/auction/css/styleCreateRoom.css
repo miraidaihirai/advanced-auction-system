@@ -16,6 +16,46 @@
     -fx-text-fill: #FFFFFF;
 }
 
+/* Image Upload Controls */
+.upload-image-box {
+    -fx-background-color: #0A0E17;
+    -fx-background-radius: 8px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+    -fx-padding: 12px;
+}
+
+.btn-choose-image {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #38BDF8;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 8px 14px;
+    -fx-background-radius: 6px;
+    -fx-border-color: #0284C7;
+    -fx-border-radius: 6px;
+    -fx-cursor: hand;
+}
+
+.btn-choose-image:hover {
+    -fx-background-color: #0284C7;
+    -fx-text-fill: #FFFFFF;
+}
+
+.lbl-image-name {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 11px;
+}
+
+.image-preview-frame {
+    -fx-background-color: #121826;
+    -fx-background-radius: 6px;
+    -fx-border-color: #374151;
+    -fx-border-radius: 6px;
+    -fx-padding: 4px;
+}
+
 .field-label {
     -fx-font-size: 12px;
     -fx-text-fill: #9CA3AF;

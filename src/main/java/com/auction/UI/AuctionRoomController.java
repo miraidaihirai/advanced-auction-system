@@ -21,6 +21,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 import network.AuctionClient;
 import network.AuctionSummary;
@@ -38,6 +39,9 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
 
     @FXML
     private Label lblAuctionId;
+
+    @FXML
+    private ImageView imgShowcase;
 
     @FXML
     private Label lblSeller;
@@ -174,6 +178,9 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
             }
             if (lblItemName != null) {
                 lblItemName.setText(itemName);
+            }
+            if (imgShowcase != null) {
+                ProductImageService.loadIntoImageView(imgShowcase, currentAuctionId, itemName, 520, 220);
             }
             if (lblAuctionId != null) {
                 lblAuctionId.setText("Mã phiên: " + currentAuctionId);
