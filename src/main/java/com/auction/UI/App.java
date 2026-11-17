@@ -19,13 +19,15 @@ public class App extends Application {
 
         clientSession = new ClientSession(SERVER_HOST, SERVER_PORT);
 
-        Scene scene = new Scene(new StackPane(), 700, 500);
+        Scene scene = new Scene(new StackPane(), 1240, 780);
 
         ViewManager.Initialize(scene, clientSession);
         ViewManager.SwitchView("LogIn");
 
         primaryStage.setScene(scene);
-        primaryStage.setTitle("Hệ thống đấu giá trực tuyến");
+        primaryStage.setTitle("Hệ thống Đấu giá Trực tuyến - Realtime Auction");
+        primaryStage.setMinWidth(1080);
+        primaryStage.setMinHeight(680);
         primaryStage.show();
     }
 
