@@ -29,6 +29,7 @@ replay_pid*
 # Persistent data storage
 data/
 *.ser
+dependency-reduced-pom.xml
 
 # IDE / AI tooling cache
 .github/context-mode/
