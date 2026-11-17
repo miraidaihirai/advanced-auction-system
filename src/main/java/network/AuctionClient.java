@@ -264,6 +264,7 @@ public class AuctionClient {
             }
         } catch (IOException e) {
             if (connected) {
+                disconnectedReason = "Connection lost: " + e.getMessage();
                 System.out.printf("[AuctionClient] Connection lost: %s%n", e.getMessage());
             }
         } finally {
@@ -276,6 +277,14 @@ public class AuctionClient {
                 }
             }
             disconnect();
+            if (unexpectedDisconnect) {
+                for (AuctionEventListener listener : listeners) {
+                    try {
+                        listener.onDisconnected(disconnectedReason);
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
         }
     }
     private AuctionSummary parseAuctionLine(String line) {
