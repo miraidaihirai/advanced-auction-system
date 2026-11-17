@@ -35,6 +35,7 @@ public class AuctionServer implements AuctionObserver {
     private final ExecutorService clientThreadPool;
     private final Set<ClientHandler> activeClients = ConcurrentHashMap.newKeySet();
     private volatile boolean running = false;
+    private int defaultClientTimeoutMs = ClientHandler.DEFAULT_SO_TIMEOUT_MS;
 
     private static final AtomicInteger clientThreadCounter = new AtomicInteger(0);
 
@@ -67,7 +68,7 @@ public class AuctionServer implements AuctionObserver {
                 Socket clientSocket = serverSocket.accept();
                 System.out.printf("[AuctionServer] New connection from: %s%n", clientSocket.getRemoteSocketAddress());
 
-                ClientHandler handler = new ClientHandler(clientSocket, this);
+                ClientHandler handler = new ClientHandler(clientSocket, this, defaultClientTimeoutMs);
                 activeClients.add(handler);
                 clientThreadPool.submit(handler);
             }
@@ -101,7 +102,7 @@ public class AuctionServer implements AuctionObserver {
      * Dừng server và giải phóng toàn bộ kết nối.
      * Tự động lưu trạng thái dữ liệu ra file nếu autoSave đang bật.
      */
-    public void stop() {
+    public synchronized void stop() {
         if (!running) {
             return;
         }
@@ -122,13 +123,18 @@ public class AuctionServer implements AuctionObserver {
             }
         }
 
-        // Đóng toàn bộ ClientHandlers
-        for (ClientHandler client : activeClients) {
+        // Đóng toàn bộ ClientHandlers (snapshot để tránh ConcurrentModification)
+        for (ClientHandler client : new java.util.ArrayList<>(activeClients)) {
             client.close();
         }
         activeClients.clear();
 
         clientThreadPool.shutdownNow();
+        try {
+            clientThreadPool.awaitTermination(2, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
         System.out.println("[AuctionServer] Server stopped successfully.");
     }
 
@@ -230,6 +236,14 @@ public class AuctionServer implements AuctionObserver {
 
     public boolean isRunning() {
         return running;
+    }
+
+    public int getDefaultClientTimeoutMs() {
+        return defaultClientTimeoutMs;
+    }
+
+    public void setDefaultClientTimeoutMs(int defaultClientTimeoutMs) {
+        this.defaultClientTimeoutMs = defaultClientTimeoutMs;
     }
 
     /**

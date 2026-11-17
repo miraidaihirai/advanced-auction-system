@@ -265,6 +265,14 @@ public class Auction implements AuctionSubject, Serializable {
         }
     }
 
+    public List<AuctionObserver> getObservers() {
+        return Collections.unmodifiableList(observers);
+    }
+
+    public int getObserverCount() {
+        return observers.size();
+    }
+
     public String getId() {
         return id;
     }

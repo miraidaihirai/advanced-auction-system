@@ -1,30 +1,31 @@
-package com.auction.UI;
+package com.auction.ui;
+
+import com.auction.session.ClientSession;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.stage.Stage;
 import javafx.scene.layout.StackPane;
-import java.io.IOException;
-
-import com.auction.sessions.ClientSession;
+import javafx.stage.Stage;
 
 public class App extends Application {
+
+    private static final String SERVER_HOST = "localhost";
+    private static final int SERVER_PORT = 8888;
+// Cần đổi "localhost" thành IP LAN của máy chạy Server trong demo
     private ClientSession clientSession;
-    private static final String SEVER_HOST = "localhost";
-    private static final int SEVER_PORT = 8888;
 
     @Override
-    public void start(Stage primaryStage) throws IOException {
-        clientSession = new ClientSession(SEVER_HOST, SEVER_PORT);
-        // Tạo một AuctionClient trong ClientSession, Socket chưa kết nối với Server
+    public void start(Stage primaryStage) {
+
+        clientSession = new ClientSession(SERVER_HOST, SERVER_PORT);
+
         Scene scene = new Scene(new StackPane(), 700, 500);
-        // Do JavaFX cần một Root Node để tạo Scene
-        // Ta tạo một StackPane trống, sau đó để ViewManager thay thế nó bằng Login.fxml
+
         ViewManager.Initialize(scene, clientSession);
-        // ViewManager nhận thêm đối tượng ClientSesion cho phép cung cấp cho các Controller sử dụng Socket
-        primaryStage.setScene(scene);
-        primaryStage.setTitle("Online Auction System");
         ViewManager.SwitchView("LogIn");
+
+        primaryStage.setScene(scene);
+        primaryStage.setTitle("Hệ thống đấu giá trực tuyến");
         primaryStage.show();
     }
 
@@ -34,5 +35,4 @@ public class App extends Application {
             clientSession.disconnect();
         }
     }
-    // Đóng Socket khi yngws dụng kết thúc
 }
