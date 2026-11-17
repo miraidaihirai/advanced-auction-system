@@ -1,5 +1,6 @@
 package com.auction.ui;
 
+import java.io.File;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.ResourceBundle;
@@ -13,12 +14,28 @@ import com.auction.item.factory.VehicleFactory;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 
 public class CreateRoomUIController implements Initializable {
     @FXML
+    private VBox createRoom;
+
+    @FXML
     private ComboBox<String> selectItem;
+
+    @FXML
+    private Label lblImageFileName;
+
+    @FXML
+    private ImageView imgPreview;
+
+    private File selectedImageFile;
 
     // Các trường chung
     @FXML
@@ -33,7 +50,7 @@ public class CreateRoomUIController implements Initializable {
     @FXML
     private TextField txtQuantity;
 
-    // Các VBox bọc trường riêng (dùng để ẩn/hiện cả khối để không bị trống khoảng cách)
+    // Các VBox bọc trường riêng
     @FXML
     private VBox boxArtist;
 
@@ -85,24 +102,42 @@ public class CreateRoomUIController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Thêm các mục lựa chọn vào ComboBox
         selectItem.getItems().addAll("Đồ nghệ thuật", "Đồ điện", "Phương tiện giao thông");
-
-        // Ban đầu chưa chọn thì ẩn toàn bộ các trường đặc thù
         updateFieldsByCategory(null);
 
-        // Lắng nghe sự kiện khi người dùng chọn loại sản phẩm
         selectItem.setOnAction(event -> {
             String selectValue = selectItem.getValue();
             updateFieldsByCategory(selectValue);
         });
     }
 
-    /**
-     * Hàm tiện ích: Ẩn/hiện một khối VBox.
-     * Khi managed = false, VBox cha (createRoom) sẽ bỏ qua hoàn toàn phần tử này
-     * và không cộng dồn khoảng cách spacing, giúp các trường hiển thị luôn đều nhau.
-     */
+    @FXML
+    private void handleChooseImage() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Chọn ảnh sản phẩm đấu giá");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Hình ảnh (*.png, *.jpg, *.jpeg, *.webp)", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.PNG", "*.JPG", "*.JPEG"),
+                new FileChooser.ExtensionFilter("Tất cả tệp", "*.*")
+        );
+
+        Window window = createRoom != null && createRoom.getScene() != null ? createRoom.getScene().getWindow() : null;
+        File file = fileChooser.showOpenDialog(window);
+        if (file != null) {
+            selectedImageFile = file;
+            if (lblImageFileName != null) {
+                lblImageFileName.setText(file.getName());
+            }
+            try {
+                Image img = new Image(file.toURI().toString(), 150, 85, true, true);
+                if (imgPreview != null) {
+                    imgPreview.setImage(img);
+                }
+            } catch (Exception e) {
+                System.err.println("Không thể nạp preview ảnh: " + e.getMessage());
+            }
+        }
+    }
+
     private void setFieldVisible(VBox box, boolean visible) {
         if (box != null) {
             box.setVisible(visible);
@@ -110,9 +145,6 @@ public class CreateRoomUIController implements Initializable {
         }
     }
 
-    /**
-     * Cập nhật hiển thị các trường dựa trên loại sản phẩm được chọn
-     */
     private void updateFieldsByCategory(String category) {
         if (category == null) {
             setFieldVisible(boxArtist, false);
@@ -129,23 +161,17 @@ public class CreateRoomUIController implements Initializable {
         boolean isElectronics = "Đồ điện".equals(category);
         boolean isVehicle = "Phương tiện giao thông".equals(category);
 
-        // Trường riêng của Đồ nghệ thuật
         setFieldVisible(boxArtist, isArt);
         setFieldVisible(boxMedium, isArt);
         setFieldVisible(boxYearCreated, isArt);
 
-        // Trường chung của Đồ điện và Phương tiện giao thông
         setFieldVisible(boxBrand, isElectronics || isVehicle);
         setFieldVisible(boxModel, isElectronics || isVehicle);
 
-        // Trường riêng
         setFieldVisible(boxWarrantyPeriod, isElectronics);
         setFieldVisible(boxYear, isVehicle);
     }
 
-    /**
-     * Hàm logic khởi tạo sản phẩm từ các trường đã nhập
-     */
     private Item initializeItem(String selectValue) {
         if (selectValue == null) {
             System.err.println("Chưa chọn loại sản phẩm!");
@@ -186,15 +212,32 @@ public class CreateRoomUIController implements Initializable {
     }
 
     @FXML
-    // Khi admin bấm nút tạo phòng
     private void handleCreate() {
         String selectValue = selectItem.getValue();
         item = initializeItem(selectValue);
 
         if (item != null && mainScreenController != null) {
+            if (selectedImageFile != null) {
+                String savedPath = ProductImageService.saveProductImage("ITEM-" + item.getId(), selectedImageFile);
+                item.setImagePath(savedPath);
+                ProductImageService.registerImage("AUC-" + item.getId(), savedPath);
+                ProductImageService.registerImage(item.getName(), savedPath);
+                ProductImageService.registerImage(String.valueOf(item.getId()), savedPath);
+            }
+
             LocalDateTime endTime = LocalDateTime.now().plusDays(1);
             mainScreenController.addNewAuctionCard(item, endTime);
             System.out.println("Đã tạo phòng đấu giá thành công cho: " + item.getName());
+
+            // Reset image state
+            selectedImageFile = null;
+            if (lblImageFileName != null) {
+                lblImageFileName.setText("Chưa chọn ảnh (sử dụng ảnh mẫu theo danh mục)");
+            }
+            if (imgPreview != null) {
+                imgPreview.setImage(null);
+            }
+
             handleClose();
         }
     }

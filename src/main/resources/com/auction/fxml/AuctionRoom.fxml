@@ -10,9 +10,11 @@
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21"
@@ -50,6 +52,11 @@
                             <HBox HBox.hgrow="ALWAYS" />
                             <Label fx:id="lblAuctionStatus" text="ACTIVE" styleClass="status-active-badge"/>
                         </HBox>
+
+                        <!-- Product Showcase Image (Matching Right Monitor in Photo) -->
+                        <StackPane alignment="CENTER" styleClass="showcase-image-frame" prefHeight="220" maxHeight="240">
+                            <ImageView fx:id="imgShowcase" fitWidth="520" fitHeight="220" preserveRatio="false"/>
+                        </StackPane>
 
                         <Label fx:id="lblItemName" text="Tên sản phẩm đấu giá" styleClass="showcase-item-title"/>
                         <Label fx:id="lblDescription" text="Mô tả chi tiết sản phẩm, xuất xứ và điều kiện bảo hành..." styleClass="showcase-desc" wrapText="true"/>

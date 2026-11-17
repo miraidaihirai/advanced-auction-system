@@ -5,7 +5,9 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <!-- Sử dụng ScrollPane làm gốc, gắn styleClass nền và đường dẫn file CSS -->
@@ -18,8 +20,20 @@
 
       <!-- ComboBox Chọn sản phẩm -->
       <VBox spacing="4">
-        <Label styleClass="field-label" text="Chọn sản phẩm"/>
-        <ComboBox fx:id="selectItem" prefWidth="400.0" promptText="-- Chọn sản phẩm --" styleClass="combo-box"/>
+        <Label styleClass="field-label" text="Chọn loại sản phẩm"/>
+        <ComboBox fx:id="selectItem" prefWidth="400.0" promptText="-- Chọn loại sản phẩm --" styleClass="combo-box"/>
+      </VBox>
+
+      <!-- Tải ảnh sản phẩm (Upload Image Feature) -->
+      <VBox spacing="6" styleClass="upload-image-box">
+        <Label styleClass="field-label" text="Hình ảnh sản phẩm"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+          <Button text="Chọn ảnh từ máy tính..." onAction="#handleChooseImage" styleClass="btn-choose-image"/>
+          <Label fx:id="lblImageFileName" text="Chưa chọn ảnh (sử dụng ảnh mẫu theo danh mục)" styleClass="lbl-image-name"/>
+        </HBox>
+        <StackPane alignment="CENTER_LEFT" prefHeight="90" maxWidth="160" styleClass="image-preview-frame">
+          <ImageView fx:id="imgPreview" fitWidth="150" fitHeight="85" preserveRatio="true"/>
+        </StackPane>
       </VBox>
 
       <!-- Các trường chung -->

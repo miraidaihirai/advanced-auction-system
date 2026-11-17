@@ -17,6 +17,15 @@
     -fx-text-fill: #FFFFFF;
 }
 
+.details-image-frame {
+    -fx-background-color: #0A0E17;
+    -fx-background-radius: 10px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 10px;
+    -fx-border-width: 1px;
+    -fx-padding: 3px;
+}
+
 .field-label {
     -fx-font-size: 11px;
     -fx-text-fill: #9CA3AF;
