@@ -216,7 +216,7 @@ class ClientHandlerTest {
                 try (TestConnection connection = openConnection()) {
 
                         assertEquals(
-                                        "ERROR You must LOGIN first to place a bid",
+                                        "ERROR BID You must LOGIN first to place a bid",
                                         connection.sendCommand(
                                                         "BID " + uniqueId("AUC") + " 21000000"));
                         // Chưa login, báo lỗi auth trước, chưa cần biết auction có tồn tại hay không
@@ -225,7 +225,7 @@ class ClientHandlerTest {
                                         connection.sendCommand(
                                                         "LOGIN " + seller.getId() + " password123"));
                         assertEquals(
-                                        "ERROR Only Bidders can place bids",
+                                        "ERROR BID Only Bidders can place bids",
                                         connection.sendCommand(
                                                         "BID " + uniqueId("AUC") + " 21000000"));
                         // Login sai role
@@ -243,7 +243,7 @@ class ClientHandlerTest {
                                         "LOGIN " + bidder.getId() + " password123");
 
                         assertEquals(
-                                        "ERROR Invalid bid amount: invalid",
+                                        "ERROR BID Invalid bid amount: invalid",
                                         connection.sendCommand(
                                                         "BID " + uniqueId("AUC") + " invalid"));
                 }

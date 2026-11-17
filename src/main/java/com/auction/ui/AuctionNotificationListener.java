@@ -31,11 +31,12 @@ public class AuctionNotificationListener
             double finalPrice,
             String winnerId) {
         String winnerMessage;
-        if (auctionId != null && personalizedCloseNotification.remove(auctionId)){
+        if (auctionId != null && personalizedCloseNotification.remove(auctionId)) {
             return;
         }
         // Nếu mã phiên tồn tại trong Set, xoá nó và không hiện Alert chung
-        // Nếu không tồn tại, người dùng chỉ nhận thông báo kết thúc chung, nên Alert vẫn hiển thị
+        // Nếu không tồn tại, người dùng chỉ nhận thông báo kết thúc chung, nên Alert
+        // vẫn hiển thị
         if (winnerId == null || winnerId.equalsIgnoreCase("NONE")) {
             winnerMessage = "Không có người thắng cuộc.";
         } else {
@@ -59,6 +60,8 @@ public class AuctionNotificationListener
 
         if (message.startsWith("SUCCESS BID ")) {
             handleBidSuccess(message);
+        } else if (message.startsWith("ERROR BID ")) {
+            handleBidError(message);
         }
     }
 
@@ -147,6 +150,43 @@ public class AuctionNotificationListener
                         + "Mã phiên: " + auctionId + "\n"
                         + "Giá cuối cùng: " + formatPrice(finalPrice) + "\n"
                         + winnerMessage);
+    }
+
+    private void handleBidError(String message) {
+        String reason = message.substring("ERROR BID ".length()).trim();
+        String userMessage = translateBidError(reason);
+        System.err.println("[AuctionNotificationListener] BID error: " + reason);
+        NotificationManager.showError("Đặt giá không thành công.\n" + userMessage);
+    }
+
+    private String translateBidError(String reason) {
+        String normalized = reason.toLowerCase(Locale.ROOT);
+
+        if (normalized.startsWith("invalid bid amount")) {
+            return "Số tiền đặt giá không hợp lệ.";
+        }
+
+        if (normalized.contains("must login")) {
+            return "Bạn cần đăng nhập trước khi đặt giá.";
+        }
+
+        if (normalized.contains("only bidders")) {
+            return "Chỉ tài khoản người đấu giá mới được phép đặt giá.";
+        }
+
+        if (normalized.contains("auction") && normalized.contains("closed")) {
+            return "Phiên đấu giá đã kết thúc, không thể tiếp tục đặt giá.";
+        }
+
+        if (normalized.contains("bid was not accepted")) {
+            return "Máy chủ không chấp nhận mức giá này.";
+        }
+
+        if (normalized.startsWith("usage:")) {
+            return "Thông tin đặt giá không đúng định dạng.";
+        }
+
+        return "Vui lòng kiểm tra mức giá và trạng thái phiên đấu giá.";
     }
 }
 // Observer Pattern
