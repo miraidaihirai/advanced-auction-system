@@ -42,13 +42,14 @@ public class HomeController implements SessionAware {
         if (this.clientSession == session && auctionListListener != null) {
             return;
         }
-        //Không làm gì nếu Session không tồn tại, nếu cùng session thì không đăng kí lại
+        // Không làm gì nếu Session không tồn tại, nếu cùng session thì không đăng kí
+        // lại
         if (this.clientSession != null && auctionListListener != null) {
             this.clientSession.getClient().removeListener(auctionListListener);
         }
         this.clientSession = session;
         AuctionClient client = session.getClient();
-         // Gỡ listener khỏi kết nối cũ
+        // Gỡ listener khỏi kết nối cũ
         auctionListListener = new AuctionClient.AuctionEventListener() {
             // Đăng kí listener
             @Override
@@ -83,11 +84,11 @@ public class HomeController implements SessionAware {
                     }
                 });
             }
-            //Xử lý thông báo đấu giá từ Server
+            // Xử lý thông báo đấu giá từ Server
             // Ví dụ onBidUpdate("AUC-001", 10500000, "BIDDER-01", ...);
-            //1. Tìm phiên đấu giá có auctionId như kia, tạo một AuctionSummary mới
+            // 1. Tìm phiên đấu giá có auctionId như kia, tạo một AuctionSummary mới
             // giữ nguyên tên sản phẩm, bước giá và trạng thái
-            //Cập nhật giá và người dẫn đầu
+            // Cập nhật giá và người dẫn đầu
             // Gọi renderServerAuctionCards() để cập nhật giao diện
 
             @Override
