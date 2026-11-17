@@ -38,7 +38,7 @@ public final class NotificationManager {
             Alert alert = new Alert(type);
             alert.setTitle(title);
             alert.setHeaderText(null);
-            alert.setContentText(message);
+            alert.setContentText(message == null || message.isBlank() ? "Đã xảy ra sự kiện cần thông báo." : message);
             alert.show();
         };
         // Không hiện tiêu đề phụ, hiển thị hộp thoai để người dùng đóng nó
