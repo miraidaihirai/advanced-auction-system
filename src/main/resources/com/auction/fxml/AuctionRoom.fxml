@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.auction.ui.AuctionRoomController"
+            styleClass="auction-room-root"
+            stylesheets="@../css/styleAuctionRoom.css">
+
+    <!-- Top Navigation Bar -->
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="20" styleClass="top-header-bar">
+            <Button text="&lt; Quay lại Trang chủ" onAction="#handleBackToHome" styleClass="btn-back"/>
+            <VBox spacing="2">
+                <Label fx:id="lblRoomTitle" text="PHÒNG ĐẤU GIÁ TRỰC TIẾP" styleClass="header-room-title"/>
+                <Label text="Hệ thống tự động cập nhật giá và bước nhảy theo thời gian thực" styleClass="header-sub-title"/>
+            </VBox>
+            <HBox HBox.hgrow="ALWAYS" />
+            <Label text="● ĐANG TRỰC TIẾP" styleClass="badge-live-pulse"/>
+        </HBox>
+    </top>
+
+    <!-- Center Content: Split into Left Showcase + Chart, Right Bidding Panel -->
+    <center>
+        <HBox spacing="20" styleClass="main-content-split">
+
+            <!-- Left Panel: Product Showcase + Real-time Chart -->
+            <ScrollPane fitToWidth="true" HBox.hgrow="ALWAYS" styleClass="room-scroll-pane">
+                <VBox spacing="20" styleClass="left-showcase-container">
+
+                    <!-- Product Banner Showcase Card -->
+                    <VBox spacing="15" styleClass="card-showcase">
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label fx:id="lblCategoryTag" text="[ ĐỒNG HỒ CAO CẤP ]" styleClass="category-tag-pill"/>
+                            <Label fx:id="lblAuctionId" text="Mã phiên: AUC-001" styleClass="auction-id-tag"/>
+                            <HBox HBox.hgrow="ALWAYS" />
+                            <Label fx:id="lblAuctionStatus" text="ACTIVE" styleClass="status-active-badge"/>
+                        </HBox>
+
+                        <Label fx:id="lblItemName" text="Tên sản phẩm đấu giá" styleClass="showcase-item-title"/>
+                        <Label fx:id="lblDescription" text="Mô tả chi tiết sản phẩm, xuất xứ và điều kiện bảo hành..." styleClass="showcase-desc" wrapText="true"/>
+
+                        <!-- Specifications Grid -->
+                        <HBox spacing="30" styleClass="specs-summary-row">
+                            <VBox spacing="4">
+                                <Label text="Người bán" styleClass="spec-label"/>
+                                <Label fx:id="lblSeller" text="SELLER-01 (Đã xác minh)" styleClass="spec-val-highlight"/>
+                            </VBox>
+                            <VBox spacing="4">
+                                <Label text="Giá khởi điểm" styleClass="spec-label"/>
+                                <Label fx:id="lblStartPrice" text="10,000,000 đ" styleClass="spec-val"/>
+                            </VBox>
+                            <VBox spacing="4">
+                                <Label text="Bước giá quy định" styleClass="spec-label"/>
+                                <Label fx:id="lblMinStep" text="+500,000 đ" styleClass="spec-val"/>
+                            </VBox>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Real-time Price Chart Card -->
+                    <VBox spacing="10" styleClass="card-chart">
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label text="BIỂU ĐỒ BIẾN ĐỘNG GIÁ THEO THỜI GIAN" styleClass="chart-card-title"/>
+                            <Label text="(Cập nhật tức thời khi có lượt đặt mới)" styleClass="chart-sub-title"/>
+                        </HBox>
+                        <LineChart fx:id="priceChart" prefHeight="300" styleClass="price-line-chart">
+                            <xAxis>
+                                <CategoryAxis fx:id="xAxis" label="Thời điểm" side="BOTTOM" styleClass="chart-axis"/>
+                            </xAxis>
+                            <yAxis>
+                                <NumberAxis fx:id="yAxis" label="Giá đấu (VNĐ)" side="LEFT" styleClass="chart-axis"/>
+                            </yAxis>
+                        </LineChart>
+                    </VBox>
+
+                </VBox>
+            </ScrollPane>
+
+            <!-- Right Panel: Countdown + Pricing + Bid History + Controls -->
+            <VBox spacing="16" styleClass="right-bidding-panel" prefWidth="380" minWidth="360" maxWidth="420">
+
+                <!-- Countdown Timer Card (Red/Crimson like in photo) -->
+                <VBox alignment="CENTER" spacing="6" styleClass="card-timer-box">
+                    <Label text="THỜI GIAN CÒN LẠI" styleClass="timer-header-label"/>
+                    <Label fx:id="lblCountdownTimer" text="00:04:32" styleClass="timer-digits-label"/>
+                </VBox>
+
+                <!-- Current Price Section -->
+                <VBox spacing="6" styleClass="card-price-box">
+                    <Label text="GIÁ HIỆN TẠI" styleClass="price-header-label"/>
+                    <Label fx:id="lblCurrentPrice" text="15,500,000 đ" styleClass="current-price-big"/>
+                    <Label fx:id="lblHighestBidder" text="Người giữ giá cao nhất: BIDDER-01" styleClass="leader-label"/>
+                    <Label fx:id="lblStepInfo" text="Bước giá tối thiểu: +500,000 đ" styleClass="step-info-label"/>
+                </VBox>
+
+                <!-- Live Bid History List -->
+                <VBox spacing="8" VBox.vgrow="ALWAYS" styleClass="card-history-box">
+                    <Label text="LỊCH SỬ ĐẶT GIÁ GẦN NHẤT" styleClass="history-title-label"/>
+                    <ListView fx:id="lvBidHistory" VBox.vgrow="ALWAYS" prefHeight="130" styleClass="bid-history-list"/>
+                </VBox>
+
+                <!-- Quick Increment Buttons -->
+                <VBox spacing="8" styleClass="card-action-box">
+                    <Label text="Tăng giá nhanh:" styleClass="quick-bid-title"/>
+                    <HBox spacing="8" alignment="CENTER">
+                        <Button text="+500K" onAction="#handleQuickBid500k" styleClass="btn-quick-bid" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                        <Button text="+1 Triệu" onAction="#handleQuickBid1M" styleClass="btn-quick-bid" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                        <Button text="+2 Triệu" onAction="#handleQuickBid2M" styleClass="btn-quick-bid" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                        <Button text="+5 Triệu" onAction="#handleQuickBid5M" styleClass="btn-quick-bid" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                    </HBox>
+
+                    <!-- Custom Bid Input -->
+                    <VBox spacing="6" style="-fx-padding: 6 0 0 0;">
+                        <Label text="Số tiền đặt giá (VNĐ):" styleClass="input-label"/>
+                        <TextField fx:id="txtBidAmount" promptText="Nhập số tiền đặt giá..." styleClass="bid-input-field"/>
+                    </VBox>
+
+                    <!-- Giant CTA Button -->
+                    <Button fx:id="btnPlaceBid" text="ĐẶT GIÁ NGAY" onAction="#handlePlaceBid" styleClass="btn-place-bid-cta" maxWidth="Infinity"/>
+
+                    <!-- Realtime Status Alert -->
+                    <Label fx:id="lblStatusMessage" text="Sẵn sàng tham gia phiên đấu giá" styleClass="status-message-label" wrapText="true" alignment="CENTER"/>
+                </VBox>
+
+            </VBox>
+
+        </HBox>
+    </center>
+
+</BorderPane>

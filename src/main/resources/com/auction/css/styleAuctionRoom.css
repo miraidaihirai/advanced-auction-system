@@ -1,0 +1,395 @@
+/* styleAuctionRoom.css - Realtime Luxury Dark Theme for Live Auction Room */
+
+.auction-room-root {
+    -fx-background-color: #0A0E17;
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* Top Navigation Bar */
+.top-header-bar {
+    -fx-background-color: #111827;
+    -fx-padding: 14px 24px;
+    -fx-border-color: #1F2937;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.btn-back {
+    -fx-background-color: #1F2937;
+    -fx-text-fill: #E5E7EB;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-background-radius: 8px;
+    -fx-padding: 8px 16px;
+    -fx-cursor: hand;
+    -fx-border-color: #374151;
+    -fx-border-radius: 8px;
+}
+
+.btn-back:hover {
+    -fx-background-color: #374151;
+    -fx-text-fill: #FFFFFF;
+}
+
+.header-room-title {
+    -fx-text-fill: #F9FAFB;
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+}
+
+.header-sub-title {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 11px;
+}
+
+.badge-live-pulse {
+    -fx-background-color: rgba(16, 185, 129, 0.15);
+    -fx-text-fill: #10B981;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 6px 14px;
+    -fx-background-radius: 20px;
+    -fx-border-color: #10B981;
+    -fx-border-radius: 20px;
+}
+
+/* Split content */
+.main-content-split {
+    -fx-padding: 20px;
+}
+
+.room-scroll-pane {
+    -fx-background: transparent;
+    -fx-background-color: transparent;
+}
+
+.room-scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.left-showcase-container {
+    -fx-padding: 0 10px 0 0;
+}
+
+/* Showcase Card */
+.card-showcase {
+    -fx-background-color: #121826;
+    -fx-background-radius: 12px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 12px;
+    -fx-border-width: 1px;
+    -fx-padding: 22px;
+}
+
+.category-tag-pill {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #38BDF8;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 4px 10px;
+    -fx-background-radius: 6px;
+    -fx-border-color: #0284C7;
+    -fx-border-radius: 6px;
+}
+
+.auction-id-tag {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.status-active-badge {
+    -fx-background-color: rgba(245, 158, 11, 0.15);
+    -fx-text-fill: #F59E0B;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 4px 10px;
+    -fx-background-radius: 6px;
+    -fx-border-color: #D97706;
+    -fx-border-radius: 6px;
+}
+
+.showcase-item-title {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+
+.showcase-desc {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 13px;
+    -fx-line-spacing: 3px;
+}
+
+.specs-summary-row {
+    -fx-background-color: #0F141F;
+    -fx-background-radius: 8px;
+    -fx-padding: 14px 18px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 8px;
+}
+
+.spec-label {
+    -fx-text-fill: #6B7280;
+    -fx-font-size: 11px;
+}
+
+.spec-val {
+    -fx-text-fill: #E5E7EB;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.spec-val-highlight {
+    -fx-text-fill: #38BDF8;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+/* Chart Card */
+.card-chart {
+    -fx-background-color: #121826;
+    -fx-background-radius: 12px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 12px;
+    -fx-border-width: 1px;
+    -fx-padding: 20px;
+}
+
+.chart-card-title {
+    -fx-text-fill: #F9FAFB;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+.chart-sub-title {
+    -fx-text-fill: #6B7280;
+    -fx-font-size: 11px;
+}
+
+.price-line-chart {
+    -fx-background-color: transparent;
+    -fx-padding: 10px 0 0 0;
+}
+
+.price-line-chart .chart-plot-background {
+    -fx-background-color: #0A0E17;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 6px;
+}
+
+.price-line-chart .chart-vertical-grid-lines,
+.price-line-chart .chart-horizontal-grid-lines {
+    -fx-stroke: #1E293B;
+    -fx-stroke-dash-array: 2 4;
+}
+
+.price-line-chart .chart-series-line {
+    -fx-stroke: #F59E0B;
+    -fx-stroke-width: 2.5px;
+}
+
+.price-line-chart .default-color0.chart-line-symbol {
+    -fx-background-color: #F59E0B, #FFFFFF;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 4px;
+    -fx-padding: 4px;
+}
+
+.chart-axis {
+    -fx-tick-label-fill: #9CA3AF;
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 10px;
+}
+
+.chart-axis .axis-line {
+    -fx-stroke: #374151;
+}
+
+.chart-axis .axis-tick-mark {
+    -fx-stroke: #374151;
+}
+
+/* Right Bidding Panel */
+.right-bidding-panel {
+    -fx-background-color: #121826;
+    -fx-background-radius: 14px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 14px;
+    -fx-border-width: 1px;
+    -fx-padding: 18px;
+}
+
+/* Red/Crimson Countdown Timer Box (from photo) */
+.card-timer-box {
+    -fx-background-color: #300A12;
+    -fx-background-radius: 10px;
+    -fx-border-color: #881326;
+    -fx-border-radius: 10px;
+    -fx-border-width: 1.5px;
+    -fx-padding: 12px;
+}
+
+.timer-header-label {
+    -fx-text-fill: #F87171;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-letter-spacing: 1px;
+}
+
+.timer-digits-label {
+    -fx-text-fill: #EF4444;
+    -fx-font-size: 32px;
+    -fx-font-weight: bold;
+    -fx-font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* Price Box */
+.card-price-box {
+    -fx-background-color: #0F141F;
+    -fx-background-radius: 10px;
+    -fx-padding: 14px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 10px;
+}
+
+.price-header-label {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.current-price-big {
+    -fx-text-fill: #F59E0B;
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+}
+
+.leader-label {
+    -fx-text-fill: #38BDF8;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.step-info-label {
+    -fx-text-fill: #6B7280;
+    -fx-font-size: 11px;
+}
+
+/* Bid History Box */
+.card-history-box {
+    -fx-background-color: #0F141F;
+    -fx-background-radius: 10px;
+    -fx-padding: 12px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 10px;
+}
+
+.history-title-label {
+    -fx-text-fill: #D1D5DB;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.bid-history-list {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+}
+
+.bid-history-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #E5E7EB;
+    -fx-font-size: 11px;
+    -fx-padding: 4px 6px;
+    -fx-border-color: #1E293B;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.bid-history-list .list-cell:empty {
+    -fx-border-width: 0;
+}
+
+.bid-history-list .list-cell:filled:hover {
+    -fx-background-color: #1E293B;
+}
+
+/* Action Box */
+.card-action-box {
+    -fx-background-color: #0F141F;
+    -fx-background-radius: 10px;
+    -fx-padding: 14px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 10px;
+}
+
+.quick-bid-title {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 11px;
+}
+
+.btn-quick-bid {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #F3F4F6;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 7px 4px;
+    -fx-background-radius: 6px;
+    -fx-border-color: #374151;
+    -fx-border-radius: 6px;
+    -fx-cursor: hand;
+}
+
+.btn-quick-bid:hover {
+    -fx-background-color: #374151;
+    -fx-border-color: #6B7280;
+    -fx-text-fill: #FFFFFF;
+}
+
+.input-label {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 11px;
+}
+
+.bid-input-field {
+    -fx-background-color: #111827;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 9px 12px;
+    -fx-background-radius: 8px;
+    -fx-border-color: #374151;
+    -fx-border-radius: 8px;
+}
+
+.bid-input-field:focused {
+    -fx-border-color: #F59E0B;
+}
+
+/* Prominent CTA Button (from photo: vibrant coral/red) */
+.btn-place-bid-cta {
+    -fx-background-color: linear-gradient(to right, #E11D48, #BE123C);
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 13px 0;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(225, 29, 72, 0.4), 10, 0, 0, 3);
+}
+
+.btn-place-bid-cta:hover {
+    -fx-background-color: linear-gradient(to right, #F43F5E, #E11D48);
+    -fx-translate-y: -1px;
+}
+
+.btn-place-bid-cta:pressed {
+    -fx-translate-y: 1px;
+    -fx-effect: none;
+}
+
+.status-message-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #9CA3AF;
+    -fx-min-height: 28px;
+}

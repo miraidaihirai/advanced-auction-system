@@ -14,6 +14,9 @@ import network.AuctionSummary;
 
 public class ProductCardController {
     @FXML
+    private Label lblCategory;
+
+    @FXML
     private Label lblId;
 
     @FXML
@@ -35,95 +38,103 @@ public class ProductCardController {
     private VBox card;
 
     private Item Product;
+    private AuctionSummary auctionSummary;
     private HomeController homeController;
 
     private final TimelineCard timeline = new TimelineCard();
+    private final NumberFormat currencyFormat = NumberFormat.getNumberInstance(Locale.forLanguageTag("vi-VN"));
 
     public void setHomeController(HomeController homeController) {
         this.homeController = homeController;
     }
 
-    public void setData(Item product, String bids, LocalDateTime endTime){
-        //In miêu tả cho thẻ sản phẩm
-        String id = String.valueOf(product.getId());
-        lblId.setText(id);
-        lblName.setText(product.getName());
-        lblPrice.setText(String.valueOf(product.getPrice()));
-        lblBids.setText(bids);
+    public void setData(Item product, String bids, LocalDateTime endTime) {
         this.Product = product;
-        
-        //thiết lập thời gian đếm ngược
-        timeline.startCountdown(endTime, lblTime);
+        currencyFormat.setMaximumFractionDigits(0);
+
+        String id = String.valueOf(product.getId());
+        if (lblId != null) lblId.setText("ID: " + id);
+        if (lblName != null) lblName.setText(product.getName());
+        if (lblPrice != null) lblPrice.setText(currencyFormat.format(product.getPrice()) + " đ");
+        if (lblBids != null) lblBids.setText(bids + " Bids");
+        if (lblCategory != null) lblCategory.setText(detectCategory(product.getName()));
+
+        if (endTime != null && lblTime != null) {
+            timeline.startCountdown(endTime, lblTime);
+        }
     }
 
     public void setAuctionData(AuctionSummary auction) {
         if (auction == null) return;
+        this.auctionSummary = auction;
+        currencyFormat.setMaximumFractionDigits(0);
 
-        lblId.setText(auction.auctionId());
-        lblName.setText(auction.itemId());
-
-        NumberFormat priceFormat =
-                NumberFormat.getNumberInstance(Locale.forLanguageTag("vi-VN"));
-
-        priceFormat.setMaximumFractionDigits(2);
-        priceFormat.setMinimumFractionDigits(0);
-
-        lblPrice.setText(priceFormat.format(auction.currentPrice()));
+        if (lblId != null) lblId.setText(auction.auctionId());
+        if (lblName != null) lblName.setText(auction.itemId());
+        if (lblCategory != null) lblCategory.setText(detectCategory(auction.itemId()));
+        if (lblPrice != null) lblPrice.setText(currencyFormat.format(auction.currentPrice()) + " đ");
 
         String highestBidder = auction.highestBidderId();
-
-        if (highestBidder == null || highestBidder.equalsIgnoreCase("NONE")) {
-            lblBids.setText("Chưa có người đặt giá");
-        } else {
-            lblBids.setText("Người dẫn đầu: " + highestBidder);
+        if (lblBids != null) {
+            if (highestBidder == null || highestBidder.equalsIgnoreCase("NONE")) {
+                lblBids.setText("Chưa có lượt đặt");
+            } else {
+                lblBids.setText("Dẫn đầu: " + highestBidder);
+            }
         }
 
-        lblTime.setText("Trạng thái: " + translateStatus(auction.status()));
-
-        btnBid.setDisable(true);
-    }
-
-    private String translateStatus(String status) {
-        if (status == null || status.isBlank()) {
-            return "Không xác định";
+        if (lblTime != null) {
+            lblTime.setText("03h 10m 15s");
         }
 
-        return switch (status.toUpperCase(Locale.ROOT)) {
-            case "ACTIVE" -> "Đang diễn ra";
-            case "CLOSED", "ENDED", "FINISHED" -> "Đã kết thúc";
-            case "PENDING", "WAITING" -> "Chưa bắt đầu";
-            default -> "Không xác định (" + status + ")";
-        };
+        if (btnBid != null) {
+            btnBid.setDisable(false);
+        }
     }
 
-    public void handleCardClick() {
-        card.setOnMouseClicked(event -> {
-            navigateToAuctionRoom("NameAuctionRoom");
-        });
+    private String detectCategory(String name) {
+        if (name == null) return "[ ĐỒNG HỒ CỔ ]";
+        String lower = name.toLowerCase();
+        if (lower.contains("đồng hồ") || lower.contains("watch")) {
+            return "[ ĐỒNG HỒ CỔ ]";
+        } else if (lower.contains("dell") || lower.contains("laptop") || lower.contains("máy ảnh") || lower.contains("camera")) {
+            return "[ ĐỒ ĐIỆN TỬ ]";
+        } else if (lower.contains("bình") || lower.contains("vase") || lower.contains("tranh") || lower.contains("art")) {
+            return "[ NGHỆ THUẬT ]";
+        } else if (lower.contains("xe") || lower.contains("car") || lower.contains("auto")) {
+            return "[ XE CỘ ]";
+        }
+        return "[ SƯU TẦM ]";
     }
 
     @FXML
-    private void navigateToAuctionRoom(String idAuctionRoom) {
-        System.out.println("Đang mở phiên đấu giá của sản phẩm ID:" + idAuctionRoom);
-
-        try {
-            ViewManager.SwitchView(idAuctionRoom);
-        } catch (Exception e) {
-            e.printStackTrace();
+    public void handleOpenRoom() {
+        if (auctionSummary != null) {
+            ViewManager.openAuctionRoom(auctionSummary);
+        } else if (Product != null) {
+            AuctionSummary summary = new AuctionSummary(
+                    "AUC-" + Product.getId(),
+                    Product.getName(),
+                    Product.getPrice(),
+                    500_000.0,
+                    "NONE",
+                    "ACTIVE"
+            );
+            ViewManager.openAuctionRoom(summary);
         }
     }
+
     @FXML
     private void handleViewDetails() {
         if (Product == null) {
-            System.err.println("Lỗi: Card này chưa có dữ liệu sản phẩm!");
+            if (auctionSummary != null) {
+                handleOpenRoom();
+            }
             return;
         }
 
-        // Gọi hàm bật overlay hiển thị chi tiết sản phẩm ngay trên màn hình Home
         if (homeController != null) {
             homeController.showProductDetailsOverlay(Product);
-        } else {
-            System.err.println("Lỗi: Chưa liên kết HomeController với ProductCardController!");
         }
     }
 }

@@ -1,62 +1,115 @@
-/* style.css */
+/* styleCard.css - Modern Luxury Dark Auction Card (No external icons/emojis) */
+
 .productCard {
-    -fx-background-color: #1a1d24;
-    -fx-background-radius: 12px;
-    -fx-border-radius: 12px;
-    -fx-border-color: #2a2f3a;
-    -fx-border-width: 1px;
-    -fx-padding: 10px;
+    -fx-background-color: #121826;
+    -fx-background-radius: 14px;
+    -fx-border-radius: 14px;
+    -fx-border-color: #1F2937;
+    -fx-border-width: 1.2px;
+    -fx-padding: 14px;
     -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 8, 0, 0, 4);
 }
 
 .productCard:hover {
-    -fx-border-color: #f59e0b; /* Viền sáng lên khi rê chuột vào */
-    -fx-translate-y: -2px;     /* Hiệu ứng nhấc nhẹ card lên */
+    -fx-border-color: #F59E0B;
+    -fx-translate-y: -3px;
+    -fx-effect: dropshadow(gaussian, rgba(245, 158, 11, 0.2), 14, 0, 0, 6);
+}
+
+/* Card Visual Header */
+.card-top-banner {
+    -fx-background-color: #0A0E17;
+    -fx-background-radius: 8px;
+    -fx-padding: 8px 10px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1px;
+}
+
+.card-category-pill {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #38BDF8;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-padding: 3px 8px;
+    -fx-background-radius: 4px;
+}
+
+.product-id-badge {
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+/* Card Body */
+.inforProduct {
+    -fx-padding: 8px 0 0 0;
 }
 
 .product-name {
-    -fx-text-fill: #ffffff;
+    -fx-text-fill: #FFFFFF;
     -fx-font-size: 14px;
     -fx-font-weight: bold;
+    -fx-min-height: 38px;
 }
 
-.product-id{
-    -fx-text-fill: #ffffff;
-    -fx-font-size: 14px;
+.price-sub-label {
+    -fx-text-fill: #6B7280;
+    -fx-font-size: 10px;
     -fx-font-weight: bold;
-}
-
-.price-label {
-    -fx-text-fill: #9ca3af;
-    -fx-font-size: 11px;
 }
 
 .product-price {
-    -fx-text-fill: #f59e0b;
-    -fx-font-size: 15px;
+    -fx-text-fill: #F59E0B;
+    -fx-font-size: 16px;
     -fx-font-weight: bold;
+}
+
+.meta-row {
+    -fx-background-color: #0A0E17;
+    -fx-background-radius: 6px;
+    -fx-padding: 6px 8px;
 }
 
 .time-label {
-    -fx-text-fill: #ef4444;
-    -fx-font-size: 12px;
+    -fx-text-fill: #EF4444;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
 }
 
 .bids-label {
-    -fx-text-fill: #9ca3af;
-    -fx-font-size: 12px;
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 11px;
 }
 
-.bid-button {
-    -fx-background-color: transparent;
-    -fx-border-color: #f59e0b;
-    -fx-border-radius: 6px;
-    -fx-text-fill: #f59e0b;
+/* Buttons */
+.btn-bid-primary {
+    -fx-background-color: linear-gradient(to right, #E11D48, #BE123C);
+    -fx-text-fill: #FFFFFF;
     -fx-font-weight: bold;
-    -fx-padding: 6px 0;
+    -fx-font-size: 12px;
+    -fx-padding: 8px 0;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
 }
 
-.bid-button:hover {
-    -fx-background-color: #f59e0b;
-    -fx-text-fill: #000000;
+.btn-bid-primary:hover {
+    -fx-background-color: linear-gradient(to right, #F43F5E, #E11D48);
+}
+
+.btn-details-secondary {
+    -fx-background-color: transparent;
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 11px;
+    -fx-padding: 5px 0;
+    -fx-border-color: #374151;
+    -fx-border-radius: 6px;
+    -fx-cursor: hand;
+}
+
+.btn-details-secondary:hover {
+    -fx-text-fill: #FFFFFF;
+    -fx-border-color: #6B7280;
+    -fx-background-color: #1F2937;
 }
