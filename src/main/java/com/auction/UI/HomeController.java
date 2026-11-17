@@ -1,145 +1,224 @@
-package com.auction.UI;
+package com.auction.ui;
+
+import java.io.IOException;
+import java.time.LocalDateTime;
+
+import com.auction.item.Item;
 
 import javafx.fxml.FXML;
-import java.io.IOException;
-import com.auction.sessions.ClientSession;
-import javafx.application.Platform;
-import java.util.Locale;
+import javafx.scene.Node;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.StackPane;
+import java.util.List;
+import com.auction.session.ClientSession;
 import network.AuctionClient;
-import javafx.scene.control.Label;
-import javafx.scene.control.Alert;
+import network.AuctionSummary;
 
-public class HomeController implements ViewLifecycle, SessionAware, AuctionClient.AuctionEventListener {
-    // ViewLifecycle cho biết khi nào Home xuất hiện hoặc bị ẩn
-    // SessionAware nhận ClientSession từ ViewManager
-    // AuctionEventListener nhận sự kiện từ SocketClient
-    @FXML
-    private Label eventLabel;
-    // Hiển thị thông báo trên giao diện
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+import java.util.ArrayList;
+
+import javafx.scene.layout.VBox;
+
+public class HomeController implements SessionAware {
     private ClientSession clientSession;
-    // Giữ ClientSession được ViewManager truyền vào
-    private boolean listenerRegistered = false;
-    // Tránh đăng kí Listener nhiều lần
-    private volatile boolean viewActive = false;
+    private AuctionClient.AuctionEventListener auctionListListener;
 
-    // Check Home có đang hiển thị hay không. "volatile" giúp thread thấy giá trị
-    // cập nhật của biến này
-    @FXML
-    private void SwitchToAuction(){
-        ViewManager.SwitchView("Auction");
-    }
+    private final ObservableList<AuctionSummary> auctionSummaries = FXCollections.observableArrayList();
+    private final List<VBox> serverAuctionCards = new ArrayList<>();
+    // Quản lí riêng các ProductCard tạo từ dự liệu server
+
+    // ClientSession giữ kết nối dùng chung
+    // auctionListListener quản lý listener
+    // auctionSummaries: lưu danh sách đấu giá nhận từ server
+    // ObservableList có thể thông báo khi dữ liệu thay đổi, rất phù hợp để liên kết
     @Override
     public void setClientSession(ClientSession session) {
-        this.clientSession = session;
-    }
-
-    @Override
-    public void onViewShown() {
-        if (clientSession == null || listenerRegistered) {
+        if (session == null) {
             return;
         }
-        clientSession.getClient().addListener(this);
-        // Thêm HomeController vào danh sách listener của AuctionClient
-        listenerRegistered = true;
-        viewActive = true;
-    }
+        if (this.clientSession == session && auctionListListener != null) {
+            return;
+        }
+        //Không làm gì nếu Session không tồn tại, nếu cùng session thì không đăng kí lại
+        if (this.clientSession != null && auctionListListener != null) {
+            this.clientSession.getClient().removeListener(auctionListListener);
+        }
+        this.clientSession = session;
+        AuctionClient client = session.getClient();
+         // Gỡ listener khỏi kết nối cũ
+        auctionListListener = new AuctionClient.AuctionEventListener() {
+            // Đăng kí listener
+            @Override
+            public void onBidUpdate(
+                    String auctionId,
+                    double newPrice,
+                    String bidderId,
+                    String itemId) {
+                Platform.runLater(() -> {
+                    for (int i = 0; i < auctionSummaries.size(); i++) {
+                        AuctionSummary current = auctionSummaries.get(i);
 
-    @Override
-    public void onViewHidden() {
-        viewActive = false;
-        if (clientSession != null && listenerRegistered) {
-            clientSession.getClient().removeListener(this);
-            listenerRegistered = false;
+                        if (current.auctionId().equals(auctionId)) {
+                            AuctionSummary updated = new AuctionSummary(
+                                    current.auctionId(),
+                                    current.itemId(),
+                                    newPrice,
+                                    current.stepPrice(),
+                                    bidderId,
+                                    current.status());
+
+                            auctionSummaries.set(i, updated);
+
+                            renderServerAuctionCards();
+
+                            System.out.println(
+                                    "Đã cập nhật giá phiên "
+                                            + auctionId + ": " + newPrice);
+
+                            break;
+                        }
+                    }
+                });
+            }
+            //Xử lý thông báo đấu giá từ Server
+            // Ví dụ onBidUpdate("AUC-001", 10500000, "BIDDER-01", ...);
+            //1. Tìm phiên đấu giá có auctionId như kia, tạo một AuctionSummary mới
+            // giữ nguyên tên sản phẩm, bước giá và trạng thái
+            //Cập nhật giá và người dẫn đầu
+            // Gọi renderServerAuctionCards() để cập nhật giao diện
+
+            @Override
+            public void onAuctionListReceived(List<AuctionSummary> auctions) {
+                Platform.runLater(() -> {
+                    auctionSummaries.setAll(auctions);
+
+                    renderServerAuctionCards();
+
+                    System.out.println(
+                            "Đã hiển thị "
+                                    + serverAuctionCards.size()
+                                    + " phiên đấu giá từ Server.");
+                });
+            }
+        };
+        // Gọi khi AuctionClient đã nhận đủ danh sác và xử lí AUCTIONS_END
+        client.addListener(auctionListListener);
+        // Đăng kí home để nhận dữ liệu từ Socket
+
+        if (client.isConnected()) {
+            client.requestList();
         }
     }
 
-    @Override
-    public void dispose() {
-        onViewHidden();
-        // Giải phóng Listener, không đóng Socket dùng chung
-    }
+    private void renderServerAuctionCards() {
+        if (productGridContainer == null) {
+            return;
+        }
 
-    @Override
-    public void onBidUpdate(String auctionId, double newPrice, String bidderId, String itemId) {
-        Platform.runLater(() -> {
-            if (!viewActive || eventLabel == null) {
-                return;
+        for (VBox card : serverAuctionCards) {
+            productGridContainer.getChildren().remove(card);
+        }
+
+        serverAuctionCards.clear();
+
+        for (AuctionSummary auction : auctionSummaries) {
+            VBox card = addProductCard.addServerAuctionCard(
+                    productGridContainer,
+                    auction);
+
+            if (card != null) {
+                serverAuctionCards.add(card);
             }
-            eventLabel.setText(String.format(Locale.US,
-                    "New bid on %s | Item: %s | Price: %,.2f | Bidder: %s",
-                    auctionId,
-                    itemId,
-                    newPrice,
-                    bidderId));
-        });
-        // AuctionClient listener thread nhận thông báo -> HomeController gọi
-        // onBidUpdate để chạy Platform.runLater() -> JavaFX Application Thread cập nhật
-        // event Label
+        }
     }
+    // Hiển thị các thẻ từ auctionSummaries. Tách riêng để sử dụng khi nhận LIST mới
+    // Xoá thẻ cũ do server trước tạo
+    // serverAuctionCards.clear() xoá danh sách tham chiếu
+    // Tạo thẻ mới
+
+    @FXML
+    private FlowPane productGridContainer;
+
+    @FXML
+    private StackPane overlayPane;
+
+    @FXML
+    private Node createRoomSubView;
+
+    @FXML
+    private Node productDetailsView;
+
+    @FXML
+    private CreateRoomUIController createRoomSubViewController;
+
+    @FXML
+    private ProductDetailsController productDetailsViewController;
 
     @FXML
     public void SwitchToLogin() throws IOException {
         ViewManager.SwitchView("LogIn");
     }
 
-    @Override
-    public void onDisconnected(String reason) {
-        Platform.runLater(() -> {
-            if (!viewActive) {
-                return;
-            }
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Connection lost");
-            alert.setHeaderText("Server connection was lost");
-            alert.setContentText(reason + "\nPlease check your connection and restart the application");
-            alert.showAndWait();
-        });
+    @FXML
+    public void initialize() {
+        // Truyền ngược HomeController sang controller con tạo phòng
+        if (createRoomSubViewController != null) {
+            createRoomSubViewController.setMainScreenController(this);
+        }
+        // Truyền tham chiếu của HomeController vào cho bảng chi tiết để nút "Quay lại"
+        // tắt overlay
+        if (productDetailsViewController != null) {
+            productDetailsViewController.setHomeController(this);
+        }
     }
-    // Sever bị tắt sẽ có AuctionClient.listenLoop() phát hiện kết nổi
-    // Auction Client gọi onDisconnected(reason)
-    // HomeController nhận callback
-    // Platform.runLater() đưa các thao tác hiển thị Alert về JavaFX Application Thread để in ra màn hình
-    private void showAuctionAlert(String title, String header, String message){
-        Platform.runLater(() -> {
-            if (!viewActive){
-                return;
-            }
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle(title);
-            alert.setHeaderText(header);
-            alert.setContentText(message);
-            alert.show();
-        });
-    }
-    @Override
-    public void onAuctionClosed(String auctionId, double finalPrice, String winnerId){
-        String message = String.format(Locale.US,
-            "Auction ID: %s\nFinal price: %,.2f\nWinner: %s",
-            auctionId,
-            finalPrice,
-            winnerId
-        );
-        showAuctionAlert("Auction Ended", "The auction has ended", message);
 
+    @FXML
+    public void handleCreateAuctionRoom() {
+        // Hiển thị lớp phủ mờ kèm bảng con lên
+        overlayPane.setVisible(true);
+        overlayPane.setManaged(true);
+
+        // Hiện bảng tạo phòng, ẩn bảng chi tiết đi
+        if (createRoomSubView != null) {
+            createRoomSubView.setVisible(true);
+            createRoomSubView.setManaged(true);
+        }
+        if (productDetailsView != null) {
+            productDetailsView.setVisible(false);
+            productDetailsView.setManaged(false);
+        }
     }
-    @Override
-    public void onWinnerNotification(String auctionId, double finalPrice, String itemId){
-        String message = String.format(Locale.US,
-            "Congratulations!\nYou won the auction for: %s\nFinal price: %,.2f",
-            itemId,
-            finalPrice
-        );
-        showAuctionAlert("Auction Won", "Congratulations! You are the winner", message);
+
+    public void showProductDetailsOverlay(Item product) {
+        if (productDetailsViewController != null) {
+            productDetailsViewController.initData(product); // Đổ dữ liệu sản phẩm
+        }
+
+        overlayPane.setVisible(true);
+        overlayPane.setManaged(true);
+
+        // Hiện bảng chi tiết sản phẩm, ẩn bảng tạo phòng đi
+        if (productDetailsView != null) {
+            productDetailsView.setVisible(true);
+            productDetailsView.setManaged(true);
+        }
+        if (createRoomSubView != null) {
+            createRoomSubView.setVisible(false);
+            createRoomSubView.setManaged(false);
+        }
     }
-    @Override
-    public void onSellerNotification(String auctionId, double finalPrice, String winnerId, String itemId){
-        String message = String.format(Locale.US,
-            "Item: %s\nAuction ID: %s\nFinal price: %,.2f\nWinner: %s",
-            itemId,
-            auctionId,
-            finalPrice,
-            winnerId
-        );
-        showAuctionAlert("Auction Complete", "Your auction has ended", message);
+
+    @FXML
+    public void hideOverLay() {
+        overlayPane.setVisible(false);
+        overlayPane.setManaged(false);
+    }
+
+    @FXML
+    public void addNewAuctionCard(Item product, LocalDateTime endTime) {
+        addProductCard.addNewAuctionCard(productGridContainer, product, endTime, this);
     }
 }

@@ -1,8 +1,7 @@
-package com.auction.UI;
 
-import com.auction.sessions.ClientSession;
-import network.AuctionClient;
-import java.io.IOException;
+package com.auction.ui;
+
+import com.auction.session.ClientSession;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -12,126 +11,163 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.AnchorPane;
 import javafx.concurrent.Task;
 
-public class LogInController implements SessionAware, ViewLifecycle {
-    private ClientSession clientSession;
-    private boolean listenerRegistered = false;
-    private volatile boolean loginPending = false;
-    // Xác định yêu càu đăng nhập có đang chờ phản hồi hay không
+import network.AuctionClient;
+
+public class LogInController implements SessionAware {
+    // Cho ViewManager truyền ClientSession vào Controller
+    // ClientSession lưu kết nối dùng chung của ứng dụng
     @FXML
     private AnchorPane LoginPane;
-    @FXML
-    private PasswordField passwordField;
 
     @FXML
     private TextField usernameField;
 
     @FXML
+    private PasswordField passwordField;
+
+    @FXML
     private Label errorLabel;
 
-    @FXML
-    private void SwitchToHome() throws IOException {
-        if (clientSession == null) {
-            errorLabel.setText("Client session is not available.");
-            return;
-        }
-        String userId = usernameField.getText().trim();
-        String password = passwordField.getText();
-        if (userId.isEmpty() || password.isEmpty()) {
-            errorLabel.setText("Please enter username and password.");
-            return;
-        }
-        if (loginPending) {
-            return;
-        }
-        loginPending = true;
-        errorLabel.setText("Connecting to server...");
-        Task<Void> loginTask = new Task<>() {
-            @Override
-            protected Void call() throws Exception {
-                if (!clientSession.isConnected()) {
-                    clientSession.connect();
-                }
-                clientSession.getClient().login(userId, password);
-                return null;
-            }
-            // Task.call() chạy trên background thread. Do việc kết nối Socket mất thời gian
-            // nên không được thực hiện trực tiếp trên JavaFX Application Thread
-        };
-        loginTask.setOnFailed(event -> {
-            loginPending = false;
-            Throwable exception = loginTask.getException();
-            String message = exception != null ? exception.getMessage() : "Unable to connect to server.";
-            errorLabel.setText("Connection failed: " + message);
-        });
-        Thread loginThread = new Thread(loginTask, "auction-login-task");
-        loginThread.setDaemon(true);
-        loginThread.start();
-    }
-    // Người dùng đăng nhập sẽ dùng SwitchToHome() để lấy username và account
-    // Kết nối trên sever nếu chưa kết nối
-    // AuctionClient.login(userId, password) đảm nhiệm gửi LOGIN đến server
+    private ClientSession clientSession;
 
-    @FXML
-    private void SwitchToRegister() throws IOException {
-        ViewManager.SwitchView("Register");
-    }
+    private volatile boolean loginInProgress = false;
 
     private final AuctionClient.AuctionEventListener loginListener = new AuctionClient.AuctionEventListener() {
+        // Lắng nghe phản hồi của AuctionServer
         @Override
-        public void onBidUpdate(String auctionId, double newPrice, String bidderId, String itemId) {
+        public void onBidUpdate(String auctionId, double newPrice,
+                String bidderId, String itemId) {
         }
 
         @Override
         public void onMessageReceived(String rawMessage) {
-            handleServerMessage(rawMessage);
+
+            if (!loginInProgress) {
+                return;
+            }
+
+            if (rawMessage.startsWith("SUCCESS LOGIN ")) {
+
+                Platform.runLater(() -> {
+                    loginInProgress = false;
+                    errorLabel.setText("");
+                    ViewManager.SwitchView("Home");
+                });
+
+            } else if (rawMessage.startsWith("ERROR ")) {
+
+                String serverError = rawMessage.substring("ERROR ".length());
+
+                Platform.runLater(() -> {
+                    loginInProgress = false;
+                    errorLabel.setText(translateLoginError(serverError));
+                });
+            }
         }
+
+        @Override
+        public void onDisconnected() {
+
+            if (!loginInProgress) {
+                return;
+            }
+
+            Platform.runLater(() -> {
+                loginInProgress = false;
+                errorLabel.setText(
+                        "Mất kết nối đến máy chủ. Vui lòng thử lại.");
+            });
+        }
+        // Nhận sự kiện mất kết nối từ AuctionClient trên Socket listener thread
+        // Platform.runLater() cập nhật errorLabel qua JavaFX Application Thread
     };
 
-    // loginListener lắng nghe sự kiện từ AuctionClient
-    // onMessageReceived nhận từng phản hồi của server
     @Override
     public void setClientSession(ClientSession session) {
+
+        if (this.clientSession == session) {
+            return;
+        }
+
+        if (this.clientSession != null) {
+            this.clientSession.getClient().removeListener(loginListener);
+        }
+
         this.clientSession = session;
-    }
 
-    @Override
-    public void onViewShown() {
-        if (clientSession == null || listenerRegistered) {
+        if (this.clientSession != null) {
+            this.clientSession.getClient().addListener(loginListener);
+        }
+    }
+    // Đăng kí listener với Auction Client
+
+    @FXML
+    public void SwitchToHome() {
+
+        if (loginInProgress) {
             return;
         }
-        clientSession.getClient().addListener(loginListener);
-        listenerRegistered = true;
-    }
 
-    @Override
-    public void onViewHidden() {
-        if (clientSession != null && listenerRegistered) {
-            clientSession.getClient().removeListener(loginListener);
-            listenerRegistered = false;
-        }
-    }
+        String userId = usernameField.getText().trim();
+        String password = passwordField.getText();
 
-    @Override
-    public void dispose() {
-        onViewHidden();
-    }
-
-    private void handleServerMessage(String rawMessage) {
-        if (!loginPending) {
+        if (userId.isEmpty() || password.isEmpty()) {
+            errorLabel.setText(
+                    "Vui lòng nhập tên đăng nhập và mật khẩu.");
             return;
         }
-        if (rawMessage.startsWith("SUCCESS LOGIN ")) {
-            loginPending = false;
-            Platform.runLater(() -> {
-                errorLabel.setText("");
-                ViewManager.SwitchView("Home");
-            });
-        } else if (rawMessage.startsWith("ERROR ")) {
-            loginPending = false;
-            String errorMessage = rawMessage.substring("ERROR ".length());
-            Platform.runLater(() -> {
-                errorLabel.setText(errorMessage);
-            });
+
+        if (clientSession == null) {
+            errorLabel.setText(
+                    "Phiên kết nối chưa được khởi tạo.");
+            return;
         }
+
+        loginInProgress = true;
+        errorLabel.setText("Đang kết nối đến máy chủ...");
+
+        Thread loginThread = new Thread(() -> {
+
+            try {
+                clientSession.connect();
+
+                clientSession.getClient().login(userId, password);
+
+            } catch (Exception e) {
+
+                Platform.runLater(() -> {
+                    loginInProgress = false;
+
+                    errorLabel.setText(
+                            "Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+                });
+            }
+
+        }, "login-worker");
+
+        loginThread.setDaemon(true);
+        loginThread.start();
     }
+
+    // Kiểm tra dữ liệu, kết nối Server và gửi yêu cầu LOGIN
+    @FXML
+    public void SwitchToRegister() {
+        ViewManager.SwitchView("Register");
+    }
+
+    private String translateLoginError(String message) {
+
+        return switch (message.trim()) {
+
+            case "Invalid user credentials" ->
+                "Tên đăng nhập hoặc mật khẩu không chính xác.";
+
+            case "Usage: LOGIN <userId> <password>" ->
+                "Thông tin đăng nhập không hợp lệ.";
+
+            default ->
+                "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.";
+        };
+    }
+
 }
