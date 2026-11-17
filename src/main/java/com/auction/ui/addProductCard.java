@@ -5,12 +5,11 @@ import java.time.LocalDateTime;
 
 import com.auction.item.Item;
 
+import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
 import network.AuctionSummary;
-
-public class addProductCard {
 
 public class addProductCard {
     @FXML
@@ -38,5 +37,34 @@ public class addProductCard {
 
     public static void addNewAuctionCard(FlowPane productGridContainer, Item product, LocalDateTime endTime) {
         addNewAuctionCard(productGridContainer, product, endTime, null);
+    }
+
+    public static VBox addServerAuctionCard(
+            FlowPane productGridContainer,
+            AuctionSummary auction) {
+        if (productGridContainer == null || auction == null) {
+            return null;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    addProductCard.class.getResource(
+                            "/com/auction/fxml/ProductCard.fxml"));
+
+            VBox productCard = loader.load();
+
+            ProductCardController cardController = loader.getController();
+
+            cardController.setAuctionData(auction);
+
+            productGridContainer.getChildren().add(productCard);
+
+            return productCard;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.err.println("Không thể tạo thẻ đấu giá từ dữ liệu Server.");
+            return null;
+        }
     }
 }
