@@ -1,76 +1,76 @@
-/* Nền tổng thể bao trọn khung */
-.root-pane {
-    -fx-background: linear-gradient(to bottom, #f9f9f7, #959591);
-    -fx-background-color: linear-gradient(to bottom, #f9f9f7, #959591);
-}
+/* styleCreateRoom.css - Dark Theme Create Room Modal */
 
-/* Khung chứa form (Card trắng bo tròn có đổ bóng giống màn đăng nhập) */
 .room-card {
-    -fx-background-color: rgba(255, 255, 255, 0.92);
-    -fx-background-radius: 20px;
-    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.1), 25, 0, 0, 10);
+    -fx-background-color: #121826;
+    -fx-background-radius: 16px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 16px;
+    -fx-border-width: 1.2px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 30, 0, 0, 12);
+    -fx-padding: 24px;
 }
 
-/* Tiêu đề chính của form */
 .title-label {
-    -fx-font-size: 24px;
+    -fx-font-size: 22px;
     -fx-font-weight: bold;
-    -fx-text-fill: #2C3E50;
+    -fx-text-fill: #FFFFFF;
 }
 
-/* Nhãn tên các trường nhập liệu */
 .field-label {
-    -fx-font-size: 13px;
-    -fx-text-fill: #7F8C8D;
+    -fx-font-size: 12px;
+    -fx-text-fill: #9CA3AF;
     -fx-font-weight: 600;
 }
 
-/* Định dạng chung cho TextField và ComboBox */
 .text-field,
 .combo-box {
-    -fx-background-color: #F8F9FA;
-    -fx-background-radius: 12px;
-    -fx-border-color: #E2E8F0;
-    -fx-border-radius: 12px;
+    -fx-background-color: #0A0E17;
+    -fx-background-radius: 8px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 8px;
     -fx-border-width: 1.5px;
     -fx-padding: 8px 12px;
-    -fx-text-fill: #2D3748;
-    -fx-prompt-text-fill: #A0AEC0;
+    -fx-text-fill: #FFFFFF;
+    -fx-prompt-text-fill: #6B7280;
 }
 
-/* Hiệu ứng khi bấm vào (focus) TextField hoặc ComboBox */
+.combo-box .list-cell {
+    -fx-text-fill: #FFFFFF;
+}
+
 .text-field:focused,
 .combo-box:focused {
-    -fx-border-color: #918f0e;
-    -fx-background-color: #FFFFFF;
+    -fx-border-color: #F59E0B;
+    -fx-background-color: #0F141F;
 }
 
-/* Nút Hủy */
 .cancel-button {
-    -fx-background-color: #E2E8F0;
-    -fx-text-fill: #4A5568;
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #E5E7EB;
     -fx-font-weight: bold;
     -fx-font-size: 13px;
-    -fx-background-radius: 12px;
+    -fx-background-radius: 8px;
     -fx-cursor: hand;
-    -fx-padding: 10px 20px;
+    -fx-padding: 8px 18px;
+    -fx-border-color: #374151;
+    -fx-border-radius: 8px;
 }
 
 .cancel-button:hover {
-    -fx-background-color: #CBD5E1;
+    -fx-background-color: #374151;
+    -fx-text-fill: #FFFFFF;
 }
 
-/* Nút Tạo (Gradient màu hồng đỏ giống nút Đăng nhập) */
 .create-button {
-    -fx-background-color: linear-gradient(to right, #FF4081, #D81B60);
+    -fx-background-color: linear-gradient(to right, #2563EB, #1D4ED8);
     -fx-text-fill: white;
     -fx-font-weight: bold;
     -fx-font-size: 13px;
-    -fx-background-radius: 12px;
+    -fx-background-radius: 8px;
     -fx-cursor: hand;
-    -fx-padding: 10px 20px;
+    -fx-padding: 8px 20px;
 }
 
 .create-button:hover {
-    -fx-opacity: 0.9;
+    -fx-background-color: linear-gradient(to right, #3B82F6, #2563EB);
 }
