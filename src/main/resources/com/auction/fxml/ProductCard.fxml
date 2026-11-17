@@ -24,6 +24,8 @@
                 <Label fx:id="lblTime" styleClass="time-label" text="03h 10m 10s"/>
                 <Label fx:id="lblBids" styleClass="bids-label" text="5 Bids" />
             </HBox>
+            <!-- Thêm nút Xem chi tiết vào cuối VBox của ProductCard.fxml -->
+            <Button text="Xem chi tiết" styleClass="bid-button" maxWidth="Infinity" onAction="#handleViewDetails"/>
             <!--Nút đặt giá-->
             <Button fx:id="btnBid" styleClass="bid-button" text="ĐẶT GIÁ" maxWidth="Infinity" />
         </VBox>

@@ -205,8 +205,4 @@ public class CreateRoomUIController implements Initializable {
             mainScreenController.hideOverLay();
         }
     }
-
-    public Item getItem() {
-        return item;
-    }
 }

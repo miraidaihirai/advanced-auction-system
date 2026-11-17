@@ -18,10 +18,10 @@
       <HBox spacing="15" alignment="CENTER_LEFT" style="-fx-padding: 15px; -fx-background-color: #161922;">
         <!-- Thanh tìm kiếm theo tên hoặc ID sản phẩm -->
         <TextField fx:id="searchField" promptText="Tìm kiếm theo tên hoặc ID sản phẩm..."
-                                   HBox.hgrow="ALWAYS" styleClass="search-field" />
+                                           HBox.hgrow="ALWAYS" styleClass="search-field" />
         <!-- Nút tạo phòng đấu giá sản phẩm -->
         <Button fx:id="btnCreateAuctionRoom" text="Tạo phòng đấu giá"
-                                styleClass="create-button" onAction="#handleCreateAuctionRoom" />
+                                        styleClass="create-button" onAction="#handleCreateAuctionRoom" />
       </HBox>
     </top>
 
@@ -40,5 +40,6 @@
   <StackPane fx:id="overlayPane" visible="false" managed="false" style="-fx-background-color: rgba(0, 0, 0, 0.7);" alignment="CENTER">
     <!-- Nhúng file FXML con vào đây -->
     <fx:include fx:id="createRoomSubView" source="CreateAuctionRoom.fxml"/>
+    <fx:include fx:id="productDetailsView" source="ProductDetailsView.fxml"/>
   </StackPane>
 </StackPane>
