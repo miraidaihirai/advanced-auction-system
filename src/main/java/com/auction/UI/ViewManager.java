@@ -25,6 +25,23 @@ public class ViewManager {
         mainScene = scene;
         clientSession = session;
     }
+
+    public static ClientSession getClientSession() {
+        return clientSession;
+    }
+
+    public static Object getController(String fxmlName) {
+        ViewEntry entry = cache.get(fxmlName);
+        return (entry != null) ? entry.controller : null;
+    }
+
+    public static void openAuctionRoom(network.AuctionSummary auction) {
+        SwitchView("AuctionRoom");
+        Object controller = getController("AuctionRoom");
+        if (controller instanceof AuctionRoomController roomController) {
+            roomController.loadAuction(auction);
+        }
+    }
     // Khởi tạo ViewManager với Session
     public static void SwitchView(String fxmlName) {
         if (mainScene == null) {

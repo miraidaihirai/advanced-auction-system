@@ -1,66 +1,61 @@
-/* 1. Nền tổng thể bao trọn khung */
-.root {
-    -fx-background: linear-gradient(to bottom, #f9f9f7, #959591);
-    -fx-background-color: linear-gradient(to bottom, #f9f9f7, #959591);
-}
+/* styleProductDetails.css - Dark Theme Product Details Modal */
 
-/* 2. Khung card chính (Màu trắng, bo tròn góc, đổ bóng giống màn đăng nhập) */
 .details-card {
-    -fx-background-color: #FFFFFF;
-    -fx-background-radius: 20px;
-    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.25), 30, 0, 0, 12);
-    -fx-padding: 35px;
-    -fx-max-width: 450px;
-    -fx-max-height: 400px;
+    -fx-background-color: #121826;
+    -fx-background-radius: 16px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 16px;
+    -fx-border-width: 1.2px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 30, 0, 0, 12);
+    -fx-padding: 28px;
+    -fx-max-width: 500px;
 }
 
-/* 3. Tiêu đề lớn của trang */
 .title-label {
-    -fx-font-size: 24px;
+    -fx-font-size: 20px;
     -fx-font-weight: bold;
-    -fx-text-fill: #2C3E50;
+    -fx-text-fill: #FFFFFF;
 }
 
-/* 4. Nhãn tên trường thông tin */
 .field-label {
-    -fx-font-size: 13px;
-    -fx-text-fill: #7F8C8D;
+    -fx-font-size: 11px;
+    -fx-text-fill: #9CA3AF;
     -fx-font-weight: 600;
 }
 
-/* 5. Nhãn hiển thị giá trị thông tin sản phẩm */
 .value-label {
-    -fx-font-size: 15px;
-    -fx-text-fill: #2D3748;
+    -fx-font-size: 14px;
+    -fx-text-fill: #F3F4F6;
     -fx-font-weight: bold;
 }
 
-/* 6. Nút Quay lại (Màu xám nhạt, bo tròn góc) */
 .back-button {
-    -fx-background-color: #E2E8F0;
-    -fx-text-fill: #4A5568;
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #E5E7EB;
     -fx-font-weight: bold;
     -fx-font-size: 13px;
-    -fx-background-radius: 12px;
+    -fx-background-radius: 8px;
     -fx-cursor: hand;
-    -fx-padding: 10px 20px;
+    -fx-padding: 8px 18px;
+    -fx-border-color: #374151;
+    -fx-border-radius: 8px;
 }
 
 .back-button:hover {
-    -fx-background-color: #CBD5E1;
+    -fx-background-color: #374151;
+    -fx-text-fill: #FFFFFF;
 }
 
-/* 7. Nút thao tác chính (Gradient hồng đỏ giống nút Đăng nhập) */
 .action-button {
-    -fx-background-color: linear-gradient(to right, #FF4081, #D81B60);
+    -fx-background-color: linear-gradient(to right, #E11D48, #BE123C);
     -fx-text-fill: white;
     -fx-font-weight: bold;
     -fx-font-size: 13px;
-    -fx-background-radius: 12px;
+    -fx-background-radius: 8px;
     -fx-cursor: hand;
-    -fx-padding: 10px 20px;
+    -fx-padding: 8px 18px;
 }
 
 .action-button:hover {
-    -fx-opacity: 0.9;
+    -fx-background-color: linear-gradient(to right, #F43F5E, #E11D48);
 }
