@@ -9,6 +9,7 @@ public abstract class Item implements Serializable {
     private final int id;
     private int price;
     private int quantity;
+    private String imagePath;
 
     protected Item(String name, int id, int price, int quantity) {
         this.name = name;
@@ -40,5 +41,13 @@ public abstract class Item implements Serializable {
 
     public void setQuantity(int quantity) {
         this.quantity = quantity;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 }
