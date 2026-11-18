@@ -28,9 +28,9 @@
       <Label styleClass="field-label" text="ID sản phẩm"/>
       <Label fx:id="lblId" styleClass="value-label" text="-- Chưa có dữ liệu --"/>
     </VBox>
-    <!-- Nhóm thông tin: Chất lượng -->
+    <!-- Nhóm thông tin: SỐ lượng -->
     <VBox fx:id="boxQuantity" spacing="3">
-      <Label styleClass="field-label" text="Chất lượng sản phẩm"/>
+      <Label styleClass="field-label" text="Số lượng sản phẩm"/>
       <Label fx:id="lblQuantity" styleClass="value-label" text="-- Chưa có dữ liệu --"/>
     </VBox>
     <!--Nhóm thông tin: Tên người sáng tác -->

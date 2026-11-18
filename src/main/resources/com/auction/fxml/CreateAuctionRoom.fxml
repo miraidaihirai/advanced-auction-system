@@ -41,10 +41,10 @@
         <TextField fx:id="txtId" promptText="Nhập ID sản phẩm..." styleClass="text-field"/>
       </VBox>
 
-      <!-- Chất lượng sản phẩm -->
+      <!-- Số lượng sản phẩm -->
       <VBox fx:id="boxQuantity" spacing="4">
-        <Label styleClass="field-label" text="Chất lượng sản phẩm"/>
-        <TextField fx:id="txtQuantity" promptText="Nhập chất lượng..." styleClass="text-field"/>
+        <Label styleClass="field-label" text="Số lượng sản phẩm"/>
+        <TextField fx:id="txtQuantity" promptText="Nhập số lượng..." styleClass="text-field"/>
       </VBox>
 
       <!-- Các trường riêng cho Đồ nghệ thuật -->
