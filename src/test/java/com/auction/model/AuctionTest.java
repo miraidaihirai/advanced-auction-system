@@ -1,5 +1,5 @@
 
-package model;
+package com.auction.model;
 
 import java.time.Duration;
 
@@ -146,7 +146,7 @@ public class AuctionTest {
     void finishAuction_whenNotRunning_shouldThrowException() {
         Auction auction = createStateTestAuction();
 
-        // Auction vẫn đang OPEN, chưa được start
+        // Auction váº«n Ä‘ang OPEN, chÆ°a Ä‘Æ°á»£c start
         assertThrows(
                 IllegalStateException.class,
                 auction::finishAuction
@@ -296,3 +296,4 @@ public class AuctionTest {
         }
     }
 }
+

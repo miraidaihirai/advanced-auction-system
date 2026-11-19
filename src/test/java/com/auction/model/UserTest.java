@@ -1,5 +1,5 @@
 
-package model;
+package com.auction.model;
 
 import org.junit.jupiter.api.Test;
 
@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class UserTest {
 
-    // Class con dùng để kiểm thử abstract User
+    // Class con dÃ¹ng Ä‘á»ƒ kiá»ƒm thá»­ abstract User
     private static class TestUser extends User {
 
         TestUser(String id, String name, String password) {
@@ -16,7 +16,7 @@ class UserTest {
 
         @Override
         public void displayInfo() {
-            // Không cần kiểm thử ở đây
+            // KhÃ´ng cáº§n kiá»ƒm thá»­ á»Ÿ Ä‘Ã¢y
         }
     }
 
@@ -165,3 +165,4 @@ class UserTest {
         );
     }
 }
+

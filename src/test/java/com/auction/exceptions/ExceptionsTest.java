@@ -1,4 +1,4 @@
-package exceptions;
+package com.auction.exceptions;
 
 import org.junit.jupiter.api.Test;
 
