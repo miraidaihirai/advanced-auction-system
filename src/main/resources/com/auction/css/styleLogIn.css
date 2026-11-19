@@ -1,0 +1,67 @@
+/* styleLogIn.css - Luxury Dark Theme for Login */
+
+.Login-pane {
+    -fx-background-color: radial-gradient(center 50% 50%, radius 70%, #1A2234, #0A0E17);
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.login-card {
+    -fx-background-color: #121826;
+    -fx-background-radius: 20px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 20px;
+    -fx-border-width: 1.2px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.5), 30, 0, 0, 12);
+}
+
+.title-label {
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #FFFFFF;
+}
+
+.sub-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #9CA3AF;
+    -fx-font-weight: bold;
+}
+
+.text-field,
+.password-field {
+    -fx-background-color: #0A0E17;
+    -fx-background-radius: 10px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 10px;
+    -fx-border-width: 1.5px;
+    -fx-padding: 11px 14px;
+    -fx-text-fill: #FFFFFF;
+    -fx-prompt-text-fill: #6B7280;
+    -fx-font-size: 13px;
+}
+
+.text-field:focused,
+.password-field:focused {
+    -fx-border-color: #F59E0B;
+    -fx-background-color: #0F141F;
+}
+
+.error-label {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #EF4444;
+}
+
+.button {
+    -fx-background-color: linear-gradient(to right, #E11D48, #BE123C);
+    -fx-text-fill: #FFFFFF;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-background-radius: 10px;
+    -fx-cursor: hand;
+    -fx-padding: 12px;
+    -fx-effect: dropshadow(gaussian, rgba(225, 29, 72, 0.3), 8, 0, 0, 2);
+}
+
+.button:hover {
+    -fx-background-color: linear-gradient(to right, #F43F5E, #E11D48);
+}

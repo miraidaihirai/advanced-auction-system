@@ -1,0 +1,213 @@
+/* styleHome.css - Modern Luxury Dark Marketplace UI (Matching Left Monitor) */
+
+.home-main-layout {
+    -fx-background-color: #0A0E17;
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* Left Sidebar Navigation */
+.sidebar-container {
+    -fx-background-color: #0F141F;
+    -fx-border-color: #1E293B;
+    -fx-border-width: 0 1px 0 0;
+    -fx-padding: 20px 14px;
+}
+
+.sidebar-brand-box {
+    -fx-padding: 0 0 16px 6px;
+    -fx-border-color: #1E293B;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.brand-logo-text {
+    -fx-text-fill: #EA580C;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-letter-spacing: 1px;
+}
+
+.brand-sub-text {
+    -fx-text-fill: #6B7280;
+    -fx-font-size: 11px;
+}
+
+.sidebar-menu-list {
+    -fx-padding: 12px 0;
+}
+
+.nav-item {
+    -fx-background-color: transparent;
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 13px;
+    -fx-font-weight: 500;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 10px 14px;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
+}
+
+.nav-item:hover {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #FFFFFF;
+}
+
+.nav-item-active {
+    -fx-background-color: #EA580C;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-weight: bold;
+}
+
+.sidebar-user-panel {
+    -fx-background-color: #121826;
+    -fx-background-radius: 10px;
+    -fx-padding: 12px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 10px;
+}
+
+.sidebar-user-name {
+    -fx-text-fill: #F3F4F6;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.sidebar-user-status {
+    -fx-text-fill: #10B981;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.btn-sidebar-logout {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #F87171;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 6px 0;
+    -fx-background-radius: 6px;
+    -fx-cursor: hand;
+    -fx-border-color: #374151;
+    -fx-border-radius: 6px;
+}
+
+.btn-sidebar-logout:hover {
+    -fx-background-color: #7F1D1D;
+    -fx-text-fill: #FFFFFF;
+    -fx-border-color: #DC2626;
+}
+
+/* Center Content Area */
+.center-content-area {
+    -fx-background-color: #0A0E17;
+}
+
+.top-nav-bar {
+    -fx-background-color: #0F141F;
+    -fx-padding: 18px 24px;
+    -fx-border-color: #1E293B;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.search-input-field {
+    -fx-background-color: #121826;
+    -fx-text-fill: #FFFFFF;
+    -fx-prompt-text-fill: #6B7280;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-padding: 10px 14px;
+    -fx-font-size: 13px;
+}
+
+.search-input-field:focused {
+    -fx-border-color: #EA580C;
+}
+
+.btn-refresh-list {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #D1D5DB;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 10px 16px;
+    -fx-background-radius: 8px;
+    -fx-border-color: #374151;
+    -fx-border-radius: 8px;
+    -fx-cursor: hand;
+}
+
+.btn-refresh-list:hover {
+    -fx-background-color: #374151;
+    -fx-text-fill: #FFFFFF;
+}
+
+.btn-create-auction-primary {
+    -fx-background-color: linear-gradient(to right, #2563EB, #1D4ED8);
+    -fx-text-fill: #FFFFFF;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-padding: 10px 18px;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(37, 99, 235, 0.4), 8, 0, 0, 2);
+}
+
+.btn-create-auction-primary:hover {
+    -fx-background-color: linear-gradient(to right, #3B82F6, #2563EB);
+}
+
+/* Category Filter Pills (From photo: Đang diễn ra, ...) */
+.filter-pills-row {
+    -fx-padding: 2px 0 0 0;
+}
+
+.filter-pill {
+    -fx-background-color: #121826;
+    -fx-text-fill: #9CA3AF;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 6px 14px;
+    -fx-background-radius: 20px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 20px;
+    -fx-cursor: hand;
+}
+
+.filter-pill:hover {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #FFFFFF;
+}
+
+.filter-pill-active {
+    -fx-background-color: #EA580C;
+    -fx-text-fill: #FFFFFF;
+    -fx-border-color: #C2410C;
+}
+
+/* Product Grid */
+.grid-scroll-pane {
+    -fx-background: #0A0E17;
+    -fx-background-color: #0A0E17;
+    -fx-border-color: transparent;
+}
+
+.grid-scroll-pane > .viewport {
+    -fx-background-color: #0A0E17;
+}
+
+.grid-wrapper {
+    -fx-padding: 20px 24px;
+}
+
+.section-header-title {
+    -fx-text-fill: #F9FAFB;
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+}
+
+.product-grid-flow {
+    -fx-background-color: transparent;
+}
+
+/* Overlay */
+.overlay-container {
+    -fx-background-color: rgba(0, 0, 0, 0.75);
+}

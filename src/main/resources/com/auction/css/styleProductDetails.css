@@ -1,0 +1,70 @@
+/* styleProductDetails.css - Dark Theme Product Details Modal */
+
+.details-card {
+    -fx-background-color: #121826;
+    -fx-background-radius: 16px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 16px;
+    -fx-border-width: 1.2px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 30, 0, 0, 12);
+    -fx-padding: 28px;
+    -fx-max-width: 500px;
+}
+
+.title-label {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #FFFFFF;
+}
+
+.details-image-frame {
+    -fx-background-color: #0A0E17;
+    -fx-background-radius: 10px;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 10px;
+    -fx-border-width: 1px;
+    -fx-padding: 3px;
+}
+
+.field-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #9CA3AF;
+    -fx-font-weight: 600;
+}
+
+.value-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #F3F4F6;
+    -fx-font-weight: bold;
+}
+
+.back-button {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #E5E7EB;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
+    -fx-padding: 8px 18px;
+    -fx-border-color: #374151;
+    -fx-border-radius: 8px;
+}
+
+.back-button:hover {
+    -fx-background-color: #374151;
+    -fx-text-fill: #FFFFFF;
+}
+
+.action-button {
+    -fx-background-color: linear-gradient(to right, #E11D48, #BE123C);
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
+    -fx-padding: 8px 18px;
+}
+
+.action-button:hover {
+    -fx-background-color: linear-gradient(to right, #F43F5E, #E11D48);
+}
