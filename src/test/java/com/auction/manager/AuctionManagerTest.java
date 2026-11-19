@@ -1,19 +1,18 @@
-package manager;
+package com.auction.manager;
 
-import exceptions.AuthenticationException;
-import exceptions.AuctionClosedException;
-import model.Auction;
-import model.BidTransaction;
-import model.Bidder;
-import model.Seller;
-import observer.AuctionObserver;
+import com.auction.exceptions.AuthenticationException;
+import com.auction.exceptions.AuctionClosedException;
+import com.auction.model.Auction;
+import com.auction.model.BidTransaction;
+import com.auction.model.Bidder;
+import com.auction.model.Seller;
+import com.auction.observer.AuctionObserver;
 
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
-//Do Singleton và không có phương thức reset dữ liệu
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -134,7 +133,8 @@ public class AuctionManagerTest {
                                 uniqueId("UNKNOWN"),
                                 "password123")));
     }
-     @Test
+
+    @Test
     void registerObserver_shouldRegisterObserverForExistingAuction() {
         Auction auction = createAuction();
         manager.addAuction(auction);
@@ -323,6 +323,7 @@ public class AuctionManagerTest {
             }
         }
     }
+
     // Helper method
     private String uniqueId(String prefix) {
         return prefix + "-" + UUID.randomUUID();
