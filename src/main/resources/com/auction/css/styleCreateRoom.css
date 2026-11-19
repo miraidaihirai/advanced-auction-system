@@ -1,5 +1,17 @@
 /* styleCreateRoom.css - Dark Theme Create Room Modal */
+.root-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+}
 
+.root-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.root-pane .room-card {
+    -fx-background-color: #121826;
+}
 .room-card {
     -fx-background-color: #121826;
     -fx-background-radius: 16px;
