@@ -1,50 +1,68 @@
 package network;
 
-import exceptions.AuctionClosedException;
-import exceptions.AuthenticationException;
-import exceptions.InvalidBidException;
-import manager.AuctionManager;
-import model.Auction;
-import model.BidTransaction;
-import model.Bidder;
-import model.Seller;
-import model.User;
-import observer.AuctionObserver;
+import com.auction.exceptions.AuctionClosedException;
+import com.auction.exceptions.AuthenticationException;
+import com.auction.exceptions.InvalidBidException;
+import com.auction.manager.AuctionManager;
+import com.auction.model.Auction;
+import com.auction.model.BidTransaction;
+import com.auction.model.Bidder;
+import com.auction.model.Seller;
+import com.auction.model.Admin;
+import com.auction.model.User;
+import com.auction.observer.AuctionObserver;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Xử lý kết nối từ một Client trong luồng riêng biệt (Multi-threaded).
- * Đồng thời là một AuctionObserver: nhận thông báo từ Auction và broadcast realtime qua Socket.
+ * Đồng thời là một AuctionObserver: nhận thông báo từ Auction và broadcast
+ * realtime qua Socket.
  */
 public class ClientHandler implements Runnable, AuctionObserver {
 
+    public static final int DEFAULT_SO_TIMEOUT_MS = 60_000;
+
     private final Socket socket;
     private final AuctionServer server;
+    private int soTimeoutMillis = DEFAULT_SO_TIMEOUT_MS;
     private BufferedReader in;
     private PrintWriter out;
 
     private User currentUser;
     private final Set<String> subscribedAuctions = ConcurrentHashMap.newKeySet();
     private volatile boolean running = true;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public ClientHandler(Socket socket, AuctionServer server) {
+        this(socket, server, DEFAULT_SO_TIMEOUT_MS);
+    }
+
+    public ClientHandler(Socket socket, AuctionServer server, int soTimeoutMillis) {
         this.socket = socket;
         this.server = server;
+        this.soTimeoutMillis = soTimeoutMillis;
     }
 
     @Override
     public void run() {
         try {
+            if (soTimeoutMillis > 0) {
+                socket.setSoTimeout(soTimeoutMillis);
+            }
             in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             out = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
 
@@ -57,6 +75,11 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     continue;
                 }
                 handleCommand(line);
+            }
+        } catch (SocketTimeoutException e) {
+            if (running) {
+                System.out.printf("[ClientHandler] Client %s timed out (heartbeat failure): %s%n",
+                        getClientInfo(), e.getMessage());
             }
         } catch (IOException e) {
             if (running) {
@@ -98,8 +121,20 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 case AuctionProtocol.CMD_START:
                     handleStart(parts);
                     break;
+                case AuctionProtocol.CMD_CLOSE:
+                    handleClose(parts);
+                    break;
+                case AuctionProtocol.CMD_PAY:
+                    handlePay(parts);
+                    break;
+                case AuctionProtocol.CMD_PING:
+                    sendMessage(AuctionProtocol.RES_PONG);
+                    break;
                 case AuctionProtocol.CMD_INFO:
                     handleInfo(parts);
+                    break;
+                case AuctionProtocol.CMD_HISTORY:
+                    handleHistory(parts);
                     break;
                 case AuctionProtocol.CMD_QUIT:
                     sendMessage(AuctionProtocol.formatSuccess("BYE", "Goodbye!"));
@@ -109,7 +144,11 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     sendMessage(AuctionProtocol.formatError("Unknown command: " + command));
             }
         } catch (Exception e) {
-            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+            if (AuctionProtocol.CMD_BID.equals(command)) {
+                sendBidError(e.getMessage());
+            } else {
+                sendMessage(AuctionProtocol.formatError(e.getMessage()));
+            }
         }
     }
 
@@ -134,7 +173,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     private void handleRegister(String[] parts) {
         if (parts.length < 5) {
-            sendMessage(AuctionProtocol.formatError("Usage: REGISTER <userId> <name> <password> <BIDDER|SELLER>"));
+            sendMessage(
+                    AuctionProtocol.formatError("Usage: REGISTER <userId> <name> <password> <BIDDER|SELLER|ADMIN>"));
             return;
         }
         String userId = parts[1];
@@ -145,6 +185,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
         User newUser;
         if ("SELLER".equals(role)) {
             newUser = new Seller(userId, name, password);
+        } else if ("ADMIN".equals(role)) {
+            newUser = new Admin(userId, name, password);
         } else {
             newUser = new Bidder(userId, name, password);
         }
@@ -213,38 +255,59 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     private void handleBid(String[] parts) {
         if (parts.length < 3) {
-            sendMessage(AuctionProtocol.formatError("Usage: BID <auctionId> <amount>"));
+            sendBidError("Usage: BID <auctionId> <amount>");
             return;
         }
+
         if (currentUser == null) {
-            sendMessage(AuctionProtocol.formatError("You must LOGIN first to place a bid"));
+            sendBidError("You must LOGIN first to place a bid");
             return;
         }
+
         if (!(currentUser instanceof Bidder)) {
-            sendMessage(AuctionProtocol.formatError("Only Bidders can place bids"));
+            sendBidError("Only Bidders can place bids");
             return;
         }
 
         String auctionId = parts[1];
         double amount;
+
         try {
             amount = Double.parseDouble(parts[2].replace(',', '.'));
         } catch (NumberFormatException e) {
-            sendMessage(AuctionProtocol.formatError("Invalid bid amount: " + parts[2]));
+            sendBidError("Invalid bid amount: " + parts[2]);
             return;
         }
 
         try {
             boolean success = AuctionManager.getInstance().placeBid(
-                    auctionId, currentUser.getId(), currentUser.getPassword(), amount);
+                    auctionId,
+                    currentUser.getId(),
+                    currentUser.getPassword(),
+                    amount);
+
             if (success) {
-                sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_BID,
+                if (subscribedAuctions.add(auctionId)) {
+                    Auction auction = AuctionManager.getInstance()
+                            .getAuction(auctionId);
+
+                    if (auction != null) {
+                        auction.addObserver(this);
+                    }
+                }
+
+                sendMessage(AuctionProtocol.formatSuccess(
+                        AuctionProtocol.CMD_BID,
                         String.format(Locale.US, "%s %.2f", auctionId, amount)));
+
             } else {
-                sendMessage(AuctionProtocol.formatError("Bid was not accepted"));
+                sendBidError("Bid was not accepted");
             }
-        } catch (InvalidBidException | AuctionClosedException | AuthenticationException e) {
-            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+
+        } catch (InvalidBidException
+                | AuctionClosedException
+                | AuthenticationException e) {
+            sendBidError(e.getMessage());
         }
     }
 
@@ -267,7 +330,82 @@ public class ClientHandler implements Runnable, AuctionObserver {
             } else {
                 auction.startAuction();
             }
+            if (subscribedAuctions.add(auctionId)) {
+                auction.addObserver(this);
+            }
             sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_START, auctionId));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleClose(String[] parts) {
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: CLOSE <auctionId>"));
+            return;
+        }
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        String auctionId = parts[1];
+        Auction auction = AuctionManager.getInstance().getAuction(auctionId);
+        if (auction == null) {
+            sendMessage(AuctionProtocol.formatError("Auction not found: " + auctionId));
+            return;
+        }
+        boolean isSeller = currentUser instanceof Seller && currentUser.getId().equals(auction.getSellerId());
+        boolean isAdmin = currentUser instanceof Admin;
+        if (!isSeller && !isAdmin) {
+            sendMessage(AuctionProtocol.formatError("Only the Seller or Admin can close this auction"));
+            return;
+        }
+
+        try {
+            auction.finishAuction();
+            if (AuctionManager.getInstance().isAutoSave()) {
+                AuctionManager.getInstance().saveState();
+            }
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_CLOSE, auctionId));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handlePay(String[] parts) {
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: PAY <auctionId>"));
+            return;
+        }
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first to pay"));
+            return;
+        }
+        String auctionId = parts[1];
+        Auction auction = AuctionManager.getInstance().getAuction(auctionId);
+        if (auction == null) {
+            sendMessage(AuctionProtocol.formatError("Auction not found: " + auctionId));
+            return;
+        }
+        if (auction.getStatus() != Auction.Status.FINISHED) {
+            sendMessage(AuctionProtocol
+                    .formatError("Only FINISHED auctions can be paid (current: " + auction.getStatus() + ")"));
+            return;
+        }
+        boolean isWinner = currentUser.getId().equals(auction.getHighestBidderId());
+        boolean isAdmin = currentUser instanceof Admin;
+        if (!isWinner && !isAdmin) {
+            sendMessage(AuctionProtocol.formatError("Only the winning bidder can make payment for this auction"));
+            return;
+        }
+
+        try {
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_PAY,
+                    String.format(Locale.US, "%s %.2f", auctionId, auction.getCurrentPrice())));
+            auction.markPaid();
+            if (AuctionManager.getInstance().isAutoSave()) {
+                AuctionManager.getInstance().saveState();
+            }
         } catch (Exception e) {
             sendMessage(AuctionProtocol.formatError(e.getMessage()));
         }
@@ -286,11 +424,33 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
         String winner = a.getHighestBidderId() != null ? a.getHighestBidderId() : "NONE";
         sendMessage(String.format(Locale.US, "AUCTION_INFO %s %s %s %.2f %.2f %s %s",
-                a.getId(), a.getItemId(), a.getSellerId(), a.getCurrentPrice(), a.getStepPrice(), winner, a.getStatus()));
+                a.getId(), a.getItemId(), a.getSellerId(), a.getCurrentPrice(), a.getStepPrice(), winner,
+                a.getStatus()));
+    }
+
+    private void handleHistory(String[] parts) {
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: HISTORY <auctionId>"));
+            return;
+        }
+        String auctionId = parts[1];
+        Auction auction = AuctionManager.getInstance().getAuction(auctionId);
+        if (auction == null) {
+            sendMessage(AuctionProtocol.formatError("Auction not found: " + auctionId));
+            return;
+        }
+
+        List<BidTransaction> history = auction.getBidHistory();
+        sendMessage(String.format("%s %s %d", AuctionProtocol.HISTORY_BEGIN, auctionId, history.size()));
+        for (BidTransaction tx : history) {
+            sendMessage(AuctionProtocol.formatTransactionRecord(tx));
+        }
+        sendMessage(String.format("%s %s", AuctionProtocol.HISTORY_END, auctionId));
     }
 
     /**
-     * Observer Pattern Callback: Tự động bắn thông báo realtime qua Socket khi có lượt bid mới.
+     * Observer Pattern Callback: Tự động bắn thông báo realtime qua Socket khi có
+     * lượt bid mới.
      */
     @Override
     public void onNewBid(Auction auction, BidTransaction bid) {
@@ -308,15 +468,39 @@ public class ClientHandler implements Runnable, AuctionObserver {
     }
 
     /**
-     * Observer Pattern Callback: Tự động bắn thông báo realtime khi phiên đấu giá kết thúc.
+     * Observer Pattern Callback: Tự động bắn thông báo realtime khi phiên đấu giá
+     * kết thúc.
+     * Gửi thông báo riêng đến Seller và Winner, kèm thông báo phòng chung cho các
+     * client đang xem.
      */
     @Override
     public void onAuctionClosed(Auction auction) {
         if (!running) {
             return;
         }
+        String winner = auction.getHighestBidderId() != null ? auction.getHighestBidderId() : "NONE";
+
+        // 1. Thông báo riêng cho Winner
+        if (currentUser != null && auction.getHighestBidderId() != null
+                && currentUser.getId().equals(auction.getHighestBidderId())) {
+            sendMessage(AuctionProtocol.formatWinnerNotification(
+                    auction.getId(),
+                    auction.getCurrentPrice(),
+                    auction.getItemId()));
+        }
+
+        // 2. Thông báo riêng cho Seller
+        if (currentUser != null && auction.getSellerId() != null
+                && currentUser.getId().equals(auction.getSellerId())) {
+            sendMessage(AuctionProtocol.formatSellerNotification(
+                    auction.getId(),
+                    auction.getCurrentPrice(),
+                    winner,
+                    auction.getItemId()));
+        }
+
+        // 3. Thông báo phòng chung cho các Client đang theo dõi phiên
         if (subscribedAuctions.contains(auction.getId())) {
-            String winner = auction.getHighestBidderId() != null ? auction.getHighestBidderId() : "NONE";
             String notification = AuctionProtocol.formatClosedNotification(
                     auction.getId(),
                     auction.getCurrentPrice(),
@@ -326,19 +510,40 @@ public class ClientHandler implements Runnable, AuctionObserver {
     }
 
     /**
+     * Observer Pattern Callback: Tự động bắn thông báo khi phiên đã thanh toán
+     * (PAID).
+     */
+    @Override
+    public void onAuctionPaid(Auction auction) {
+        if (!running) {
+            return;
+        }
+        String winner = auction.getHighestBidderId() != null ? auction.getHighestBidderId() : "NONE";
+        if (subscribedAuctions.contains(auction.getId())
+                || (currentUser != null && (currentUser.getId().equals(auction.getHighestBidderId())
+                        || currentUser.getId().equals(auction.getSellerId())))) {
+            sendMessage(AuctionProtocol.formatPaidNotification(
+                    auction.getId(),
+                    auction.getCurrentPrice(),
+                    winner));
+        }
+    }
+
+    /**
      * Gửi bản tin tới Socket client đảm bảo thread-safe.
      */
     public synchronized void sendMessage(String message) {
-        if (out != null) {
+        if (out != null && !socket.isClosed()) {
             out.println(message);
         }
     }
 
     /**
      * Dọn dẹp tài nguyên khi client ngắt kết nối.
+     * Tự động gỡ đăng ký Observers, dọn Session trên Server và đóng Socket/Stream.
      */
     public void close() {
-        if (!running) {
+        if (!closed.compareAndSet(false, true)) {
             return;
         }
         running = false;
@@ -352,16 +557,65 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
         subscribedAuctions.clear();
 
-        server.removeClient(this);
+        if (server != null) {
+            server.removeClient(this);
+        }
 
         try {
-            socket.close();
+            if (!socket.isClosed()) {
+                socket.close();
+            }
         } catch (IOException ignored) {
+        }
+
+        try {
+            if (in != null) {
+                in.close();
+            }
+        } catch (IOException ignored) {
+        }
+        if (out != null) {
+            out.close();
         }
         System.out.printf("[ClientHandler] Client %s closed and cleaned up%n", getClientInfo());
     }
 
+    public User getCurrentUser() {
+        return currentUser;
+    }
+
+    public Set<String> getSubscribedAuctions() {
+        return Collections.unmodifiableSet(subscribedAuctions);
+    }
+
+    public boolean isSubscribed(String auctionId) {
+        return subscribedAuctions.contains(auctionId);
+    }
+
+    public boolean isRunning() {
+        return running;
+    }
+
+    public int getSoTimeout() {
+        return soTimeoutMillis;
+    }
+
+    public void setSoTimeout(int timeoutMillis) {
+        this.soTimeoutMillis = timeoutMillis;
+        if (socket != null && !socket.isClosed()) {
+            try {
+                socket.setSoTimeout(Math.max(0, timeoutMillis));
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
     public String getClientInfo() {
         return currentUser != null ? currentUser.getId() : socket.getRemoteSocketAddress().toString();
+    }
+
+    private void sendBidError(String reason) {
+        String safeReason = (reason == null || reason.isBlank() ? "Unknown bid error" : reason);
+        sendMessage(AuctionProtocol.formatError("BID " + safeReason));
     }
 }

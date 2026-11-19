@@ -1,4 +1,4 @@
-# 🚀 KẾ HOẠCH & PHÂN CÔNG BÀI TẬP LỚN LTNC (TUẦN 6 - TUẦN 10)
+# 🚀 KẾ HOẠCH & PHÂN CÔNG BÀI TẬP LỚN LTNC (TUẦN 6 - TUẦN 12)
 **Dự án:** Hệ thống Đấu giá Trực tuyến (Online Auction System)  
 **Nhóm sinh viên:**
 - Vũ Tuấn Đại (Leader)
@@ -54,3 +54,60 @@
 - **Huy Hưng:**
   - Hoàn thiện trọn bộ 5 màn hình JavaFX: Login/Register, Danh sách phiên, Chi tiết sản phẩm, Đấu giá trực tiếp realtime và Quản lý sản phẩm (Seller).
   - Nối luồng dữ liệu realtime từ Socket Client lên giao diện JavaFX bằng `Platform.runLater()`.
+
+---
+
+## 📅 TUẦN 11 & 12: Tổng lực Ghép nối & Hoàn thiện Toàn bộ Hệ thống
+
+Chia làm 2 nhóm chuyên trách: **Backend & Socket Server (Đại + Thắng)** và **Frontend JavaFX & Realtime (Hưng + Trường)**.
+
+### 💻 NHÓM BACKEND (Đại & Thắng):
+- **Vũ Tuấn Đại (Leader):**
+  - Quản lý Client/Session Socket Server: Xử lý đa luồng mượt mà, tự động dọn dẹp khi client mất kết nối đột ngột.
+  - Xây dựng logic tự động chốt phiên khi hết thời gian: xác định người thắng cuộc, chuyển trạng thái `FINISHED`/`PAID` và bắn thông báo riêng cho người thắng + người bán.
+  - Quản lý kiểm duyệt code, merge nhánh `dev` chuẩn bị bản release.
+- **Xuân Thắng:**
+  - Xây dựng module lưu trữ lịch sử giao dịch đấu giá và dữ liệu hệ thống (Data Persistence).
+  - Bổ sung các lớp kiểm tra nghiệp vụ chặt chẽ: chặn người bán tự đặt giá sản phẩm của mình, kiểm tra quyền Admin/Seller/Bidder.
+  - Tối ưu kịch bản CI/CD trên GitHub Actions để chạy trơn tru toàn bộ test cases.
+
+### 🎨 NHÓM FRONTEND (Hưng & Trường):
+- **Huy Hưng:**
+  - Hoàn thiện Màn hình đấu giá trực tiếp (Live Auction View): hiển thị giá nhảy realtime, đồng hồ đếm ngược và lịch sử các lượt bid theo thời gian thực.
+  - Thiết kế Dashboard cho Seller (tạo phiên mới, xem danh sách hàng đã đăng) và giao diện Admin.
+- **Trường:**
+  - Làm cầu nối dữ liệu: nhận tín hiệu từ Socket client và bắn lên giao diện JavaFX bằng `Platform.runLater()` (đảm bảo không bị đơ/treo giao diện).
+  - Viết hệ thống Alert/Dialog thông báo trực quan khi có lỗi (mất mạng, giá không hợp lệ, phiên kết thúc) hoặc khi đấu giá thành công.
+  - Tinh chỉnh CSS toàn bộ các màn hình cho chuyên nghiệp, đồng bộ font chữ, bố cục.
+
+### ⚠️ LƯU Ý PHỐI HỢP:
+- Team Frontend (Hưng, Trường) và Team Backend (Đại, Thắng) cần thống nhất chuẩn bản tin dữ liệu truyền qua Socket trước khi code để lúc ghép không bị lệch kiểu dữ liệu.
+- Mọi người tiếp tục commit đều tay với prefix chuẩn (`feat:`, `fix:`, `refactor:`).
+
+---
+
+## 📅 TUẦN 13 – TUẦN 15: Chặng cuối đến khi Bảo vệ Đồ án
+
+Dự án giữ nguyên 2 team: **Backend (Đại + Thắng)** và **Frontend (Hưng + Trường)** với trách nhiệm trọn gói của từng thành viên:
+
+### 💻 TEAM BACKEND (Đại & Thắng):
+1. **Vũ Tuấn Đại (Leader):**
+   - Tối ưu Server đa luồng, stress-test nhiều client đặt giá cùng lúc và xử lý ngắt kết nối đột ngột (zero leak socket/thread).
+   - Vẽ sơ đồ kiến trúc hệ thống UML (Class Diagram, Sequence Diagram luồng bid realtime) và cập nhật hướng dẫn chạy dự án trên `README.md`.
+   - **Khi bảo vệ:** Trình bày kiến trúc tổng thể, đa luồng (Concurrency), Socket Server & Design Patterns.
+
+2. **Xuân Thắng:**
+   - Hoàn thiện lưu/tải dữ liệu (Serialization), rà soát chặt logic nghiệp vụ và tối ưu JUnit Test + GitHub Actions.
+   - Rà soát Checkstyle toàn bộ source code, đóng gói bản build hoàn chỉnh và merge bản chuẩn lên nhánh `main`.
+   - **Khi bảo vệ:** Trình bày cấu trúc OOP, xử lý ngoại lệ, lưu trữ dữ liệu & kiểm thử tự động (JUnit/CI).
+
+### 🎨 TEAM FRONTEND (Hưng & Trường):
+3. **Huy Hưng:**
+   - Đấu nối trơn tru toàn bộ 5 màn hình JavaFX với Server, rà soát luồng chuyển cảnh giữa các màn hình.
+   - Quay video demo kịch bản 1 Server + nhiều Client đấu giá realtime (làm bản dự phòng khi bảo vệ).
+   - **Khi bảo vệ:** Trình bày kiến trúc JavaFX MVC và trực tiếp thao tác demo các màn hình.
+
+4. **Trường:**
+   - Xử lý triệt để các thông báo lỗi (Alert/Dialog) khi mất mạng hoặc đặt sai giá, hoàn thiện CSS đồng bộ toàn app.
+   - Viết phần báo cáo giao diện, luồng trải nghiệm người dùng và tổng hợp bảng kết quả kiểm thử (Test Report).
+   - **Khi bảo vệ:** Trình bày cơ chế cập nhật giao diện realtime, xử lý ngoại lệ UI và hỗ trợ demo.

@@ -1,13 +1,18 @@
 package network;
 
-import manager.AuctionManager;
-import model.Auction;
-import model.Bidder;
-import model.Seller;
+import com.auction.manager.AuctionManager;
+import com.auction.model.Auction;
+import com.auction.model.BidTransaction;
+import com.auction.model.Bidder;
+import com.auction.model.Seller;
+import com.auction.model.Admin;
+import com.auction.model.User;
+import com.auction.observer.AuctionObserver;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -18,16 +23,19 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Socket Multi-threaded Server cho hệ thống đấu giá trực tuyến.
  * - Lắng nghe kết nối từ các Client và cấp phát mỗi Client một Thread riêng (ClientHandler).
  * - Quản lý vòng đời Server và danh sách Client kết nối đồng thời.
+ * - Tự động nạp và lưu trữ dữ liệu (Serialization / Deserialization) tránh mất dữ liệu khi khởi động lại server.
  */
-public class AuctionServer {
+public class AuctionServer implements AuctionObserver {
 
     public static final int DEFAULT_PORT = 8888;
+    public static final String DEFAULT_DATA_FILE = AuctionManager.DEFAULT_STORAGE_PATH;
 
     private final int port;
     private ServerSocket serverSocket;
     private final ExecutorService clientThreadPool;
     private final Set<ClientHandler> activeClients = ConcurrentHashMap.newKeySet();
     private volatile boolean running = false;
+    private int defaultClientTimeoutMs = ClientHandler.DEFAULT_SO_TIMEOUT_MS;
 
     private static final AtomicInteger clientThreadCounter = new AtomicInteger(0);
 
@@ -50,6 +58,7 @@ public class AuctionServer {
     public void start() throws IOException {
         serverSocket = new ServerSocket(port);
         running = true;
+        AuctionManager.getInstance().addGlobalObserver(this);
         System.out.println("==================================================");
         System.out.printf(" AUCTION SOCKET SERVER STARTED ON PORT %d%n", port);
         System.out.println("==================================================");
@@ -59,7 +68,7 @@ public class AuctionServer {
                 Socket clientSocket = serverSocket.accept();
                 System.out.printf("[AuctionServer] New connection from: %s%n", clientSocket.getRemoteSocketAddress());
 
-                ClientHandler handler = new ClientHandler(clientSocket, this);
+                ClientHandler handler = new ClientHandler(clientSocket, this, defaultClientTimeoutMs);
                 activeClients.add(handler);
                 clientThreadPool.submit(handler);
             }
@@ -91,13 +100,20 @@ public class AuctionServer {
 
     /**
      * Dừng server và giải phóng toàn bộ kết nối.
+     * Tự động lưu trạng thái dữ liệu ra file nếu autoSave đang bật.
      */
-    public void stop() {
+    public synchronized void stop() {
         if (!running) {
             return;
         }
         running = false;
         System.out.println("[AuctionServer] Stopping server...");
+
+        AuctionManager manager = AuctionManager.getInstance();
+        manager.removeGlobalObserver(this);
+        if (manager.isAutoSave()) {
+            manager.saveState();
+        }
 
         // Đóng server socket
         if (serverSocket != null && !serverSocket.isClosed()) {
@@ -107,13 +123,18 @@ public class AuctionServer {
             }
         }
 
-        // Đóng toàn bộ ClientHandlers
-        for (ClientHandler client : activeClients) {
+        // Đóng toàn bộ ClientHandlers (snapshot để tránh ConcurrentModification)
+        for (ClientHandler client : new java.util.ArrayList<>(activeClients)) {
             client.close();
         }
         activeClients.clear();
 
         clientThreadPool.shutdownNow();
+        try {
+            clientThreadPool.awaitTermination(2, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
         System.out.println("[AuctionServer] Server stopped successfully.");
     }
 
@@ -125,12 +146,104 @@ public class AuctionServer {
         return activeClients.size();
     }
 
+    public Set<ClientHandler> getActiveClients() {
+        return Collections.unmodifiableSet(activeClients);
+    }
+
+    public ClientHandler findClientByUserId(String userId) {
+        if (userId == null) {
+            return null;
+        }
+        for (ClientHandler client : activeClients) {
+            if (client.getCurrentUser() != null && userId.equals(client.getCurrentUser().getId())) {
+                return client;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void onNewBid(Auction auction, BidTransaction bid) {
+        // Có thể bổ sung logging giám sát cấp Server nếu cần
+    }
+
+    @Override
+    public void onAuctionClosed(Auction auction) {
+        notifyAuctionFinished(auction);
+    }
+
+    @Override
+    public void onAuctionPaid(Auction auction) {
+        notifyAuctionPaid(auction);
+    }
+
+    /**
+     * Bắn thông báo riêng đến Seller và Winner khi phiên đóng nếu họ đang kết nối socket
+     * nhưng chưa kịp / không trực tiếp JOIN phòng đấu giá.
+     */
+    public void notifyAuctionFinished(Auction auction) {
+        if (auction == null) {
+            return;
+        }
+        String winnerId = auction.getHighestBidderId();
+        String sellerId = auction.getSellerId();
+        String winner = winnerId != null ? winnerId : "NONE";
+
+        for (ClientHandler client : activeClients) {
+            User user = client.getCurrentUser();
+            if (user == null) {
+                continue;
+            }
+            if (!client.isSubscribed(auction.getId())) {
+                if (winnerId != null && winnerId.equals(user.getId())) {
+                    client.sendMessage(AuctionProtocol.formatWinnerNotification(
+                            auction.getId(), auction.getCurrentPrice(), auction.getItemId()));
+                }
+                if (sellerId != null && sellerId.equals(user.getId())) {
+                    client.sendMessage(AuctionProtocol.formatSellerNotification(
+                            auction.getId(), auction.getCurrentPrice(), winner, auction.getItemId()));
+                }
+            }
+        }
+    }
+
+    /**
+     * Bắn thông báo riêng tới Seller và Winner khi phiên hoàn tất thanh toán (PAID).
+     */
+    public void notifyAuctionPaid(Auction auction) {
+        if (auction == null) {
+            return;
+        }
+        String winner = auction.getHighestBidderId() != null ? auction.getHighestBidderId() : "NONE";
+        for (ClientHandler client : activeClients) {
+            User user = client.getCurrentUser();
+            if (user == null) {
+                continue;
+            }
+            if (!client.isSubscribed(auction.getId())) {
+                if ((auction.getHighestBidderId() != null && auction.getHighestBidderId().equals(user.getId()))
+                        || (auction.getSellerId() != null && auction.getSellerId().equals(user.getId()))) {
+                    client.sendMessage(AuctionProtocol.formatPaidNotification(
+                            auction.getId(), auction.getCurrentPrice(), winner));
+                }
+            }
+        }
+    }
+
     public int getPort() {
         return port;
     }
 
     public boolean isRunning() {
         return running;
+    }
+
+    public int getDefaultClientTimeoutMs() {
+        return defaultClientTimeoutMs;
+    }
+
+    public void setDefaultClientTimeoutMs(int defaultClientTimeoutMs) {
+        this.defaultClientTimeoutMs = defaultClientTimeoutMs;
     }
 
     /**
@@ -140,6 +253,30 @@ public class AuctionServer {
         for (ClientHandler client : activeClients) {
             client.sendMessage(message);
         }
+    }
+
+    /**
+     * Khởi tạo dữ liệu hệ thống: Ưu tiên nạp dữ liệu đã lưu từ file (Deserialization).
+     * Nếu chưa có dữ liệu lưu trữ, khởi tạo dữ liệu mẫu và lưu lại thành file ban đầu.
+     */
+    public static void initData() {
+        initData(DEFAULT_DATA_FILE);
+    }
+
+    public static void initData(String dataFilePath) {
+        AuctionManager manager = AuctionManager.getInstance();
+        manager.setStoragePath(dataFilePath);
+        manager.setAutoSave(true);
+
+        boolean loaded = manager.loadState(dataFilePath);
+        if (loaded && (!manager.getAllUsers().isEmpty() || !manager.getAllAuctions().isEmpty())) {
+            System.out.printf("[AuctionServer] Restored persistent data: %d users, %d auctions from %s%n",
+                    manager.getAllUsers().size(), manager.getAllAuctions().size(), dataFilePath);
+            return;
+        }
+
+        initSampleData();
+        manager.saveState(dataFilePath);
     }
 
     /**
@@ -155,11 +292,13 @@ public class AuctionServer {
         Bidder bob = new Bidder("BIDDER-01", "Bob", "password123");
         Bidder charlie = new Bidder("BIDDER-02", "Charlie", "password123");
         Bidder david = new Bidder("BIDDER-03", "David", "password123");
+        Admin admin = new Admin("ADMIN-01", "Administrator", "password123");
 
         manager.registerUser(alice);
         manager.registerUser(bob);
         manager.registerUser(charlie);
         manager.registerUser(david);
+        manager.registerUser(admin);
 
         Auction auction1 = new Auction("AUC-001", "Laptop Dell XPS 15", alice.getId(), 10_000_000, 500_000);
         auction1.startAuction();
@@ -182,7 +321,7 @@ public class AuctionServer {
             }
         }
 
-        initSampleData();
+        initData();
 
         AuctionServer server = new AuctionServer(port);
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));

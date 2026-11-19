@@ -1,4 +1,4 @@
-# Advanced Auction System
+# Online Auction System
 
 [![Java CI with Maven](https://github.com/miraidaihirai/advanced-auction-system/actions/workflows/maven.yml/badge.svg)](https://github.com/miraidaihirai/advanced-auction-system/actions/workflows/maven.yml)
 ![Java](https://img.shields.io/badge/Java-21-blue)
