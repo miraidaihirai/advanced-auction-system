@@ -1,143 +1,258 @@
-# advanced-auction-system
-Bài tập lớn Lập trình nâng cao: Hệ thống đấu giá trực tuyến (Java, JavaFX, Client-Server)
+# Advanced Auction System
 
-> Kế hoạch và phân công của nhóm: xem [TASKS.md](TASKS.md).
+[![Java CI with Maven](https://github.com/miraidaihirai/advanced-auction-system/actions/workflows/maven.yml/badge.svg)](https://github.com/miraidaihirai/advanced-auction-system/actions/workflows/maven.yml)
+![Java](https://img.shields.io/badge/Java-21-blue)
+![Maven](https://img.shields.io/badge/Maven-3.9+-blue)
+![JavaFX](https://img.shields.io/badge/JavaFX-21-blue)
+![Storage](https://img.shields.io/badge/Storage-Serialization%20%26%20SQLite-blue)
 
-## Dự án hiện có gì
-- **Đấu giá:** `Auction`, `BidTransaction`, `AuctionManager` (Singleton)
-- **Người dùng:** `User` (abstract), `Bidder`, `Seller`
-- **Sản phẩm:** `Item` (abstract), `Electronics`, `Art`, `Vehicle` + `ItemFactory` (Factory Method)
-- **Observer Pattern** thông báo giá mới; đặt giá đồng thời an toàn bằng `ReentrantLock`
-- **Vòng đời phiên:** `OPEN → RUNNING → FINISHED → PAID / CANCELED`, tự đóng khi hết giờ
-- **Custom exceptions:** `InvalidBidException`, `AuctionClosedException`, `AuthenticationException`
-- **Socket server đa luồng** (cổng 8888) broadcast giá realtime tới các client; `AuctionClient`
+Online Auction System is a desktop client-server application for online auctions. The system lets users register and log in, sellers create and manage items, bidders browse auctions and place realtime bids, and admins manage users, auctions, and transaction history. Persistent data is stored via Java Serialization and SQLite.
 
-## Cách chạy
-Cần **JDK 21** và **Maven ≥ 3.6**.
+The project scope focuses on a course-level auction workflow: a JavaFX client connects to a Java TCP socket server, both sides exchange structured protocol messages, the server stores users/items/auctions/bid transactions, and live bidding updates are pushed realtime to clients watching the same auction using the Observer Pattern.
 
-| Việc | Lệnh |
-|---|---|
-| Chạy test JUnit 5 | `mvn clean test` |
-| Chạy demo console | `mvn exec:java` |
-| Bật server | `mvn compile` rồi `java -cp target/classes network.AuctionServer` |
-| Vào như một người dùng (mỗi người một terminal) | `nc localhost 8888`, rồi gõ `LOGIN BIDDER-01 password123`, `LIST`, `JOIN AUC-001`, `BID AUC-001 10000000` |
+## Tech Stack
 
-- Tài khoản mẫu: `SELLER-01`, `BIDDER-01`, `BIDDER-02`, `BIDDER-03`, mật khẩu đều là `password123`.
-- Các lệnh khác: `INFO <auctionId>`, `LEAVE <auctionId>`, `REGISTER <id> <tên> <mật khẩu> <BIDDER|SELLER>`, `QUIT`.
-- Hai phiên mẫu (`AUC-001`, `AUC-002`) tự đóng **sau 1 phút** kể từ lúc bật server.
-- Trên nhánh `feature/ui`, lớp main là `com.auction.Main`.
+- Java 21
+- Maven 3.6+ build management
+- JavaFX 21 for desktop client UI (FXML, SceneBuilder, CSS)
+- Multi-threaded TCP Sockets for realtime client-server communication
+- Design Patterns: Singleton (`AuctionManager`), Factory Method (`ItemFactory`), Observer Pattern (`AuctionObserver`)
+- Concurrency Control: `ReentrantLock` (fair lock), `ConcurrentHashMap`, `CopyOnWriteArrayList`, cached daemon thread pool
+- Data Persistence: Java Object Serialization (`data/auction_data.ser`) and SQLite JDBC
+- JUnit 5 & JaCoCo for automated unit tests, stress tests, and coverage measurement
+- GitHub Actions CI/CD running automated build and test on push/PR
 
-## Các lỗi đã tìm thấy
+## Installation Requirements
 
-1. **`dev` và `main` không biên dịch được (46 lỗi `javac`).**
-   Merge `a31dfb5` ("Merge branch 'dev' into feature/ui") giải quyết conflict bằng cách **giữ cả hai phía**, nên code cũ bị dán vào giữa code mới.
-   Lỗi này lan sang `dev` qua PR #3 và sang `main` qua PR #8:
-   - `Main.java`: demo tuần 6 cũ bị dán nối sau demo mới
-   - `model/Auction.java`: nguyên thân class `Auction` cũ nằm bên trong class mới
-   - `manager/AuctionManager.java`: constructor `HashMap` cũ và `placeBid` 3 tham số cũ bị chèn vào giữa constructor và `placeBid` mới
-   - `Item/Item.java`: khai báo field bị lặp bên trong constructor, thừa một dấu `}`
-   - `Item/Electronics.java`: field `warrantyPeriod` khai báo 2 lần
-2. **Mất `serialVersionUID`** ở 3 class exception khi merge PR #7.
-3. **Conflict giữa các nhánh:** PR #6 (`feature/ui` → `dev`) bị conflict `pom.xml` (cả hai bên cùng thêm file). `feature/socket-server-broadcast` conflict với `main` do lịch sử merge chéo.
-4. **Lỗ hổng xác thực** trên `feature/socket-server-broadcast`: hàm `placeBid(auctionId, bidderId, amount)` tự lấy mật khẩu đã lưu của user để đặt giá, tức là đặt giá thay người khác mà không cần mật khẩu. Hàm này không được gọi ở đâu.
-5. **`feature/ui`:** `Main.java` được chuyển vào `com/auction/` nhưng thiếu `package com.auction;`. `pom.xml` trỏ `mainClass` tới `com.example.demo.HelloApplication`, một class không tồn tại.
-6. **Test không thực sự chạy:** `pom.xml` không cố định version `maven-surefire-plugin`. Với Maven < 3.9 (ví dụ Maven 3.6.3 cài bằng `apt`), Maven dùng surefire 2.12.4, bản này không hỗ trợ JUnit 5. Kết quả là `Tests run: 0 … BUILD SUCCESS` (trông như pass nhưng không test gì), hoặc crash VM nếu sai JDK.
-7. **`mvn exec:java` treo 15 giây** sau khi demo xong, kèm cảnh báo `thread auction-timeout ... will linger`.
+Install the following tools before running the project:
 
-## Những gì đã sửa
+- JDK 21 or newer
+- Maven 3.6 or newer
+- Git
 
-| Commit | Nhánh | Nội dung |
-|---|---|---|
-| `fix: repair broken merge resolution…` | `main`, `dev` | Xoá phần code cũ bị trùng ở 5 file trên (chỉ xoá, không thêm logic mới); khôi phục `serialVersionUID` |
-| `Merge repaired main into feature/socket-server-broadcast` | `feature/socket-server-broadcast` | Merge `main` đã sửa vào; bỏ hàm `placeBid` 3 tham số; giữ cấu hình JavaFX của `main` |
-| `Merge repaired main into feature/ui` | `feature/ui` | Merge `main` đã sửa vào; gộp 2 file `pom.xml` và trỏ `mainClass` về `com.auction.Main`; thêm `package com.auction;` |
-| `build: pin maven-surefire-plugin 3.2.5…` | tất cả | Cố định `maven-surefire-plugin` 3.2.5 để JUnit 5 chạy trên mọi version Maven |
-| `build: stop exec:java waiting 15s…` | tất cả | `exec:java` không chờ thread daemon `auction-timeout` nữa (`cleanupDaemonThreads=false`) |
-
-**Đã kiểm tra** (JDK 21, với cả Maven 3.6.3 và 3.9.9):
-- Mọi nhánh đều biên dịch được và không còn dấu conflict (`<<<<<<<`)
-- Merge thử mọi nhánh vào `main` và `dev`: không còn conflict (kể cả `feature/ui` → `dev` của PR #6)
-- `mvn clean test`: **2/2 test pass** trên `main` và `feature/ui`
-- `mvn exec:java`: demo chạy hết trong khoảng 2 giây, không còn cảnh báo
-- Chạy server + 2 client: client đã `JOIN` nhận được `NOTIFY BID` ngay khi người khác đặt giá
-
-## Việc còn lại
-
-### Theo kế hoạch trong TASKS.md
-- [ ] **Giao diện JavaFX** (Huy Hưng): 5 màn hình (Login/Register, Danh sách phiên, Chi tiết sản phẩm, Đấu giá realtime, Quản lý sản phẩm cho Seller), Controller theo MVC, và nối dữ liệu từ Socket lên giao diện bằng `Platform.runLater()`.
-  Hiện **chưa có màn hình nào**. File `login.fxml` cũ (commit `1f9d5cf`) đã bị xoá ở `07a5949` khi đổi cấu trúc thư mục; có thể lấy lại bằng `git show 1f9d5cf:src/UI/login.fxml`.
-- [ ] **Lớp `Admin`** (tuần 6, Trường): chưa có.
-- [ ] **Unit test JUnit 5** (Trường): mới có 2 test cho socket server (`AuctionServerTest`). Còn thiếu test cho logic đặt giá, ngoại lệ, vòng đời phiên và nhiều thread cùng bid. Chưa đo coverage (cần JaCoCo, mục tiêu ≥ 60%).
-- [ ] **Checkstyle** theo Google Java Style trong `pom.xml` (Xuân Thắng)
-- [ ] **GitHub Actions CI**: `.github/workflows/maven.yml` (Xuân Thắng)
-- [ ] **Serialization**: lưu phiên đấu giá và tài khoản ra file (Xuân Thắng)
-
-### Vấn đề kỹ thuật nên xử lý
-- [ ] Package `Item` và `Item.Factory` viết hoa, sai quy ước Java (Checkstyle sẽ báo lỗi); nên đổi thành `item` và `item.factory`.
-- [ ] Thống nhất cấu trúc package: `feature/ui` mới chuyển mỗi `Main` vào `com.auction`, các package khác vẫn ở gốc. Nhóm nên chọn một kiểu, ví dụ đưa hết vào `com.auction.*`.
-- [ ] Trên `main`, `javafx-maven-plugin` vẫn trỏ tới `com.example.demo.HelloApplication`; sẽ hết khi merge PR #6 (`feature/ui`).
-- [ ] `groupId` / `artifactId` trong `pom.xml` vẫn là giá trị mẫu (`com.example` / `demo`).
-- [ ] Server chưa có lệnh để Seller tạo phiên mới, và 2 phiên mẫu đóng sau 1 phút nên khó demo lâu.
-- [ ] Đưa nốt `feature/ui` đã sửa về repo gốc (xem Bước 1 bên dưới).
-
-## Tình trạng repo gốc (cập nhật 31/10/2026)
-- ✅ Đại (King Uet) đã kéo bản sửa về `main`, `dev` và `feature/socket-server-broadcast`.
-- ⏳ `feature/ui` trên repo gốc vẫn là commit cũ `5b49dd8`, nên PR #6 còn conflict cho tới khi làm Bước 1.
-- ⚠️ `feature/thang` đang trỏ vào `main` cũ (bản lỗi, không biên dịch được). Thắng nhớ chạy `git pull --no-rebase origin dev` trước khi làm tiếp.
-
-## Hướng dẫn merge phần JavaFX của Hưng mà không bị conflict
-
-### Bước 1 – Đại (King Uet) đồng bộ bản sửa (chỉ làm 1 lần)
-Trong thư mục repo gốc, chạy script `dong-bo-ban-sua.sh` (đã gửi riêng):
+Check your environment:
 
 ```bash
-bash dong-bo-ban-sua.sh
+java -version
+mvn -version
+git --version
 ```
 
-Script tự cập nhật `main`, `dev`, `feature/socket-server-broadcast` và `feature/ui` lên bản sửa mới nhất. Bản `feature/ui` này đã hết conflict với `dev` (đã thử). Script không đụng tới commit của người khác, và tự dừng nếu trên GitHub có commit mới mà nó chưa biết.
+## Project Structure
 
-**Sau Bước 1, cả nhóm:** lịch sử các commit sửa lỗi được làm gọn lại, nên ai đã `pull` nhánh `main`, `dev` hoặc `feature/socket-server-broadcast` từ ngày 30/10 thì đồng bộ lại (commit hoặc `git stash` code đang làm trước):
+```text
+.
+|-- src/
+|   |-- main/
+|   |   |-- java/
+|   |   |   |-- com/auction/
+|   |   |   |   |-- exceptions/    Custom domain exceptions
+|   |   |   |   |-- item/          Item inheritance hierarchy & Factory Method
+|   |   |   |   |-- manager/       AuctionManager (Singleton central manager)
+|   |   |   |   |-- model/         Domain models (Auction, User, Bidder, Seller, Admin)
+|   |   |   |   |-- observer/      Observer pattern interfaces (Subject & Observer)
+|   |   |   |   |-- session/       ClientSession management
+|   |   |   |   |-- storage/       FileStorageService & TransactionStorageService
+|   |   |   |   `-- ui/            JavaFX controllers, ViewManager, App, Launcher
+|   |   |   `-- network/           Socket Server, ClientHandler, Protocol, Client
+|   |   `-- resources/com/auction/
+|   |       |-- fxml/              FXML screen layouts (LogIn, Register, Home, CreateRoom, ...)
+|   |       `-- css/               CSS styles
+|   `-- test/java/                 JUnit 5 unit tests & Concurrency stress tests
+|-- data/                          Persistent serialized storage directory
+|-- start-server.bat               1-click batch script to start Socket Server
+|-- start-client.bat               1-click batch script to start JavaFX Client
+|-- pom.xml                        Maven build configuration
+|-- TASKS.md                       Group task division & progress tracking
+`-- README.md
+```
+
+Main components:
+
+- `network`: Socket Multi-threaded Server on port `8888`, `ClientHandler` with heartbeat timeout, text-based `AuctionProtocol`, and `AuctionClient`.
+- `com.auction.model`: OOP core domain models with `ReentrantLock` concurrency protection against lost updates.
+- `com.auction.manager`: Singleton `AuctionManager` managing global system state, in-memory caches, and persistence.
+- `com.auction.ui`: JavaFX MVC desktop client with screens for login, registration, home auction cards, seller room creation, and product details.
+
+## Data Storage & Persistence Configuration
+
+The server automatically restores previous data if available, or seeds sample users and auctions:
+
+- Persistent file path: `data/auction_data.ser`
+- Database: SQLite JDBC (`sqlite-jdbc`) for additional structured records
+
+Auto-save is triggered when:
+- A new user registers.
+- A new auction is created.
+- A bid is successfully placed.
+- An auction transitions to `FINISHED` or `PAID`.
+
+To reset to clean sample data, simply remove the `data/auction_data.ser` file before starting the server.
+
+## Build And Test
+
+Run commands from the repository root:
 
 ```bash
-git fetch origin
-git checkout dev && git reset --hard origin/dev     # làm tương tự với main nếu có
+# Run full test suite (all 64 unit & stress tests)
+mvn clean test
 ```
 
-### Bước 2 – Hưng chạy trên máy mình, **trước khi** push phần JavaFX
+Build executable standalone Fat JAR:
 
 ```bash
-# 1. Lưu hết code JavaFX thành commit
-git add .
-git commit -m "feat: add JavaFX screens"
-
-# 2. Lấy bản feature/ui đã sửa, rồi lấy dev mới nhất
-git pull --no-rebase origin feature/ui
-git pull --no-rebase origin dev
-
-# 3. Kiểm tra trước khi đẩy
-mvn clean test        # phải thấy: Tests run: 2, Failures: 0 ... BUILD SUCCESS
-mvn javafx:run        # mở được giao diện
-
-# 4. Đẩy lên, PR #6 tự cập nhật
-git push origin feature/ui
+mvn clean package -DskipTests
 ```
 
-Conflict, nếu có, được xử lý **trên máy Hưng**, là người hiểu code UI nhất. Nó chỉ có thể xảy ra ở `pom.xml` hoặc `Main.java`, và chỉ khi Hưng cũng sửa các file đó.
+This generates `target/OnlineAuctionApp.jar` (~23 MB), which includes the full JavaFX runtime, SQLite driver, and assets.
 
-### Nếu `pom.xml` bị conflict (thấy `<<<<<<<`, `=======`, `>>>>>>>`)
-1. Giữ **toàn bộ** phần của bản đã sửa: `maven-surefire-plugin` 3.2.5, `cleanupDaemonThreads`, các dependency JUnit.
-2. Thêm phần của Hưng vào, ví dụ dependency mới.
-3. Dòng `<mainClass>` của `javafx-maven-plugin` đổi thành class JavaFX của Hưng (class `extends Application`, ví dụ `com.auction.App`).
-4. Xoá 3 dòng đánh dấu, rồi chạy `git add pom.xml && git commit`.
-5. **Chạy lại `mvn clean test`** trước khi push.
+## Run Server And Client
 
-> ⚠️ **Đừng giữ cả hai bên một cách máy móc.** Chính kiểu giải quyết đó ở commit `a31dfb5` đã làm cả project không biên dịch được.
+Required startup order:
 
-### Quy tắc chung để sau này không bị conflict nữa
-1. **Luôn `git pull --no-rebase origin dev`** trước khi bắt đầu làm và trước khi tạo PR.
-2. **Không sửa file của người khác** nếu không cần. Phần UI chỉ nên gọi `AuctionClient` và cập nhật giao diện bằng `Platform.runLater()`, không sửa `model/` hay `network/`.
-3. **`pom.xml` chỉ thêm, không định dạng lại cả file**, và báo nhóm mỗi khi sửa.
-4. File `.fxml` để trong `src/main/resources/`. Không commit `.vscode/` hay `target/`.
-5. **Giải quyết conflict xong thì `mvn clean test` rồi mới commit.**
+1. Start the Server on port `8888`.
+2. Start the Client (JavaFX UI).
 
-Nếu thấy khó, Hưng có thể push phần JavaFX lên một nhánh mới (ví dụ `feature/javafx-ui`) để cả nhóm merge thử và xử lý conflict trước khi đưa vào `dev`.
+### Option 1: 1-Click Scripts (Windows)
+
+- Double-click [start-server.bat](start-server.bat) to launch the Socket Server.
+- Double-click [start-client.bat](start-client.bat) to launch the JavaFX Client (instant launch via JAR).
+
+### Option 2: Command Line
+
+Terminal 1 - Server:
+
+```bash
+java -cp target/classes network.AuctionServer
+```
+
+*(Or via Maven on PowerShell: `mvn compile exec:java "-Dexec.mainClass=network.AuctionServer"`)*
+
+The server listens on:
+
+```text
+localhost:8888
+```
+
+Terminal 2 - Client:
+
+```bash
+mvn javafx:run
+```
+
+*(Or run standalone JAR: `java -jar target/OnlineAuctionApp.jar`)*
+
+## Demo Accounts
+
+Sample accounts loaded on initial server startup:
+
+| Role | Username | Password | Purpose |
+| --- | --- | --- | --- |
+| Bidder | `BIDDER-01` | `password123` | Browsing auctions & realtime bidding |
+| Bidder | `BIDDER-02` | `password123` | Competing bidder |
+| Bidder | `BIDDER-03` | `password123` | Competing bidder |
+| Seller | `SELLER-01` | `password123` | Creating rooms & listing products |
+| Admin | `ADMIN-01` | `password123` | System management & moderation |
+
+Seeded demo items include `Laptop Dell XPS 15` and `Vintage Antique Vase`.
+
+## Completed Features
+
+- User registration and role-based authentication for `BIDDER`, `SELLER`, and `ADMIN`.
+- Multi-threaded Socket Server handling concurrent client sessions using a cached daemon thread pool.
+- Concurrency protection: `Auction.placeBid()` controlled by `ReentrantLock(true)` (fair lock) preventing lost updates and race conditions.
+- Observer Pattern over Sockets: realtime push notifications for `NOTIFY BID`, `NOTIFY CLOSED`, `NOTIFY WINNER`, `NOTIFY SELLER`, and `NOTIFY PAID`.
+- Heartbeat and timeout handling with `AtomicBoolean` cleanup ensuring zero socket/thread leaks.
+- Factory Method Pattern for item instantiation (`ElectronicsFactory`, `ArtFactory`, `VehicleFactory`).
+- Desktop JavaFX UI screens (MVC): Login, Register, Home card catalog, Seller Create Room, Product Details.
+- Data persistence via Object Serialization and SQLite.
+- Concurrency stress tests with 10 concurrent threads bidding simultaneously and 20 rapid disconnects (`ServerConcurrencyStressTest.java`).
+- Automated CI/CD workflow with GitHub Actions.
+
+## System Architecture
+
+```mermaid
+classDiagram
+    class User {
+        <<abstract>>
+        #String id
+        #String name
+        #String password
+        +verifyPassword(String) boolean
+    }
+    class Bidder {
+        +Bidder(id, name, pass)
+    }
+    class Seller {
+        +Seller(id, name, pass)
+    }
+    class Admin {
+        +Admin(id, name, pass)
+    }
+    User <|-- Bidder
+    User <|-- Seller
+    User <|-- Admin
+
+    class Item {
+        <<abstract>>
+        #String id
+        #String name
+        #double price
+    }
+    class Electronics {
+        -int warrantyPeriod
+    }
+    class Art {
+        -String artist
+        -String medium
+    }
+    class Vehicle {
+        -String make
+        -int year
+    }
+    Item <|-- Electronics
+    Item <|-- Art
+    Item <|-- Vehicle
+
+    class Auction {
+        -String id
+        -double currentPrice
+        -Status status
+        -ReentrantLock lock
+        +placeBid(BidTransaction) boolean
+        +startAuction(Duration)
+        +finishAuction()
+        +markPaid()
+    }
+
+    class AuctionServer {
+        -int port
+        -ExecutorService clientThreadPool
+        +start()
+        +stop()
+    }
+    class ClientHandler {
+        -Socket socket
+        -User currentUser
+        +run()
+        +close()
+    }
+    AuctionServer *--> ClientHandler
+
+    class AuctionManager {
+        <<Singleton>>
+        -static AuctionManager instance
+        +getInstance()$ AuctionManager
+        +placeBid(...) boolean
+        +saveState()
+        +loadState()
+    }
+    AuctionManager o--> Auction
+    AuctionManager o--> User
+```
+
+## Documentation
+
+- [Project task assignment and roadmap](TASKS.md)
+
+## Report And Demo Video (Updating...)
