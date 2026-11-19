@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.auction.model.BidTransaction;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Socket Client kết nối tới AuctionServer.
@@ -44,11 +47,12 @@ public class AuctionClient {
 
         default void onDisconnected() {
         }
-default void onAuctionListReceived(List<AuctionSummary> auctions) {
-}
 
-// Được gọi khi Client nhận đủ danh sách đấu giá
-// auctions chứa toàn bộ các phiên đấu giá đã xong
+        default void onAuctionListReceived(List<AuctionSummary> auctions) {
+        }
+
+        // Được gọi khi Client nhận đủ danh sách đấu giá
+        // auctions chứa toàn bộ các phiên đấu giá đã xong
     }
 
     private final String host;
@@ -58,6 +62,8 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
     private PrintWriter out;
     private Thread listenerThread;
     private volatile boolean connected = false;
+    private static final long HEARTBEAT_INTERVAL_SECONDS = 20;
+    private ScheduledExecutorService heartbeatScheduler;
 
     private final List<AuctionEventListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -65,6 +71,31 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
         this.host = host;
         this.port = port;
     }
+
+    private synchronized void startHeartbeat() {
+        if (heartbeatScheduler != null && !heartbeatScheduler.isShutdown()) {
+            return;
+        }
+        // Nếu đã có một schedule đang chạy thì không tạo thêm
+        heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(task -> {
+            Thread thread = new Thread(task, "auction-client-heartbeat");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        heartbeatScheduler.scheduleAtFixedRate(() -> {
+            if (!isConnected()) {
+                return;
+            }
+            try {
+                ping();
+            } catch (IllegalStateException e) {
+                System.err.println("[AuctionClient] Heartbeat failed: " + e.getMessage());
+            }
+        }, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
+    }
+    // Tạo một Thread riêng để gửi PING định kỳ, không chạy trên JavaFX nên không
+    // làm treo giao diện
 
     public void addListener(AuctionEventListener listener) {
         if (listener != null && !listeners.contains(listener)) {
@@ -89,6 +120,9 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
         listenerThread = new Thread(this::listenLoop, "auction-client-listener");
         listenerThread.setDaemon(true);
         listenerThread.start();
+
+        startHeartbeat();
+        // Bắt đầu tự động gửi PING sau khi connect thành công
     }
 
     private void listenLoop() {
@@ -123,15 +157,13 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
                         currentAuctionBuffer.add(parseAuctionLine(line));
                     } catch (IllegalArgumentException e) {
                         System.err.println(
-                                "[AuctionClient] Dữ liệu phiên đấu giá không hợp lệ: " + line
-                        );
+                                "[AuctionClient] Dữ liệu phiên đấu giá không hợp lệ: " + line);
                     }
 
                 } else if (line.equals(AuctionProtocol.AUCTIONS_END)
                         && currentAuctionBuffer != null) {
 
-                    List<AuctionSummary> auctionList =
-                            List.copyOf(currentAuctionBuffer);
+                    List<AuctionSummary> auctionList = List.copyOf(currentAuctionBuffer);
 
                     for (AuctionEventListener listener : listeners) {
                         try {
@@ -281,6 +313,7 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
             disconnect();
         }
     }
+
     private AuctionSummary parseAuctionLine(String line) {
 
         String[] parts = line.trim().split("\\s+");
@@ -299,18 +332,14 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
                 java.util.Arrays.copyOfRange(
                         parts,
                         2,
-                        currentPriceIndex
-                )
-        );
+                        currentPriceIndex));
 
         try {
             double currentPrice = Double.parseDouble(
-                    parts[currentPriceIndex].replace(',', '.')
-            );
+                    parts[currentPriceIndex].replace(',', '.'));
 
             double stepPrice = Double.parseDouble(
-                    parts[currentPriceIndex + 1].replace(',', '.')
-            );
+                    parts[currentPriceIndex + 1].replace(',', '.'));
 
             String highestBidderId = parts[currentPriceIndex + 2];
             String status = parts[currentPriceIndex + 3];
@@ -321,13 +350,11 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
                     currentPrice,
                     stepPrice,
                     highestBidderId,
-                    status
-            );
+                    status);
 
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(
-                    "Giá đấu không đúng định dạng", e
-            );
+                    "Giá đấu không đúng định dạng", e);
         }
     }
 
@@ -400,7 +427,11 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
             return;
         }
         connected = false;
-
+        // Dừng heartbeat scheduler
+        if (heartbeatScheduler != null) {
+            heartbeatScheduler.shutdownNow();
+            heartbeatScheduler = null;
+        }
         try {
             if (out != null) {
                 out.println(AuctionProtocol.CMD_QUIT);

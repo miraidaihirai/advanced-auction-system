@@ -9,12 +9,19 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
 
 <!-- Sử dụng ScrollPane làm gốc, gắn styleClass nền và đường dẫn file CSS -->
 <ScrollPane fitToWidth="true" styleClass="root-pane" stylesheets="@../css/styleCreateRoom.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.ui.CreateRoomUIController">
   <content>
     <!-- Khung card chính chứa form tạo phòng -->
-    <VBox fx:id="createRoom" alignment="TOP_LEFT" spacing="14" styleClass="room-card" style="-fx-padding: 30px; -fx-margin: 20px;">
+    <VBox fx:id="createRoom"
+        alignment="TOP_LEFT"
+        spacing="14"
+        styleClass="room-card">
+      <padding>
+        <Insets top="30" right="30" bottom="30" left="30"/>
+      </padding>
       <!-- Tiêu đề lớn -->
       <Label styleClass="title-label" text="Tạo Phòng Đấu Giá Mới"/>
 
