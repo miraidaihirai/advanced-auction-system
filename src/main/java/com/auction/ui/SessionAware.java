@@ -1,11 +1,13 @@
+
 package com.auction.ui;
 
 import com.auction.session.ClientSession;
 
+/**
+ * Interface dành cho các Controller cần sử dụng
+ * ClientSession chung của ứng dụng.
+ */
 public interface SessionAware {
-    void setClientSession(ClientSession session);
+
+    void setClientSession(ClientSession clientSession);
 }
-// Quy ước cho các Controller cần ClientSesion
-// Hỗ trợ ViewManager trong việc kiểm tra các Controller
-
-
