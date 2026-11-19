@@ -128,7 +128,7 @@ public class AuctionNotificationListener
                 "Chúc mừng! Bạn đã thắng phiên đấu giá. \n"
                         + "Sản phẩm: " + itemId + "\n"
                         + "Mã phiên: " + auctionId + "\n"
-                        + "Gía cuối cùng: " + formatPrice(finalPrice));
+                        + "Giá cuối cùng: " + formatPrice(finalPrice));
     }
 
     @Override
@@ -162,7 +162,8 @@ public class AuctionNotificationListener
     private String translateBidError(String reason) {
         String normalized = reason.toLowerCase(Locale.ROOT);
 
-        if (normalized.startsWith("invalid bid amount")) {
+        if (normalized.startsWith("invalid bid amount")
+                || normalized.contains("bid amount must be")) {
             return "Số tiền đặt giá không hợp lệ.";
         }
 
@@ -174,8 +175,21 @@ public class AuctionNotificationListener
             return "Chỉ tài khoản người đấu giá mới được phép đặt giá.";
         }
 
-        if (normalized.contains("auction") && normalized.contains("closed")) {
-            return "Phiên đấu giá đã kết thúc, không thể tiếp tục đặt giá.";
+        if (normalized.contains("not accepting bids")
+                || normalized.contains("auction closed")) {
+            return "Phiên đấu giá đã kết thúc hoặc không còn nhận giá.";
+        }
+
+        if (normalized.contains("below the minimum required")) {
+            return "Giá đặt thấp hơn mức giá tối thiểu cho phép.";
+        }
+
+        if (normalized.contains("invalid bidder credentials")) {
+            return "Thông tin tài khoản người đấu giá không hợp lệ.";
+        }
+
+        if (normalized.contains("auction not found")) {
+            return "Không tìm thấy phiên đấu giá.";
         }
 
         if (normalized.contains("bid was not accepted")) {
@@ -188,6 +202,7 @@ public class AuctionNotificationListener
 
         return "Vui lòng kiểm tra mức giá và trạng thái phiên đấu giá.";
     }
+
 }
 // Observer Pattern
 // Listener có thể đăng kí với Client và nhận được thông báo mỗi khi server gửi
