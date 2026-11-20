@@ -159,6 +159,34 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         if (this.clientSession != null) {
             this.clientSession.getClient().addListener(this);
         }
+        applyRoleMode();
+    }
+
+    private void applyRoleMode() {
+        if (clientSession == null) return;
+        Platform.runLater(() -> {
+            if (clientSession.isSeller()) {
+                if (txtBidAmount != null) txtBidAmount.setDisable(true);
+                if (btnPlaceBid != null) {
+                    btnPlaceBid.setDisable(true);
+                    btnPlaceBid.setText("CHẾ ĐỘ NGƯỜI BÁN (CHỈ THEO DÕI)");
+                }
+                setStatus("Chế độ Người bán: Theo dõi diễn biến phiên đấu giá", true);
+            } else if (clientSession.isAdmin()) {
+                if (txtBidAmount != null) txtBidAmount.setDisable(true);
+                if (btnPlaceBid != null) {
+                    btnPlaceBid.setDisable(true);
+                    btnPlaceBid.setText("CHẾ ĐỘ QUẢN TRỊ VIÊN (GIÁM SÁT)");
+                }
+                setStatus("Chế độ Quản trị viên: Giám sát toàn quyền phiên đấu giá", true);
+            } else {
+                if (txtBidAmount != null) txtBidAmount.setDisable(false);
+                if (btnPlaceBid != null) {
+                    btnPlaceBid.setDisable(false);
+                    btnPlaceBid.setText("ĐẶT GIÁ NGAY");
+                }
+            }
+        });
     }
 
     public void loadAuction(AuctionSummary auction) {
@@ -189,7 +217,15 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
                 lblCategoryTag.setText(detectCategory(itemName));
             }
             if (lblSeller != null) {
-                lblSeller.setText("SELLER-01 (Đã xác minh)");
+                String sellerDisplay = "Người bán (Đã xác minh)";
+                try {
+                    com.auction.model.Auction a = com.auction.manager.AuctionManager.getInstance().getAuction(currentAuctionId);
+                    if (a != null && a.getSellerId() != null && !a.getSellerId().isBlank()) {
+                        sellerDisplay = a.getSellerId() + " (Đã xác minh)";
+                    }
+                } catch (Exception ignored) {
+                }
+                lblSeller.setText(sellerDisplay);
             }
             if (lblDescription != null) {
                 lblDescription.setText("Sản phẩm đấu giá chính hãng, kèm giấy tờ kiểm định và bảo hành toàn diện.");
@@ -230,6 +266,7 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
             }
 
             setDefaultBidInput();
+            applyRoleMode();
         });
 
         if (clientSession != null && clientSession.isConnected()) {
@@ -301,6 +338,10 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     }
 
     private void applyBidIncrement(double increment) {
+        if (clientSession != null && (clientSession.isSeller() || clientSession.isAdmin())) {
+            setStatus("Chỉ Người đặt giá (Bidder) mới có thể đặt giá hoặc tăng giá!", false);
+            return;
+        }
         if (txtBidAmount == null) {
             return;
         }
@@ -328,6 +369,11 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
 
     @FXML
     public void handlePlaceBid() {
+        if (clientSession != null && (clientSession.isSeller() || clientSession.isAdmin())) {
+            setStatus("Chỉ Người đặt giá (Bidder) mới có thể đặt giá trong phiên!", false);
+            return;
+        }
+
         if (clientSession == null || !clientSession.isConnected()) {
             setStatus("Chưa kết nối đến máy chủ!", false);
             return;

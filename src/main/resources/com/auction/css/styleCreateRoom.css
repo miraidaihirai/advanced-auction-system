@@ -5,13 +5,14 @@
     -fx-border-color: transparent;
 }
 
-.root-pane > .viewport {
+.root-pane>.viewport {
     -fx-background-color: transparent;
 }
 
 .root-pane .room-card {
     -fx-background-color: #121826;
 }
+
 .room-card {
     -fx-background-color: #121826;
     -fx-background-radius: 16px;
@@ -74,26 +75,110 @@
     -fx-font-weight: 600;
 }
 
-.text-field,
-.combo-box {
+.text-field {
     -fx-background-color: #0A0E17;
     -fx-background-radius: 8px;
     -fx-border-color: #1F2937;
     -fx-border-radius: 8px;
     -fx-border-width: 1.5px;
     -fx-padding: 8px 12px;
-    -fx-text-fill: #FFFFFF;
+    -fx-text-fill: #F3F4F6;
     -fx-prompt-text-fill: #6B7280;
 }
 
+.text-field:focused {
+    -fx-border-color: #F59E0B;
+    -fx-background-color: #0F141F;
+}
+
+/* ComboBox Control */
+.combo-box {
+    -fx-background-color: #0A0E17;
+    -fx-background-radius: 8px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1.5px;
+    -fx-padding: 4px 8px;
+    -fx-cursor: hand;
+}
+
+.combo-box:focused,
+.combo-box:hover {
+    -fx-border-color: #F59E0B;
+    -fx-background-color: #0F141F;
+}
+
 .combo-box .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #F3F4F6;
+    -fx-padding: 4px 6px;
+    -fx-font-size: 13px;
+}
+
+.combo-box .arrow-button {
+    -fx-background-color: transparent;
+}
+
+.combo-box .arrow {
+    -fx-background-color: #9CA3AF;
+}
+
+.combo-box:hover .arrow,
+.combo-box:focused .arrow {
+    -fx-background-color: #F59E0B;
+}
+
+/* ComboBox Dropdown Popup List */
+.combo-box-popup .list-view {
+    -fx-background-color: #0F172A;
+    -fx-background-radius: 8px;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 8px;
+    -fx-border-width: 1.5px;
+    -fx-padding: 4px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.75), 18, 0, 0, 8);
+}
+
+.combo-box-popup .list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #E2E8F0;
+    -fx-padding: 8px 12px;
+    -fx-background-radius: 6px;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+}
+
+.combo-box-popup .list-view .list-cell:hover {
+    -fx-background-color: #1E293B;
+    -fx-text-fill: #38BDF8;
+}
+
+.combo-box-popup .list-view .list-cell:filled:selected,
+.combo-box-popup .list-view .list-cell:filled:selected:hover {
+    -fx-background-color: #0284C7;
     -fx-text-fill: #FFFFFF;
 }
 
-.text-field:focused,
-.combo-box:focused {
-    -fx-border-color: #F59E0B;
-    -fx-background-color: #0F141F;
+/* Scrollbar inside ComboBox popup */
+.combo-box-popup .list-view .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8px;
+}
+
+.combo-box-popup .list-view .scroll-bar:vertical .thumb {
+    -fx-background-color: #334155;
+    -fx-background-radius: 4px;
+}
+
+.combo-box-popup .list-view .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #475569;
+}
+
+.combo-box-popup .list-view .scroll-bar:vertical .track,
+.combo-box-popup .list-view .scroll-bar:vertical .increment-button,
+.combo-box-popup .list-view .scroll-bar:vertical .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
 }
 
 .cancel-button {

@@ -22,13 +22,13 @@ public class RegisterController {
     private Label errorRegister;
 
     @FXML
-    private void Register()throws IOException{
+    private void Register() throws IOException {
         RegisterPane.getStyleClass();
-        if(true){ //Nếu đky được tài khoản
+        if (true) { // Nếu đky được tài khoản
             ViewManager.SwitchView("LogIn");
-        }else{
+        } else {
             errorRegister.setText("Tài khoản hoặc mật khẩu không tồn tại!");
         }
     }
-    
+
 }

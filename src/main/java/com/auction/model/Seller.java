@@ -40,4 +40,9 @@ public class Seller extends User implements AuctionObserver {
                 auction.getHighestBidderId()
         );
     }
+
+    @Override
+    public String getRoleName() {
+        return "SELLER";
+    }
 }

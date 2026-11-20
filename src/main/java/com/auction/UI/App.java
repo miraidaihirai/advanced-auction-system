@@ -6,25 +6,25 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+import network.AuctionProtocol;
 
 public class App extends Application {
 
-    private static final String SERVER_HOST = "localhost";
-    private static final int SERVER_PORT = 8888;
-// Cần đổi "localhost" thành IP LAN của máy chạy Server trong demo
+    private static final String SERVER_HOST = AuctionProtocol.DEFAULT_HOST;
+    private static final int SERVER_PORT = AuctionProtocol.DEFAULT_PORT;
+
     private ClientSession clientSession;
     private AuctionNotificationListener notificationListener;
 
     @Override
     public void start(Stage primaryStage) {
-
         clientSession = new ClientSession(SERVER_HOST, SERVER_PORT);
 
-notificationListener = new AuctionNotificationListener();
-clientSession.getClient().addListener(notificationListener);
+        notificationListener = new AuctionNotificationListener();
+        clientSession.getClient().addListener(notificationListener);
 
-// Khởi tạo Scene với kích thước mới từ dev
-Scene scene = new Scene(new StackPane(), 1240, 780);
+        // Khởi tạo Scene với kích thước chuẩn
+        Scene scene = new Scene(new StackPane(), 1240, 780);
 
         ViewManager.Initialize(scene, clientSession);
         ViewManager.SwitchView("LogIn");
@@ -39,11 +39,10 @@ Scene scene = new Scene(new StackPane(), 1240, 780);
     @Override
     public void stop() {
         if (clientSession != null) {
-            if (notificationListener != null){
+            if (notificationListener != null) {
                 clientSession.getClient().removeListener(notificationListener);
             }
             clientSession.disconnect();
         }
     }
-    // Khi người dùng chủ động đóng ứng dụng, sẽ không xuất hiện alert mất kết nối
 }
