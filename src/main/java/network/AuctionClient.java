@@ -108,24 +108,36 @@ public class AuctionClient {
     }
 
     public synchronized void connect() throws IOException {
-        if (connected) {
+        if (connected && socket != null && !socket.isClosed()) {
             return;
         }
 
-        socket = new Socket(host, port);
-        in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-        out = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
-        connected = true;
+        disconnect();
 
-        listenerThread = new Thread(this::listenLoop, "auction-client-listener");
-        listenerThread.setDaemon(true);
-        listenerThread.start();
+        try {
+            socket = new Socket();
+            socket.setTcpNoDelay(true);
+            socket.connect(new java.net.InetSocketAddress(host, port), 3000);
+            // Khởi tạo OutputStream trước và flush() ngay để handshake đúng chuẩn Socket
+            out = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
+            out.flush();
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            connected = true;
 
-        startHeartbeat();
-        // Bắt đầu tự động gửi PING sau khi connect thành công
+            Socket activeSocket = socket;
+            BufferedReader activeIn = in;
+            listenerThread = new Thread(() -> listenLoop(activeSocket, activeIn), "auction-client-listener");
+            listenerThread.setDaemon(true);
+            listenerThread.start();
+
+            startHeartbeat();
+        } catch (IOException e) {
+            disconnect();
+            throw e;
+        }
     }
 
-    private void listenLoop() {
+    private void listenLoop(Socket activeSocket, BufferedReader activeIn) {
         List<BidTransaction> currentHistoryBuffer = null;
         String currentHistoryAuctionId = null;
 
@@ -133,7 +145,7 @@ public class AuctionClient {
         // Server gửi danh sách đấu giá theo từng dòng riêng biệt
         try {
             String line;
-            while (connected && (line = in.readLine()) != null) {
+            while (connected && socket == activeSocket && (line = activeIn.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty()) {
                     continue;
@@ -143,7 +155,8 @@ public class AuctionClient {
                 for (AuctionEventListener l : listeners) {
                     try {
                         l.onMessageReceived(line);
-                    } catch (Exception ignored) {
+                    } catch (Exception e) {
+                        System.err.println("[AuctionClient] Exception in listener: " + e.getMessage());
                     }
                 }
                 if (line.equals(AuctionProtocol.AUCTIONS_BEGIN)) {
@@ -298,19 +311,21 @@ public class AuctionClient {
                 }
             }
         } catch (IOException e) {
-            if (connected) {
+            if (connected && socket == activeSocket) {
                 System.out.printf("[AuctionClient] Connection lost: %s%n", e.getMessage());
             }
         } finally {
-            if (connected) {
-                for (AuctionEventListener listener : listeners) {
-                    try {
-                        listener.onDisconnected();
-                    } catch (Exception ignored) {
+            if (socket == activeSocket) {
+                if (connected) {
+                    for (AuctionEventListener listener : listeners) {
+                        try {
+                            listener.onDisconnected();
+                        } catch (Exception ignored) {
+                        }
                     }
                 }
+                disconnect();
             }
-            disconnect();
         }
     }
 
@@ -368,6 +383,7 @@ public class AuctionClient {
             throw new IllegalStateException("Client is not connected to server");
         }
         out.println(command);
+        out.flush();
     }
 
     public void login(String userId, String password) {

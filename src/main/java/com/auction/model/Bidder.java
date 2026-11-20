@@ -49,4 +49,9 @@ public class Bidder extends User implements AuctionObserver {
             );
         }
     }
+
+    @Override
+    public String getRoleName() {
+        return "BIDDER";
+    }
 }

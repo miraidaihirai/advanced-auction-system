@@ -46,4 +46,16 @@ public abstract class User implements Serializable {
     }
 
     public abstract void displayInfo();
+
+    /**
+     * Lấy tên vai trò đại diện theo kiểu dữ liệu cụ thể của User (Admin, Seller, Bidder).
+     *
+     * @return chuỗi vai trò "ADMIN", "SELLER", "BIDDER" hoặc "UNKNOWN"
+     */
+    public String getRoleName() {
+        if (this instanceof Admin) return "ADMIN";
+        if (this instanceof Seller) return "SELLER";
+        if (this instanceof Bidder) return "BIDDER";
+        return "UNKNOWN";
+    }
 }

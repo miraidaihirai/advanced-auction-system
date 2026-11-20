@@ -2,6 +2,7 @@
 package com.auction.ui;
 
 import com.auction.session.ClientSession;
+import com.auction.session.UserRole;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -40,26 +41,86 @@ public class LogInController implements SessionAware {
 
         @Override
         public void onMessageReceived(String rawMessage) {
+            System.out.println("[LogInController] onMessageReceived: " + rawMessage);
 
             if (!loginInProgress) {
                 return;
             }
 
-            if (rawMessage.startsWith("SUCCESS LOGIN ")) {
+            try {
+                if (rawMessage.startsWith("SUCCESS LOGIN ")) {
+                    // Format: SUCCESS LOGIN <userId> <name> [ROLE]
+                    String payload = rawMessage.substring("SUCCESS LOGIN ".length()).trim();
+                    String[] parts = payload.split("\\s+");
 
+                    String userId   = parts.length > 0 ? parts[0] : "";
+                    String userName = parts.length > 1 ? parts[1] : userId;
+
+                    // Xác định vai trò dựa trực tiếp trên kiểu dữ liệu User (Admin, Seller, Bidder):
+                    com.auction.model.User matchedUser = null;
+                    try {
+                        matchedUser = com.auction.manager.AuctionManager.getInstance().getUser(userId);
+                    } catch (Exception ignored) {
+                    }
+
+                    UserRole role = UserRole.UNKNOWN;
+                    if (matchedUser != null) {
+                        role = UserRole.fromUser(matchedUser);
+                    } else if (parts.length > 2) {
+                        role = UserRole.fromString(parts[2]);
+                    } else {
+                        role = UserRole.fromString(userId);
+                    }
+
+                    if (role == UserRole.UNKNOWN) {
+                        role = UserRole.BIDDER;
+                    }
+
+                    // Khởi tạo đúng kiểu dữ liệu cụ thể (Seller, Admin, Bidder) theo vai trò
+                    // Mật khẩu phiên cần tối thiểu 8 ký tự theo ràng buộc User.setPassword()
+                    if (matchedUser == null && !userId.isBlank()) {
+                        String sessionPwd = "password123";
+                        if (role == UserRole.SELLER) {
+                            matchedUser = new com.auction.model.Seller(userId, userName, sessionPwd);
+                        } else if (role == UserRole.ADMIN) {
+                            matchedUser = new com.auction.model.Admin(userId, userName, sessionPwd);
+                        } else {
+                            matchedUser = new com.auction.model.Bidder(userId, userName, sessionPwd);
+                        }
+                    }
+
+                    final com.auction.model.User finalUser = matchedUser;
+                    final UserRole finalRole = role;
+
+                    Platform.runLater(() -> {
+                        loginInProgress = false;
+                        errorLabel.setText("");
+                        // Lưu thông tin user và role vào session
+                        if (clientSession != null) {
+                            if (finalUser != null) {
+                                clientSession.setCurrentUser(finalUser);
+                            } else {
+                                clientSession.setCurrentUser(userId, userName, finalRole);
+                            }
+                        }
+                        ViewManager.SwitchView("Home");
+                    });
+
+                } else if (rawMessage.startsWith("ERROR ")) {
+
+                    String serverError = rawMessage.substring("ERROR ".length());
+
+                    Platform.runLater(() -> {
+                        loginInProgress = false;
+                        errorLabel.setText(translateLoginError(serverError));
+                    });
+                }
+            } catch (Throwable t) {
+                System.err.println("[LogInController] Error handling onMessageReceived: " + t.getMessage());
+                t.printStackTrace();
                 Platform.runLater(() -> {
                     loginInProgress = false;
-                    errorLabel.setText("");
-                    ViewManager.SwitchView("Home");
-                });
-
-            } else if (rawMessage.startsWith("ERROR ")) {
-
-                String serverError = rawMessage.substring("ERROR ".length());
-
-                Platform.runLater(() -> {
-                    loginInProgress = false;
-                    errorLabel.setText(translateLoginError(serverError));
+                    errorLabel.setText("Lỗi xử lý phản hồi đăng nhập: " + t.getMessage());
                 });
             }
         }
@@ -83,12 +144,7 @@ public class LogInController implements SessionAware {
 
     @Override
     public void setClientSession(ClientSession session) {
-
-        if (this.clientSession == session) {
-            return;
-        }
-
-        if (this.clientSession != null) {
+        if (this.clientSession != null && this.clientSession != session) {
             this.clientSession.getClient().removeListener(loginListener);
         }
 
@@ -96,6 +152,24 @@ public class LogInController implements SessionAware {
 
         if (this.clientSession != null) {
             this.clientSession.getClient().addListener(loginListener);
+        }
+
+        resetForm();
+    }
+
+    /**
+     * Xóa sạch các trường nhập liệu và thông báo lỗi trên form đăng nhập.
+     */
+    public void resetForm() {
+        loginInProgress = false;
+        if (usernameField != null) {
+            usernameField.clear();
+        }
+        if (passwordField != null) {
+            passwordField.clear();
+        }
+        if (errorLabel != null) {
+            errorLabel.setText("");
         }
     }
     // Đăng kí listener với Auction Client
@@ -125,23 +199,37 @@ public class LogInController implements SessionAware {
         loginInProgress = true;
         errorLabel.setText("Đang kết nối đến máy chủ...");
 
-        Thread loginThread = new Thread(() -> {
-
+        // Watchdog timeout 8s: tự động mở khóa nếu Server không phản hồi, tránh treo giao diện
+        Thread watchdogThread = new Thread(() -> {
             try {
+                Thread.sleep(8000);
+                if (loginInProgress) {
+                    Platform.runLater(() -> {
+                        if (loginInProgress) {
+                            loginInProgress = false;
+                            errorLabel.setText("Máy chủ không phản hồi yêu cầu. Vui lòng thử lại.");
+                        }
+                    });
+                }
+            } catch (InterruptedException ignored) {
+            }
+        }, "login-watchdog");
+        watchdogThread.setDaemon(true);
+        watchdogThread.start();
+
+        Thread loginThread = new Thread(() -> {
+            try {
+                System.out.println("[LogInController] Connecting to server...");
                 clientSession.connect();
-
+                System.out.println("[LogInController] Sending LOGIN command for userId='" + userId + "'...");
                 clientSession.getClient().login(userId, password);
-
             } catch (Exception e) {
-
+                System.err.println("[LogInController] Connect failed: " + e.getMessage());
                 Platform.runLater(() -> {
                     loginInProgress = false;
-
-                    errorLabel.setText(
-                            "Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+                    errorLabel.setText("Không thể kết nối đến máy chủ. Vui lòng kiểm tra AuctionServer đã được bật!");
                 });
             }
-
         }, "login-worker");
 
         loginThread.setDaemon(true);

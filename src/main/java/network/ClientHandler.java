@@ -63,8 +63,11 @@ public class ClientHandler implements Runnable, AuctionObserver {
             if (soTimeoutMillis > 0) {
                 socket.setSoTimeout(soTimeoutMillis);
             }
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            socket.setTcpNoDelay(true);
+            // Khởi tạo OutputStream trước và flush() để hoàn tất handshake với Client
             out = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
+            out.flush();
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
 
             sendMessage(AuctionProtocol.formatSuccess("CONNECTED", "Welcome to Online Auction Server!"));
 
@@ -153,21 +156,32 @@ public class ClientHandler implements Runnable, AuctionObserver {
     }
 
     private void handleLogin(String[] parts) {
-        if (parts.length < 3) {
-            sendMessage(AuctionProtocol.formatError("Usage: LOGIN <userId> <password>"));
-            return;
-        }
-        String userId = parts[1];
-        String password = parts[2];
+        try {
+            if (parts.length < 3) {
+                System.out.printf("[ClientHandler] LOGIN FAILED: Missing parameters from %s%n", getClientInfo());
+                sendMessage(AuctionProtocol.formatError("Usage: LOGIN <userId> <password>"));
+                return;
+            }
+            String userId = parts[1];
+            String password = parts[2];
 
-        User user = AuctionManager.getInstance().authenticate(userId, password);
-        if (user != null) {
-            this.currentUser = user;
-            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_LOGIN,
-                    user.getId() + " " + user.getName()));
-            System.out.printf("[ClientHandler] Client %s logged in as %s%n", getClientInfo(), userId);
-        } else {
-            sendMessage(AuctionProtocol.formatError("Invalid user credentials"));
+            System.out.printf("[ClientHandler] Received LOGIN request for userId='%s' from %s%n", userId, getClientInfo());
+            User user = AuctionManager.getInstance().authenticate(userId, password);
+            if (user != null) {
+                this.currentUser = user;
+                String successMsg = AuctionProtocol.formatSuccess(AuctionProtocol.CMD_LOGIN,
+                        user.getId() + " " + user.getName());
+                sendMessage(successMsg);
+                System.out.printf("[ClientHandler] LOGIN SUCCESS: User '%s' (%s) authenticated successfully.%n",
+                        user.getId(), detectRole(user));
+            } else {
+                System.out.printf("[ClientHandler] LOGIN FAILED: Invalid credentials for userId='%s'%n", userId);
+                sendMessage(AuctionProtocol.formatError("Invalid user credentials"));
+            }
+        } catch (Throwable t) {
+            System.err.printf("[ClientHandler] LOGIN ERROR exception: %s%n", t.getMessage());
+            t.printStackTrace();
+            sendMessage(AuctionProtocol.formatError("Server error during login: " + t.getMessage()));
         }
     }
 
@@ -535,6 +549,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
     public synchronized void sendMessage(String message) {
         if (out != null && !socket.isClosed()) {
             out.println(message);
+            out.flush();
         }
     }
 
@@ -617,5 +632,17 @@ public class ClientHandler implements Runnable, AuctionObserver {
     private void sendBidError(String reason) {
         String safeReason = (reason == null || reason.isBlank() ? "Unknown bid error" : reason);
         sendMessage(AuctionProtocol.formatError("BID " + safeReason));
+    }
+
+    /**
+     * Xác định role của User dựa trên kiểu thực tế (instanceof).
+     *
+     * @param user người dùng đã xác thực
+     * @return chuỗi "ADMIN", "SELLER" hoặc "BIDDER"
+     */
+    private String detectRole(User user) {
+        if (user instanceof Admin)  return "ADMIN";
+        if (user instanceof Seller) return "SELLER";
+        return "BIDDER";
     }
 }
