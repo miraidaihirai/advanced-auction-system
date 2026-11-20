@@ -10,7 +10,7 @@
 
 <VBox fx:id="card" stylesheets="@../css/styleCard.css" styleClass="productCard"
       prefWidth="260" maxWidth="280"
-      xmlns="http://javafx.com/javafx/21" 
+      xmlns="http://javafx.com/javafx/21"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.auction.ui.ProductCardController">
     <children>
@@ -36,7 +36,6 @@
                 <Label text="Giá hiện tại" styleClass="price-sub-label"/>
                 <Label fx:id="lblPrice" text="15,500,000 đ" styleClass="product-price"/>
             </VBox>
-            
             <HBox alignment="CENTER_LEFT" spacing="10" styleClass="meta-row">
                 <Label fx:id="lblTime" styleClass="time-label" text="03h 10m 10s"/>
                 <HBox HBox.hgrow="ALWAYS" />

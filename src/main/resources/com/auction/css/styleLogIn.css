@@ -51,7 +51,7 @@
     -fx-text-fill: #EF4444;
 }
 
-.button {
+.login-card .button {
     -fx-background-color: linear-gradient(to right, #E11D48, #BE123C);
     -fx-text-fill: #FFFFFF;
     -fx-font-weight: bold;
@@ -59,9 +59,8 @@
     -fx-background-radius: 10px;
     -fx-cursor: hand;
     -fx-padding: 12px;
-    -fx-effect: dropshadow(gaussian, rgba(225, 29, 72, 0.3), 8, 0, 0, 2);
 }
 
-.button:hover {
+.login-card .button:hover {
     -fx-background-color: linear-gradient(to right, #F43F5E, #E11D48);
 }

@@ -144,7 +144,11 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     sendMessage(AuctionProtocol.formatError("Unknown command: " + command));
             }
         } catch (Exception e) {
-            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+            if (AuctionProtocol.CMD_BID.equals(command)) {
+                sendBidError(e.getMessage());
+            } else {
+                sendMessage(AuctionProtocol.formatError(e.getMessage()));
+            }
         }
     }
 
@@ -169,7 +173,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     private void handleRegister(String[] parts) {
         if (parts.length < 5) {
-            sendMessage(AuctionProtocol.formatError("Usage: REGISTER <userId> <name> <password> <BIDDER|SELLER|ADMIN>"));
+            sendMessage(
+                    AuctionProtocol.formatError("Usage: REGISTER <userId> <name> <password> <BIDDER|SELLER|ADMIN>"));
             return;
         }
         String userId = parts[1];
@@ -250,44 +255,59 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     private void handleBid(String[] parts) {
         if (parts.length < 3) {
-            sendMessage(AuctionProtocol.formatError("Usage: BID <auctionId> <amount>"));
+            sendBidError("Usage: BID <auctionId> <amount>");
             return;
         }
+
         if (currentUser == null) {
-            sendMessage(AuctionProtocol.formatError("You must LOGIN first to place a bid"));
+            sendBidError("You must LOGIN first to place a bid");
             return;
         }
+
         if (!(currentUser instanceof Bidder)) {
-            sendMessage(AuctionProtocol.formatError("Only Bidders can place bids"));
+            sendBidError("Only Bidders can place bids");
             return;
         }
 
         String auctionId = parts[1];
         double amount;
+
         try {
             amount = Double.parseDouble(parts[2].replace(',', '.'));
         } catch (NumberFormatException e) {
-            sendMessage(AuctionProtocol.formatError("Invalid bid amount: " + parts[2]));
+            sendBidError("Invalid bid amount: " + parts[2]);
             return;
         }
 
         try {
             boolean success = AuctionManager.getInstance().placeBid(
-                    auctionId, currentUser.getId(), currentUser.getPassword(), amount);
+                    auctionId,
+                    currentUser.getId(),
+                    currentUser.getPassword(),
+                    amount);
+
             if (success) {
                 if (subscribedAuctions.add(auctionId)) {
-                    Auction auction = AuctionManager.getInstance().getAuction(auctionId);
+                    Auction auction = AuctionManager.getInstance()
+                            .getAuction(auctionId);
+
                     if (auction != null) {
                         auction.addObserver(this);
                     }
                 }
-                sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_BID,
+
+                sendMessage(AuctionProtocol.formatSuccess(
+                        AuctionProtocol.CMD_BID,
                         String.format(Locale.US, "%s %.2f", auctionId, amount)));
+
             } else {
-                sendMessage(AuctionProtocol.formatError("Bid was not accepted"));
+                sendBidError("Bid was not accepted");
             }
-        } catch (InvalidBidException | AuctionClosedException | AuthenticationException e) {
-            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+
+        } catch (InvalidBidException
+                | AuctionClosedException
+                | AuthenticationException e) {
+            sendBidError(e.getMessage());
         }
     }
 
@@ -368,7 +388,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
             return;
         }
         if (auction.getStatus() != Auction.Status.FINISHED) {
-            sendMessage(AuctionProtocol.formatError("Only FINISHED auctions can be paid (current: " + auction.getStatus() + ")"));
+            sendMessage(AuctionProtocol
+                    .formatError("Only FINISHED auctions can be paid (current: " + auction.getStatus() + ")"));
             return;
         }
         boolean isWinner = currentUser.getId().equals(auction.getHighestBidderId());
@@ -449,7 +470,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
     /**
      * Observer Pattern Callback: Tự động bắn thông báo realtime khi phiên đấu giá
      * kết thúc.
-     * Gửi thông báo riêng đến Seller và Winner, kèm thông báo phòng chung cho các client đang xem.
+     * Gửi thông báo riêng đến Seller và Winner, kèm thông báo phòng chung cho các
+     * client đang xem.
      */
     @Override
     public void onAuctionClosed(Auction auction) {
@@ -488,7 +510,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
     }
 
     /**
-     * Observer Pattern Callback: Tự động bắn thông báo khi phiên đã thanh toán (PAID).
+     * Observer Pattern Callback: Tự động bắn thông báo khi phiên đã thanh toán
+     * (PAID).
      */
     @Override
     public void onAuctionPaid(Auction auction) {
@@ -590,5 +613,9 @@ public class ClientHandler implements Runnable, AuctionObserver {
     public String getClientInfo() {
         return currentUser != null ? currentUser.getId() : socket.getRemoteSocketAddress().toString();
     }
-}
 
+    private void sendBidError(String reason) {
+        String safeReason = (reason == null || reason.isBlank() ? "Unknown bid error" : reason);
+        sendMessage(AuctionProtocol.formatError("BID " + safeReason));
+    }
+}
