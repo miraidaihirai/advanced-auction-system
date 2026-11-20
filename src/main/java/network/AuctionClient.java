@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.auction.model.BidTransaction;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Socket Client kết nối tới AuctionServer.
@@ -47,6 +50,7 @@ public class AuctionClient {
 
         default void onAuctionListReceived(List<AuctionSummary> auctions) {
         }
+
         // Được gọi khi Client nhận đủ danh sách đấu giá
         // auctions chứa toàn bộ các phiên đấu giá đã xong
     }
@@ -58,6 +62,8 @@ public class AuctionClient {
     private PrintWriter out;
     private Thread listenerThread;
     private volatile boolean connected = false;
+    private static final long HEARTBEAT_INTERVAL_SECONDS = 20;
+    private ScheduledExecutorService heartbeatScheduler;
 
     private final List<AuctionEventListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -65,6 +71,31 @@ public class AuctionClient {
         this.host = host;
         this.port = port;
     }
+
+    private synchronized void startHeartbeat() {
+        if (heartbeatScheduler != null && !heartbeatScheduler.isShutdown()) {
+            return;
+        }
+        // Nếu đã có một schedule đang chạy thì không tạo thêm
+        heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(task -> {
+            Thread thread = new Thread(task, "auction-client-heartbeat");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        heartbeatScheduler.scheduleAtFixedRate(() -> {
+            if (!isConnected()) {
+                return;
+            }
+            try {
+                ping();
+            } catch (IllegalStateException e) {
+                System.err.println("[AuctionClient] Heartbeat failed: " + e.getMessage());
+            }
+        }, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
+    }
+    // Tạo một Thread riêng để gửi PING định kỳ, không chạy trên JavaFX nên không
+    // làm treo giao diện
 
     public void addListener(AuctionEventListener listener) {
         if (listener != null && !listeners.contains(listener)) {
@@ -89,6 +120,9 @@ public class AuctionClient {
         listenerThread = new Thread(this::listenLoop, "auction-client-listener");
         listenerThread.setDaemon(true);
         listenerThread.start();
+
+        startHeartbeat();
+        // Bắt đầu tự động gửi PING sau khi connect thành công
     }
 
     private void listenLoop() {
@@ -123,15 +157,13 @@ public class AuctionClient {
                         currentAuctionBuffer.add(parseAuctionLine(line));
                     } catch (IllegalArgumentException e) {
                         System.err.println(
-                                "[AuctionClient] Dữ liệu phiên đấu giá không hợp lệ: " + line
-                        );
+                                "[AuctionClient] Dữ liệu phiên đấu giá không hợp lệ: " + line);
                     }
 
                 } else if (line.equals(AuctionProtocol.AUCTIONS_END)
                         && currentAuctionBuffer != null) {
 
-                    List<AuctionSummary> auctionList =
-                            List.copyOf(currentAuctionBuffer);
+                    List<AuctionSummary> auctionList = List.copyOf(currentAuctionBuffer);
 
                     for (AuctionEventListener listener : listeners) {
                         try {
@@ -142,124 +174,127 @@ public class AuctionClient {
 
                     currentAuctionBuffer = null;
                 }
-                                
                 // AUCTIONS_BIGINS tạo bộ đệm mới
                 // AUCTION gọi parseAuctionLine() để chuyển String[] thành AuctionSummary
                 // AUCTIONS_END tạo danh sách bất biến bằng List.copyOf() rồi gửi cho listener
                 // Cuối cùng reset bộ đệm về null để kết thúc nhận dữ liệu
 
-
                 // Parse realtime broadcast notifications
-                if (line.startsWith(AuctionProtocol.NOTIFY_BID_PREFIX)) {
-                    // NOTIFY BID <auctionId> <newPrice> <bidderId> <itemId>
-                    String[] parts = line.split("\\s+");
-                    if (parts.length >= 6) {
-                        String auctionId = parts[2];
-                        double newPrice = Double.parseDouble(parts[3].replace(',', '.'));
-                        String bidderId = parts[4];
-                        String itemId = parts[5];
-                        for (AuctionEventListener l : listeners) {
+                try {
+                    if (line.startsWith(AuctionProtocol.NOTIFY_BID_PREFIX)) {
+                        // NOTIFY BID <auctionId> <newPrice> <bidderId> <itemId>
+                        String[] parts = line.split("\\s+", 6);
+                        // Tách giới hạn còn 6 thành phần để lấy cả tên những sản phẩm có dấu cách
+                        if (parts.length >= 6) {
+                            String auctionId = parts[2];
+                            double newPrice = Double.parseDouble(parts[3].replace(',', '.'));
+                            String bidderId = parts[4];
+                            String itemId = parts[5];
+                            for (AuctionEventListener l : listeners) {
+                                try {
+                                    l.onBidUpdate(auctionId, newPrice, bidderId, itemId);
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
+                    } else if (line.startsWith(AuctionProtocol.NOTIFY_CLOSED_PREFIX)) {
+                        // NOTIFY CLOSED <auctionId> <finalPrice> <winnerId>
+                        String[] parts = line.split("\\s+");
+                        if (parts.length >= 5) {
+                            String auctionId = parts[2];
+                            double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
+                            String winnerId = parts[4];
+                            for (AuctionEventListener l : listeners) {
+                                try {
+                                    l.onAuctionClosed(auctionId, finalPrice, winnerId);
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
+                    } else if (line.startsWith(AuctionProtocol.NOTIFY_WINNER_PREFIX)) {
+                        // NOTIFY WINNER <auctionId> <finalPrice> <itemId>
+                        String[] parts = line.split("\\s+");
+                        if (parts.length >= 5) {
+                            String auctionId = parts[2];
+                            double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
+                            String itemId = line.substring(line.indexOf(parts[4]));
+                            for (AuctionEventListener l : listeners) {
+                                try {
+                                    l.onWinnerNotification(auctionId, finalPrice, itemId);
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
+                    } else if (line.startsWith(AuctionProtocol.NOTIFY_SELLER_PREFIX)) {
+                        // NOTIFY SELLER <auctionId> <finalPrice> <winnerId> <itemId>
+                        String[] parts = line.split("\\s+");
+                        if (parts.length >= 6) {
+                            String auctionId = parts[2];
+                            double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
+                            String winnerId = parts[4];
+                            String itemId = line.substring(line.indexOf(parts[5]));
+                            for (AuctionEventListener l : listeners) {
+                                try {
+                                    l.onSellerNotification(auctionId, finalPrice, winnerId, itemId);
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
+                    } else if (line.startsWith(AuctionProtocol.NOTIFY_PAID_PREFIX)) {
+                        // NOTIFY PAID <auctionId> <finalPrice> <winnerId>
+                        String[] parts = line.split("\\s+");
+                        if (parts.length >= 5) {
+                            String auctionId = parts[2];
+                            double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
+                            String winnerId = parts[4];
+                            for (AuctionEventListener l : listeners) {
+                                try {
+                                    l.onAuctionPaid(auctionId, finalPrice, winnerId);
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
+                    } else if (line.startsWith(AuctionProtocol.HISTORY_BEGIN)) {
+                        // HISTORY_BEGIN <auctionId> <count>
+                        String[] parts = line.split("\\s+");
+                        if (parts.length >= 2) {
+                            currentHistoryAuctionId = parts[1];
+                            currentHistoryBuffer = new ArrayList<>();
+                        }
+                    } else if (line.startsWith("TX ") && currentHistoryBuffer != null) {
+                        // TX <id> <auctionId> <bidderId> <amount> <timestamp>
+                        String[] parts = line.split("\\s+");
+                        if (parts.length >= 5) {
                             try {
-                                l.onBidUpdate(auctionId, newPrice, bidderId, itemId);
+                                String txId = parts[1];
+                                String aucId = parts[2];
+                                String bidderId = parts[3];
+                                double amt = Double.parseDouble(parts[4].replace(',', '.'));
+                                BidTransaction tx = new BidTransaction(txId, aucId, bidderId, amt);
+                                if (parts.length >= 6) {
+                                    tx.setTimestamp(java.time.LocalDateTime.parse(parts[5]));
+                                }
+                                currentHistoryBuffer.add(tx);
                             } catch (Exception ignored) {
                             }
                         }
-                    }
-                } else if (line.startsWith(AuctionProtocol.NOTIFY_CLOSED_PREFIX)) {
-                    // NOTIFY CLOSED <auctionId> <finalPrice> <winnerId>
-                    String[] parts = line.split("\\s+");
-                    if (parts.length >= 5) {
-                        String auctionId = parts[2];
-                        double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
-                        String winnerId = parts[4];
+                    } else if (line.startsWith(AuctionProtocol.HISTORY_END)) {
+                        // HISTORY_END <auctionId>
+                        String[] parts = line.split("\\s+");
+                        String aucId = parts.length >= 2 ? parts[1] : currentHistoryAuctionId;
+                        List<BidTransaction> history = (currentHistoryBuffer != null) ? currentHistoryBuffer
+                                : Collections.emptyList();
                         for (AuctionEventListener l : listeners) {
                             try {
-                                l.onAuctionClosed(auctionId, finalPrice, winnerId);
+                                l.onHistoryReceived(aucId, history);
                             } catch (Exception ignored) {
                             }
                         }
+                        currentHistoryBuffer = null;
+                        currentHistoryAuctionId = null;
                     }
-                } else if (line.startsWith(AuctionProtocol.NOTIFY_WINNER_PREFIX)) {
-                    // NOTIFY WINNER <auctionId> <finalPrice> <itemId>
-                    String[] parts = line.split("\\s+");
-                    if (parts.length >= 5) {
-                        String auctionId = parts[2];
-                        double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
-                        String itemId = line.substring(line.indexOf(parts[4]));
-                        for (AuctionEventListener l : listeners) {
-                            try {
-                                l.onWinnerNotification(auctionId, finalPrice, itemId);
-                            } catch (Exception ignored) {
-                            }
-                        }
-                    }
-                } else if (line.startsWith(AuctionProtocol.NOTIFY_SELLER_PREFIX)) {
-                    // NOTIFY SELLER <auctionId> <finalPrice> <winnerId> <itemId>
-                    String[] parts = line.split("\\s+");
-                    if (parts.length >= 6) {
-                        String auctionId = parts[2];
-                        double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
-                        String winnerId = parts[4];
-                        String itemId = line.substring(line.indexOf(parts[5]));
-                        for (AuctionEventListener l : listeners) {
-                            try {
-                                l.onSellerNotification(auctionId, finalPrice, winnerId, itemId);
-                            } catch (Exception ignored) {
-                            }
-                        }
-                    }
-                } else if (line.startsWith(AuctionProtocol.NOTIFY_PAID_PREFIX)) {
-                    // NOTIFY PAID <auctionId> <finalPrice> <winnerId>
-                    String[] parts = line.split("\\s+");
-                    if (parts.length >= 5) {
-                        String auctionId = parts[2];
-                        double finalPrice = Double.parseDouble(parts[3].replace(',', '.'));
-                        String winnerId = parts[4];
-                        for (AuctionEventListener l : listeners) {
-                            try {
-                                l.onAuctionPaid(auctionId, finalPrice, winnerId);
-                            } catch (Exception ignored) {
-                            }
-                        }
-                    }
-                } else if (line.startsWith(AuctionProtocol.HISTORY_BEGIN)) {
-                    // HISTORY_BEGIN <auctionId> <count>
-                    String[] parts = line.split("\\s+");
-                    if (parts.length >= 2) {
-                        currentHistoryAuctionId = parts[1];
-                        currentHistoryBuffer = new ArrayList<>();
-                    }
-                } else if (line.startsWith("TX ") && currentHistoryBuffer != null) {
-                    // TX <id> <auctionId> <bidderId> <amount> <timestamp>
-                    String[] parts = line.split("\\s+");
-                    if (parts.length >= 5) {
-                        try {
-                            String txId = parts[1];
-                            String aucId = parts[2];
-                            String bidderId = parts[3];
-                            double amt = Double.parseDouble(parts[4].replace(',', '.'));
-                            BidTransaction tx = new BidTransaction(txId, aucId, bidderId, amt);
-                            if (parts.length >= 6) {
-                                tx.setTimestamp(java.time.LocalDateTime.parse(parts[5]));
-                            }
-                            currentHistoryBuffer.add(tx);
-                        } catch (Exception ignored) {
-                        }
-                    }
-                } else if (line.startsWith(AuctionProtocol.HISTORY_END)) {
-                    // HISTORY_END <auctionId>
-                    String[] parts = line.split("\\s+");
-                    String aucId = parts.length >= 2 ? parts[1] : currentHistoryAuctionId;
-                    List<BidTransaction> history = (currentHistoryBuffer != null) ? currentHistoryBuffer
-                            : Collections.emptyList();
-                    for (AuctionEventListener l : listeners) {
-                        try {
-                            l.onHistoryReceived(aucId, history);
-                        } catch (Exception ignored) {
-                        }
-                    }
-                    currentHistoryBuffer = null;
-                    currentHistoryAuctionId = null;
+                } catch (NumberFormatException e) {
+                    System.err.println("[AuctionClient] Dữ liệu số không hợp lệ từ Server: " + line);
                 }
             }
         } catch (IOException e) {
@@ -278,6 +313,7 @@ public class AuctionClient {
             disconnect();
         }
     }
+
     private AuctionSummary parseAuctionLine(String line) {
 
         String[] parts = line.trim().split("\\s+");
@@ -296,18 +332,14 @@ public class AuctionClient {
                 java.util.Arrays.copyOfRange(
                         parts,
                         2,
-                        currentPriceIndex
-                )
-        );
+                        currentPriceIndex));
 
         try {
             double currentPrice = Double.parseDouble(
-                    parts[currentPriceIndex].replace(',', '.')
-            );
+                    parts[currentPriceIndex].replace(',', '.'));
 
             double stepPrice = Double.parseDouble(
-                    parts[currentPriceIndex + 1].replace(',', '.')
-            );
+                    parts[currentPriceIndex + 1].replace(',', '.'));
 
             String highestBidderId = parts[currentPriceIndex + 2];
             String status = parts[currentPriceIndex + 3];
@@ -318,13 +350,11 @@ public class AuctionClient {
                     currentPrice,
                     stepPrice,
                     highestBidderId,
-                    status
-            );
+                    status);
 
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(
-                    "Giá đấu không đúng định dạng", e
-            );
+                    "Giá đấu không đúng định dạng", e);
         }
     }
 
@@ -397,7 +427,11 @@ public class AuctionClient {
             return;
         }
         connected = false;
-
+        // Dừng heartbeat scheduler
+        if (heartbeatScheduler != null) {
+            heartbeatScheduler.shutdownNow();
+            heartbeatScheduler = null;
+        }
         try {
             if (out != null) {
                 out.println(AuctionProtocol.CMD_QUIT);

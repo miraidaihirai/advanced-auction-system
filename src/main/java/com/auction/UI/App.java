@@ -13,13 +13,18 @@ public class App extends Application {
     private static final int SERVER_PORT = 8888;
 // Cần đổi "localhost" thành IP LAN của máy chạy Server trong demo
     private ClientSession clientSession;
+    private AuctionNotificationListener notificationListener;
 
     @Override
     public void start(Stage primaryStage) {
 
         clientSession = new ClientSession(SERVER_HOST, SERVER_PORT);
 
-        Scene scene = new Scene(new StackPane(), 1240, 780);
+notificationListener = new AuctionNotificationListener();
+clientSession.getClient().addListener(notificationListener);
+
+// Khởi tạo Scene với kích thước mới từ dev
+Scene scene = new Scene(new StackPane(), 1240, 780);
 
         ViewManager.Initialize(scene, clientSession);
         ViewManager.SwitchView("LogIn");
@@ -34,7 +39,11 @@ public class App extends Application {
     @Override
     public void stop() {
         if (clientSession != null) {
+            if (notificationListener != null){
+                clientSession.getClient().removeListener(notificationListener);
+            }
             clientSession.disconnect();
         }
     }
+    // Khi người dùng chủ động đóng ứng dụng, sẽ không xuất hiện alert mất kết nối
 }

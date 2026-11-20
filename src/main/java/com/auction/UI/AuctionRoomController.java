@@ -214,8 +214,10 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
 
             if (lvBidHistory != null) {
                 lvBidHistory.getItems().clear();
-                String leader = (auction.highestBidderId() != null && !auction.highestBidderId().equalsIgnoreCase("NONE"))
-                        ? auction.highestBidderId() : "Chưa có";
+                String leader = (auction.highestBidderId() != null
+                        && !auction.highestBidderId().equalsIgnoreCase("NONE"))
+                                ? auction.highestBidderId()
+                                : "Chưa có";
                 lvBidHistory.getItems().add(String.format("[%s] Khởi điểm: %s đ (%s)",
                         LocalDateTime.now().format(timeFormatter),
                         formatCurrency(currentPrice),
@@ -243,9 +245,11 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         String lower = name.toLowerCase();
         if (lower.contains("đồng hồ") || lower.contains("watch")) {
             return "[ ĐỒNG HỒ CAO CẤP ]";
-        } else if (lower.contains("dell") || lower.contains("laptop") || lower.contains("máy ảnh") || lower.contains("camera")) {
+        } else if (lower.contains("dell") || lower.contains("laptop") || lower.contains("máy ảnh")
+                || lower.contains("camera")) {
             return "[ ĐỒ ĐIỆN TỬ ]";
-        } else if (lower.contains("vase") || lower.contains("bình") || lower.contains("tranh") || lower.contains("art")) {
+        } else if (lower.contains("vase") || lower.contains("bình") || lower.contains("tranh")
+                || lower.contains("art")) {
             return "[ NGHỆ THUẬT & CỔ VẬT ]";
         } else if (lower.contains("xe") || lower.contains("car") || lower.contains("auto")) {
             return "[ XE CỘ & PHƯƠNG TIỆN ]";
@@ -297,10 +301,29 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     }
 
     private void applyBidIncrement(double increment) {
-        double newBid = currentPrice + increment;
-        if (txtBidAmount != null) {
-            txtBidAmount.setText(String.format(Locale.US, "%.0f", newBid));
+        if (txtBidAmount == null) {
+            return;
         }
+        double baseAmount;
+        String currentInput = txtBidAmount.getText();
+
+        if (currentInput == null || currentInput.trim().isEmpty()) {
+            baseAmount = currentPrice;
+        } else {
+            try {
+                baseAmount = Double.parseDouble(currentInput.trim());
+            } catch (NumberFormatException e) {
+                setStatus("Giá đặt hiện tại không hợp lệ", false);
+                return;
+            }
+        }
+        double newBid = baseAmount + increment;
+        if (!Double.isFinite(newBid)) {
+            setStatus("Giá đặt vượt quá giới hạn", false);
+            return;
+        }
+        txtBidAmount.setText(
+                String.format(Locale.US, "%.0f", newBid));
     }
 
     @FXML
@@ -398,7 +421,8 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
                     priceSeries.getData().add(new XYChart.Data<>(timeStr, tx.getAmount()));
                 }
                 if (lvBidHistory != null) {
-                    String historyEntry = String.format("[%s] %s: %s đ", timeStr, tx.getBidderId(), formatCurrency(tx.getAmount()));
+                    String historyEntry = String.format("[%s] %s: %s đ", timeStr, tx.getBidderId(),
+                            formatCurrency(tx.getAmount()));
                     lvBidHistory.getItems().add(0, historyEntry);
                 }
             }
