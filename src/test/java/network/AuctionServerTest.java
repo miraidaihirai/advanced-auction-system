@@ -1,227 +1,238 @@
 package network;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.auction.manager.AuctionManager;
 import com.auction.model.Auction;
 import com.auction.model.Bidder;
 import com.auction.model.Seller;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class AuctionServerTest {
 
-    private AuctionServer server;
-    private int testPort;
-    private String auctionId;
-    private String sellerId;
-    private String bobId;
-    private String charlieId;
+  private AuctionServer server;
+  private int testPort;
+  private String auctionId;
+  private String sellerId;
+  private String bobId;
+  private String charlieId;
 
-    @BeforeEach
-    void setUp() throws IOException {
-        // Find a random available port
-        try (ServerSocket socket = new ServerSocket(0)) {
-            testPort = socket.getLocalPort();
-        }
-
-        String suffix = UUID.randomUUID().toString().substring(0, 8);
-        auctionId = "AUC-" + suffix;
-        sellerId = "SELLER-" + suffix;
-        bobId = "BOB-" + suffix;
-        charlieId = "CHARLIE-" + suffix;
-
-        // Initialize test data with unique IDs
-        AuctionManager manager = AuctionManager.getInstance();
-        Seller alice = new Seller(sellerId, "Alice", "password123");
-        Bidder bob = new Bidder(bobId, "Bob", "password123");
-        Bidder charlie = new Bidder(charlieId, "Charlie", "password123");
-
-        manager.registerUser(alice);
-        manager.registerUser(bob);
-        manager.registerUser(charlie);
-
-        Auction testAuction = new Auction(auctionId, "MacBook Pro", sellerId, 20_000_000, 1_000_000);
-        testAuction.startAuction();
-        manager.addAuction(testAuction);
-
-        server = new AuctionServer(testPort);
-        server.startAsync();
-
-        // Brief delay to allow server socket to bind
-        try {
-            Thread.sleep(150);
-        } catch (InterruptedException ignored) {
-        }
+  @BeforeEach
+  void setUp() throws IOException {
+    // Find a random available port
+    try (ServerSocket socket = new ServerSocket(0)) {
+      testPort = socket.getLocalPort();
     }
 
-    @AfterEach
-    void tearDown() {
-        if (server != null) {
-            server.stop();
-        }
+    String suffix = UUID.randomUUID().toString().substring(0, 8);
+    auctionId = "AUC-" + suffix;
+    sellerId = "SELLER-" + suffix;
+    bobId = "BOB-" + suffix;
+    charlieId = "CHARLIE-" + suffix;
+
+    // Initialize test data with unique IDs
+    AuctionManager manager = AuctionManager.getInstance();
+    Seller alice = new Seller(sellerId, "Alice", "password123");
+    Bidder bob = new Bidder(bobId, "Bob", "password123");
+    Bidder charlie = new Bidder(charlieId, "Charlie", "password123");
+
+    manager.registerUser(alice);
+    manager.registerUser(bob);
+    manager.registerUser(charlie);
+
+    Auction testAuction = new Auction(auctionId, "MacBook Pro", sellerId, 20_000_000, 1_000_000);
+    testAuction.startAuction();
+    manager.addAuction(testAuction);
+
+    server = new AuctionServer(testPort);
+    server.startAsync();
+
+    // Brief delay to allow server socket to bind
+    try {
+      Thread.sleep(150);
+    } catch (InterruptedException ignored) {
     }
+  }
 
-    @Test
-    void testServerStartsAndAcceptsMultipleClients() throws IOException, InterruptedException {
-        AuctionClient client1 = new AuctionClient("localhost", testPort);
-        AuctionClient client2 = new AuctionClient("localhost", testPort);
-
-        try {
-            client1.connect();
-            client2.connect();
-
-            Thread.sleep(150);
-            assertEquals(2, server.getConnectedClientCount());
-            assertTrue(client1.isConnected());
-            assertTrue(client2.isConnected());
-        } finally {
-            client1.disconnect();
-            client2.disconnect();
-        }
+  @AfterEach
+  void tearDown() {
+    if (server != null) {
+      server.stop();
     }
+  }
 
-    @Test
-    void testRealtimeBroadcastViaObserverPattern() throws Exception {
-        AuctionClient bobClient = new AuctionClient("localhost", testPort);
-        AuctionClient charlieClient = new AuctionClient("localhost", testPort);
+  @Test
+  void testServerStartsAndAcceptsMultipleClients() throws IOException, InterruptedException {
+    AuctionClient client1 = new AuctionClient("localhost", testPort);
+    AuctionClient client2 = new AuctionClient("localhost", testPort);
 
-        CountDownLatch charlieReceivedBidLatch = new CountDownLatch(1);
-        AtomicReference<Double> receivedPrice = new AtomicReference<>(0.0);
-        AtomicReference<String> receivedBidder = new AtomicReference<>("");
+    try {
+      client1.connect();
+      client2.connect();
 
-        charlieClient.addListener(new AuctionClient.AuctionEventListener() {
-            @Override
-            public void onBidUpdate(String id, double newPrice, String bidderId, String itemId) {
-                if (auctionId.equals(id)) {
-                    receivedPrice.set(newPrice);
-                    receivedBidder.set(bidderId);
-                    charlieReceivedBidLatch.countDown();
-                }
+      Thread.sleep(150);
+      assertEquals(2, server.getConnectedClientCount());
+      assertTrue(client1.isConnected());
+      assertTrue(client2.isConnected());
+    } finally {
+      client1.disconnect();
+      client2.disconnect();
+    }
+  }
+
+  @Test
+  void testRealtimeBroadcastViaObserverPattern() throws Exception {
+    AuctionClient bobClient = new AuctionClient("localhost", testPort);
+    AuctionClient charlieClient = new AuctionClient("localhost", testPort);
+
+    CountDownLatch charlieReceivedBidLatch = new CountDownLatch(1);
+    AtomicReference<Double> receivedPrice = new AtomicReference<>(0.0);
+    AtomicReference<String> receivedBidder = new AtomicReference<>("");
+
+    charlieClient.addListener(
+        new AuctionClient.AuctionEventListener() {
+          @Override
+          public void onBidUpdate(String id, double newPrice, String bidderId, String itemId) {
+            if (auctionId.equals(id)) {
+              receivedPrice.set(newPrice);
+              receivedBidder.set(bidderId);
+              charlieReceivedBidLatch.countDown();
             }
+          }
         });
 
-        try {
-            bobClient.connect();
-            charlieClient.connect();
+    try {
+      bobClient.connect();
+      charlieClient.connect();
 
-            // Bob logs in
-            bobClient.login(bobId, "password123");
+      // Bob logs in
+      bobClient.login(bobId, "password123");
 
-            // Charlie logs in and subscribes as Observer to auction
-            charlieClient.login(charlieId, "password123");
-            charlieClient.joinAuction(auctionId);
+      // Charlie logs in and subscribes as Observer to auction
+      charlieClient.login(charlieId, "password123");
+      charlieClient.joinAuction(auctionId);
 
-            Thread.sleep(150);
+      Thread.sleep(150);
 
-            // Bob places a bid: 21,000,000 (valid bid: start 20m + step 1m)
-            bobClient.placeBid(auctionId, 21_000_000);
+      // Bob places a bid: 21,000,000 (valid bid: start 20m + step 1m)
+      bobClient.placeBid(auctionId, 21_000_000);
 
-            // Charlie should receive realtime broadcast notification via Observer Pattern over socket
-            boolean received = charlieReceivedBidLatch.await(3, TimeUnit.SECONDS);
-            assertTrue(received, "Charlie should receive realtime price update via Observer socket broadcast");
-            assertEquals(21_000_000.0, receivedPrice.get(), 0.01);
-            assertEquals(bobId, receivedBidder.get());
-        } finally {
-            bobClient.disconnect();
-            charlieClient.disconnect();
-        }
+      // Charlie should receive realtime broadcast notification via Observer Pattern over socket
+      boolean received = charlieReceivedBidLatch.await(3, TimeUnit.SECONDS);
+      assertTrue(
+          received, "Charlie should receive realtime price update via Observer socket broadcast");
+      assertEquals(21_000_000.0, receivedPrice.get(), 0.01);
+      assertEquals(bobId, receivedBidder.get());
+    } finally {
+      bobClient.disconnect();
+      charlieClient.disconnect();
     }
+  }
 
-    @Test
-    void testAuctionFinishAndPaymentViaAuctionClient() throws Exception {
-        AuctionClient sellerClient = new AuctionClient("localhost", testPort);
-        AuctionClient winnerClient = new AuctionClient("localhost", testPort);
+  @Test
+  void testAuctionFinishAndPaymentViaAuctionClient() throws Exception {
+    AuctionClient sellerClient = new AuctionClient("localhost", testPort);
+    AuctionClient winnerClient = new AuctionClient("localhost", testPort);
 
-        CountDownLatch winnerNotifiedLatch = new CountDownLatch(1);
-        CountDownLatch sellerNotifiedLatch = new CountDownLatch(1);
-        CountDownLatch winnerPaidLatch = new CountDownLatch(1);
-        CountDownLatch sellerPaidLatch = new CountDownLatch(1);
+    CountDownLatch winnerNotifiedLatch = new CountDownLatch(1);
+    CountDownLatch sellerNotifiedLatch = new CountDownLatch(1);
+    CountDownLatch winnerPaidLatch = new CountDownLatch(1);
+    CountDownLatch sellerPaidLatch = new CountDownLatch(1);
 
-        AtomicReference<Double> winPriceRef = new AtomicReference<>(0.0);
-        AtomicReference<String> sellerWinnerRef = new AtomicReference<>("");
+    AtomicReference<Double> winPriceRef = new AtomicReference<>(0.0);
+    AtomicReference<String> sellerWinnerRef = new AtomicReference<>("");
 
-        winnerClient.addListener(new AuctionClient.AuctionEventListener() {
-            @Override
-            public void onBidUpdate(String id, double newPrice, String bidderId, String itemId) {}
+    winnerClient.addListener(
+        new AuctionClient.AuctionEventListener() {
+          @Override
+          public void onBidUpdate(String id, double newPrice, String bidderId, String itemId) {}
 
-            @Override
-            public void onWinnerNotification(String id, double finalPrice, String itemId) {
-                if (auctionId.equals(id)) {
-                    winPriceRef.set(finalPrice);
-                    winnerNotifiedLatch.countDown();
-                }
+          @Override
+          public void onWinnerNotification(String id, double finalPrice, String itemId) {
+            if (auctionId.equals(id)) {
+              winPriceRef.set(finalPrice);
+              winnerNotifiedLatch.countDown();
             }
+          }
 
-            @Override
-            public void onAuctionPaid(String id, double finalPrice, String winnerId) {
-                if (auctionId.equals(id)) {
-                    winnerPaidLatch.countDown();
-                }
+          @Override
+          public void onAuctionPaid(String id, double finalPrice, String winnerId) {
+            if (auctionId.equals(id)) {
+              winnerPaidLatch.countDown();
             }
+          }
         });
 
-        sellerClient.addListener(new AuctionClient.AuctionEventListener() {
-            @Override
-            public void onBidUpdate(String id, double newPrice, String bidderId, String itemId) {}
+    sellerClient.addListener(
+        new AuctionClient.AuctionEventListener() {
+          @Override
+          public void onBidUpdate(String id, double newPrice, String bidderId, String itemId) {}
 
-            @Override
-            public void onSellerNotification(String id, double finalPrice, String winnerId, String itemId) {
-                if (auctionId.equals(id)) {
-                    sellerWinnerRef.set(winnerId);
-                    sellerNotifiedLatch.countDown();
-                }
+          @Override
+          public void onSellerNotification(
+              String id, double finalPrice, String winnerId, String itemId) {
+            if (auctionId.equals(id)) {
+              sellerWinnerRef.set(winnerId);
+              sellerNotifiedLatch.countDown();
             }
+          }
 
-            @Override
-            public void onAuctionPaid(String id, double finalPrice, String winnerId) {
-                if (auctionId.equals(id)) {
-                    sellerPaidLatch.countDown();
-                }
+          @Override
+          public void onAuctionPaid(String id, double finalPrice, String winnerId) {
+            if (auctionId.equals(id)) {
+              sellerPaidLatch.countDown();
             }
+          }
         });
 
-        try {
-            sellerClient.connect();
-            winnerClient.connect();
+    try {
+      sellerClient.connect();
+      winnerClient.connect();
 
-            // Seller logs in
-            sellerClient.login(sellerId, "password123");
-            sellerClient.joinAuction(auctionId);
+      // Seller logs in
+      sellerClient.login(sellerId, "password123");
+      sellerClient.joinAuction(auctionId);
 
-            // Winner logs in & places bid
-            winnerClient.login(bobId, "password123");
-            winnerClient.joinAuction(auctionId);
-            Thread.sleep(150);
+      // Winner logs in & places bid
+      winnerClient.login(bobId, "password123");
+      winnerClient.joinAuction(auctionId);
+      Thread.sleep(150);
 
-            winnerClient.placeBid(auctionId, 21_000_000);
-            Thread.sleep(150);
+      winnerClient.placeBid(auctionId, 21_000_000);
+      Thread.sleep(150);
 
-            // Server / Manager finishes auction
-            AuctionManager.getInstance().finishAuction(auctionId);
+      // Server / Manager finishes auction
+      AuctionManager.getInstance().finishAuction(auctionId);
 
-            assertTrue(winnerNotifiedLatch.await(3, TimeUnit.SECONDS), "Winner phai nhan duoc private winner notification");
-            assertTrue(sellerNotifiedLatch.await(3, TimeUnit.SECONDS), "Seller phai nhan duoc private seller notification");
-            assertEquals(21_000_000.0, winPriceRef.get(), 0.01);
-            assertEquals(bobId, sellerWinnerRef.get());
+      assertTrue(
+          winnerNotifiedLatch.await(3, TimeUnit.SECONDS),
+          "Winner phai nhan duoc private winner notification");
+      assertTrue(
+          sellerNotifiedLatch.await(3, TimeUnit.SECONDS),
+          "Seller phai nhan duoc private seller notification");
+      assertEquals(21_000_000.0, winPriceRef.get(), 0.01);
+      assertEquals(bobId, sellerWinnerRef.get());
 
-            // Winner conducts payment
-            winnerClient.payAuction(auctionId);
+      // Winner conducts payment
+      winnerClient.payAuction(auctionId);
 
-            assertTrue(winnerPaidLatch.await(3, TimeUnit.SECONDS), "Winner phai nhan thong bao NOTIFY PAID");
-            assertTrue(sellerPaidLatch.await(3, TimeUnit.SECONDS), "Seller phai nhan thong bao NOTIFY PAID");
-            assertEquals(Auction.Status.PAID, AuctionManager.getInstance().getAuction(auctionId).getStatus());
-        } finally {
-            sellerClient.disconnect();
-            winnerClient.disconnect();
-        }
+      assertTrue(
+          winnerPaidLatch.await(3, TimeUnit.SECONDS), "Winner phai nhan thong bao NOTIFY PAID");
+      assertTrue(
+          sellerPaidLatch.await(3, TimeUnit.SECONDS), "Seller phai nhan thong bao NOTIFY PAID");
+      assertEquals(
+          Auction.Status.PAID, AuctionManager.getInstance().getAuction(auctionId).getStatus());
+    } finally {
+      sellerClient.disconnect();
+      winnerClient.disconnect();
     }
+  }
 }

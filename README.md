@@ -94,14 +94,20 @@ To reset to clean sample data, simply remove the `data/auction_data.ser` file be
 Run commands from the repository root:
 
 ```bash
-# Run full test suite (all 64 unit & stress tests)
+# Run all tests, Google Java Format check, and Checkstyle
 mvn clean test
+
+# Apply Google Java Format to all Java source and test files
+mvn spotless:apply
+
+# Run Checkstyle explicitly (also runs automatically during Maven builds)
+mvn checkstyle:check
 ```
 
-Build executable standalone Fat JAR:
+Build the executable standalone Fat JAR (includes running tests):
 
 ```bash
-mvn clean package -DskipTests
+mvn clean package
 ```
 
 This generates `target/OnlineAuctionApp.jar` (~23 MB), which includes the full JavaFX runtime, SQLite driver, and assets.
