@@ -2,19 +2,21 @@ package com.auction.ui;
 
 import java.text.NumberFormat;
 import java.util.Locale;
-
-import network.AuctionClient;
 import java.util.Set;
-// Lưu các mã phiên có thông báo riêng
 import java.util.concurrent.ConcurrentHashMap;
 
-// Tạo một Set an toàn khi được truy cập từ nhiều thread
+import com.auction.session.ClientSession;
+// Ai đang đăng nhập hiện tại
+import javafx.application.Platform;
+import network.AuctionClient;
+
 public class AuctionNotificationListener
         implements AuctionClient.AuctionEventListener {
+
+    // Lưu mã những phiên mà người dùng đã nhận thông báo riêng cho Winner/Seller
+    // (Set an toàn khi truy cập từ nhiều thread)
     private final Set<String> personalizedCloseNotification = ConcurrentHashMap.newKeySet();
 
-    // Lưu mã những phiên mà người dùng đã nhận thông báo dành riêng cho
-    // Winner/Seller
     @Override
     public void onBidUpdate(
             String auctionId,
@@ -22,7 +24,7 @@ public class AuctionNotificationListener
             String bidderId,
             String itemId) {
         // Không hiện Alert cho mỗi lượt đặt giá để tránh làm phiền người dùng.
-        // Việc cập nhật giá trên giao diện sẽ do Controller phụ trách.
+        // Việc cập nhật giá trên giao diện do Controller phụ trách.
     }
 
     @Override
@@ -30,13 +32,12 @@ public class AuctionNotificationListener
             String auctionId,
             double finalPrice,
             String winnerId) {
-        String winnerMessage;
+        // Đã có thông báo riêng (Winner/Seller) thì bỏ Alert chung để không bị báo đôi
         if (auctionId != null && personalizedCloseNotification.remove(auctionId)) {
             return;
         }
-        // Nếu mã phiên tồn tại trong Set, xoá nó và không hiện Alert chung
-        // Nếu không tồn tại, người dùng chỉ nhận thông báo kết thúc chung, nên Alert
-        // vẫn hiển thị
+
+        String winnerMessage;
         if (winnerId == null || winnerId.equalsIgnoreCase("NONE")) {
             winnerMessage = "Không có người thắng cuộc.";
         } else {
@@ -62,6 +63,8 @@ public class AuctionNotificationListener
             handleBidSuccess(message);
         } else if (message.startsWith("ERROR BID ")) {
             handleBidError(message);
+        } else if (message.startsWith("ERROR ")) {
+            handleGeneralError(message.substring("ERROR ".length()).trim());
         }
     }
 
@@ -104,9 +107,26 @@ public class AuctionNotificationListener
 
     @Override
     public void onDisconnected() {
+        personalizedCloseNotification.clear();
+
+        ClientSession session = ViewManager.getClientSession();
+        boolean wasLoggedIn = session != null && session.getCurrentUserId() != null;
+
+        if (!wasLoggedIn) {
+            // Đang ở màn hình đăng nhập: LogInController tự hiển thị lỗi kết nối
+            return;
+        }
+
         NotificationManager.showError(
                 "Mất kết nối với máy chủ.\n"
-                        + "Vui lòng kiểm tra kết nối mạng và đăng nhập lại.");
+                        + "Bạn sẽ được đưa về màn hình đăng nhập.");
+
+        // Phiên làm việc đã chết: xóa thông tin tài khoản và quay về Login
+        Platform.runLater(() -> {
+            session.clearCurrentUser();
+            ViewManager.clearCache();
+            ViewManager.SwitchView("LogIn");
+        });
     }
 
     private String formatPrice(double price) {
@@ -159,6 +179,17 @@ public class AuctionNotificationListener
         NotificationManager.showError("Đặt giá không thành công.\n" + userMessage);
     }
 
+    /** Lỗi của các lệnh khác (START, CLOSE, PAY, JOIN...). */
+    private void handleGeneralError(String reason) {
+        String userMessage = translateGeneralError(reason);
+        if (userMessage == null) {
+            // Lỗi đăng nhập/đăng ký đã có màn hình tương ứng xử lý; lỗi lạ chỉ ghi log
+            System.err.println("[AuctionNotificationListener] ERROR (không hiển thị): " + reason);
+            return;
+        }
+        NotificationManager.showWarning(userMessage);
+    }
+
     private String translateBidError(String reason) {
         String normalized = reason.toLowerCase(Locale.ROOT);
 
@@ -203,14 +234,62 @@ public class AuctionNotificationListener
         return "Vui lòng kiểm tra mức giá và trạng thái phiên đấu giá.";
     }
 
-}
-// Observer Pattern
-// Listener có thể đăng kí với Client và nhận được thông báo mỗi khi server gửi
-// sự kiện tương ứng
-// AuctionServer gửi thông báo qua Socket -> AuctionClient nhận và phân tích dữ
-// liệu
-// AuctionNotificationListener xác định sự kiện cần thông báo ->
-// NotificationManager hiển thị JavaFX Alert
+    /**
+     * Dịch lỗi của các lệnh không phải BID.
+     *
+     * @return thông báo tiếng Việt, hoặc null nếu không nên hiển thị Alert
+     */
+    private String translateGeneralError(String reason) {
+        String n = reason.toLowerCase(Locale.ROOT);
 
-// onBidUpdate không hiện thông báo do trong một Auction bid có thể thay đổi rất
-// nhiều, làm cho người dùng thấy khó chịu khi đóng tab
+        // Lỗi đăng nhập/đăng ký: LogInController, RegisterController tự hiển thị
+        if (n.contains("user credentials")
+                || n.contains("during login")
+                || n.startsWith("usage: login")
+                || n.startsWith("usage: register")
+                || n.contains("already registered")
+                || n.contains("cannot be registered")
+                || n.startsWith("invalid id")
+                || n.startsWith("invalid name")
+                || n.startsWith("invalid password")) {
+            return null;
+        }
+
+        if (n.contains("can close this auction")) {
+            return "Chỉ Người bán sở hữu phiên hoặc Quản trị viên mới được đóng phiên này.";
+        }
+        if (n.contains("can start this auction")) {
+            return "Chỉ Người bán sở hữu phiên hoặc Quản trị viên mới được bắt đầu phiên này.";
+        }
+        if (n.contains("must login first to pay")) {
+            return "Bạn cần đăng nhập trước khi thanh toán.";
+        }
+        if (n.contains("must login first")) {
+            return "Bạn cần đăng nhập để thực hiện thao tác này.";
+        }
+        if (n.contains("only finished auctions can be paid")) {
+            return "Chỉ phiên đã kết thúc mới có thể thanh toán.";
+        }
+        if (n.contains("only the winning bidder")) {
+            return "Chỉ người thắng cuộc mới được thanh toán phiên này.";
+        }
+        if (n.contains("only an open auction can be started")) {
+            return "Phiên này đã bắt đầu hoặc đã kết thúc, không thể bắt đầu lại.";
+        }
+        if (n.contains("only a running auction can be finished")) {
+            return "Phiên này chưa chạy hoặc đã kết thúc, không thể đóng.";
+        }
+        if (n.contains("only a finished auction with a winner")) {
+            return "Phiên chưa kết thúc hoặc không có người thắng, không thể thanh toán.";
+        }
+        if (n.contains("auction not found")) {
+            return "Không tìm thấy phiên đấu giá.";
+        }
+        if (n.startsWith("usage:")) {
+            return "Yêu cầu gửi lên máy chủ không đúng định dạng.";
+        }
+
+        // "Not joined in auction", "Unknown command"... chỉ ghi log
+        return null;
+    }
+}
