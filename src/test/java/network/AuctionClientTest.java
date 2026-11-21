@@ -23,6 +23,139 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AuctionClientTest {
+        @Test
+        void shouldParseWinnerAndSellerNotificationsWithSpacesInItemName() throws Exception {
+                try (ServerSocket serverSocket = new ServerSocket(0)) {
+
+                        CountDownLatch latch = new CountDownLatch(2);
+                        AtomicReference<String> winnerItem = new AtomicReference<>();
+                        AtomicReference<String> sellerItem = new AtomicReference<>();
+                        AtomicReference<String> sellerWinner = new AtomicReference<>();
+
+                        AuctionClient client = new AuctionClient(
+                                        "127.0.0.1",
+                                        serverSocket.getLocalPort());
+
+                        client.addListener(new AuctionClient.AuctionEventListener() {
+
+                                @Override
+                                public void onBidUpdate(String auctionId, double newPrice,
+                                                String bidderId, String itemId) {
+                                }
+
+                                @Override
+                                public void onWinnerNotification(String auctionId, double finalPrice, String itemId) {
+                                        winnerItem.set(itemId);
+                                        latch.countDown();
+                                }
+
+                                @Override
+                                public void onSellerNotification(String auctionId, double finalPrice,
+                                                String winnerId, String itemId) {
+                                        sellerWinner.set(winnerId);
+                                        sellerItem.set(itemId);
+                                        latch.countDown();
+                                }
+                        });
+
+                        Thread serverThread = startMessagesServer(
+                                        serverSocket,
+                                        "NOTIFY WINNER AUC-001 21000000.00 Laptop Dell XPS 15",
+                                        "NOTIFY SELLER AUC-001 21000000.00 BIDDER-01 Laptop Dell XPS 15");
+
+                        try {
+                                client.connect();
+
+                                assertTrue(latch.await(3, TimeUnit.SECONDS),
+                                                "Listener should receive winner and seller notifications");
+                                assertEquals("Laptop Dell XPS 15", winnerItem.get());
+                                assertEquals("Laptop Dell XPS 15", sellerItem.get());
+                                assertEquals("BIDDER-01", sellerWinner.get());
+
+                        } finally {
+                                client.disconnect();
+                                serverSocket.close();
+                                serverThread.join(1000);
+                        }
+                }
+        }
+
+        @Test
+        void shouldParseAuctionInfoWithSpacesInItemName() throws Exception {
+                try (ServerSocket serverSocket = new ServerSocket(0)) {
+
+                        CountDownLatch latch = new CountDownLatch(1);
+                        AtomicReference<String> itemRef = new AtomicReference<>();
+                        AtomicReference<String> sellerRef = new AtomicReference<>();
+                        AtomicReference<Double> priceRef = new AtomicReference<>();
+                        AtomicReference<String> statusRef = new AtomicReference<>();
+
+                        AuctionClient client = new AuctionClient(
+                                        "127.0.0.1",
+                                        serverSocket.getLocalPort());
+
+                        client.addListener(new AuctionClient.AuctionEventListener() {
+
+                                @Override
+                                public void onBidUpdate(String auctionId, double newPrice,
+                                                String bidderId, String itemId) {
+                                }
+
+                                @Override
+                                public void onAuctionInfoReceived(String auctionId, String itemId, String sellerId,
+                                                double currentPrice, double stepPrice, String highestBidderId,
+                                                String status) {
+                                        itemRef.set(itemId);
+                                        sellerRef.set(sellerId);
+                                        priceRef.set(currentPrice);
+                                        statusRef.set(status);
+                                        latch.countDown();
+                                }
+                        });
+
+                        Thread serverThread = startMessagesServer(
+                                        serverSocket,
+                                        "AUCTION_INFO AUC-001 Laptop Dell XPS 15 SELLER-01 25000000.00 500000.00 BIDDER-01 RUNNING");
+
+                        try {
+                                client.connect();
+
+                                assertTrue(latch.await(3, TimeUnit.SECONDS),
+                                                "Listener should receive auction info");
+                                assertEquals("Laptop Dell XPS 15", itemRef.get());
+                                assertEquals("SELLER-01", sellerRef.get());
+                                assertEquals(25000000.0, priceRef.get(), 0.01);
+                                assertEquals("RUNNING", statusRef.get());
+
+                        } finally {
+                                client.disconnect();
+                                serverSocket.close();
+                                serverThread.join(1000);
+                        }
+                }
+        }
+
+        private Thread startMessagesServer(ServerSocket serverSocket, String... messages) {
+                Thread serverThread = new Thread(() -> {
+                        try (Socket socket = serverSocket.accept();
+                                        PrintWriter writer = new PrintWriter(
+                                                        socket.getOutputStream(),
+                                                        true,
+                                                        StandardCharsets.UTF_8)) {
+
+                                for (String message : messages) {
+                                        writer.println(message);
+                                }
+
+                        } catch (IOException ignored) {
+                        }
+                });
+
+                serverThread.setDaemon(true);
+                serverThread.start();
+
+                return serverThread;
+        }
 
         @Test
         void sendRaw_whenNotConnected_shouldThrowException() {

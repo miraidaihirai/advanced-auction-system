@@ -1,5 +1,6 @@
 package com.auction.ui;
 
+import java.io.File;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.ResourceBundle;
@@ -9,16 +10,48 @@ import com.auction.item.factory.ArtFactory;
 import com.auction.item.factory.ElectronicsFactory;
 import com.auction.item.factory.ItemFactory;
 import com.auction.item.factory.VehicleFactory;
+import com.auction.model.AuctionRequest;
+import com.auction.session.ClientSession;
+import com.auction.storage.AuctionRequestStorage;
 
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 
+/**
+ * Controller cho form "Tạo phòng đấu giá" (CreateAuctionRoom.fxml).
+ *
+ * <p>Luồng hoạt động:</p>
+ * <ol>
+ *   <li>Người dùng (Seller / Admin) bấm nút "+ Tạo phòng đấu giá" ở Home.</li>
+ *   <li>HomeController mở overlay CreateAuctionRoom (gọi showCreateRoomOverlay()).</li>
+ *   <li>Người dùng điền thông tin, bấm "Tạo phòng" → handleCreate() thực thi:</li>
+ *   <li>Tạo Item từ dữ liệu nhập, lưu vào Home card list (tương thích code cũ).</li>
+ *   <li>Đồng thời tạo AuctionRequest lưu vào AuctionRequestStorage (trạng thái PENDING).</li>
+ *   <li>Đóng overlay → điều hướng sang màn hình "Yêu cầu đấu giá" và làm mới danh sách.</li>
+ * </ol>
+ */
 public class CreateRoomUIController implements Initializable {
     @FXML
+    private VBox createRoom;
+
+    @FXML
     private ComboBox<String> selectItem;
+
+    @FXML
+    private Label lblImageFileName;
+
+    @FXML
+    private ImageView imgPreview;
+
+    private File selectedImageFile;
 
     // Các trường chung
     @FXML
@@ -33,7 +66,7 @@ public class CreateRoomUIController implements Initializable {
     @FXML
     private TextField txtQuantity;
 
-    // Các VBox bọc trường riêng (dùng để ẩn/hiện cả khối để không bị trống khoảng cách)
+    // Các VBox bọc trường riêng
     @FXML
     private VBox boxArtist;
 
@@ -79,30 +112,56 @@ public class CreateRoomUIController implements Initializable {
     private Item item;
     private HomeController mainScreenController;
 
+    /** Session người dùng hiện tại — để lấy creatorId/creatorName khi tạo AuctionRequest. */
+    private ClientSession clientSession;
+
     public void setMainScreenController(HomeController mainScreenController) {
         this.mainScreenController = mainScreenController;
     }
 
+    /** Nhận ClientSession từ HomeController để biết thông tin người tạo yêu cầu. */
+    public void setClientSession(ClientSession session) {
+        this.clientSession = session;
+    }
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Thêm các mục lựa chọn vào ComboBox
         selectItem.getItems().addAll("Đồ nghệ thuật", "Đồ điện", "Phương tiện giao thông");
-
-        // Ban đầu chưa chọn thì ẩn toàn bộ các trường đặc thù
         updateFieldsByCategory(null);
 
-        // Lắng nghe sự kiện khi người dùng chọn loại sản phẩm
         selectItem.setOnAction(event -> {
             String selectValue = selectItem.getValue();
             updateFieldsByCategory(selectValue);
         });
     }
 
-    /**
-     * Hàm tiện ích: Ẩn/hiện một khối VBox.
-     * Khi managed = false, VBox cha (createRoom) sẽ bỏ qua hoàn toàn phần tử này
-     * và không cộng dồn khoảng cách spacing, giúp các trường hiển thị luôn đều nhau.
-     */
+    @FXML
+    private void handleChooseImage() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Chọn ảnh sản phẩm đấu giá");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Hình ảnh (*.png, *.jpg, *.jpeg, *.webp)", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.PNG", "*.JPG", "*.JPEG"),
+                new FileChooser.ExtensionFilter("Tất cả tệp", "*.*")
+        );
+
+        Window window = createRoom != null && createRoom.getScene() != null ? createRoom.getScene().getWindow() : null;
+        File file = fileChooser.showOpenDialog(window);
+        if (file != null) {
+            selectedImageFile = file;
+            if (lblImageFileName != null) {
+                lblImageFileName.setText(file.getName());
+            }
+            try {
+                Image img = new Image(file.toURI().toString(), 150, 85, true, true);
+                if (imgPreview != null) {
+                    imgPreview.setImage(img);
+                }
+            } catch (Exception e) {
+                System.err.println("Không thể nạp preview ảnh: " + e.getMessage());
+            }
+        }
+    }
+
     private void setFieldVisible(VBox box, boolean visible) {
         if (box != null) {
             box.setVisible(visible);
@@ -110,9 +169,6 @@ public class CreateRoomUIController implements Initializable {
         }
     }
 
-    /**
-     * Cập nhật hiển thị các trường dựa trên loại sản phẩm được chọn
-     */
     private void updateFieldsByCategory(String category) {
         if (category == null) {
             setFieldVisible(boxArtist, false);
@@ -129,23 +185,17 @@ public class CreateRoomUIController implements Initializable {
         boolean isElectronics = "Đồ điện".equals(category);
         boolean isVehicle = "Phương tiện giao thông".equals(category);
 
-        // Trường riêng của Đồ nghệ thuật
         setFieldVisible(boxArtist, isArt);
         setFieldVisible(boxMedium, isArt);
         setFieldVisible(boxYearCreated, isArt);
 
-        // Trường chung của Đồ điện và Phương tiện giao thông
         setFieldVisible(boxBrand, isElectronics || isVehicle);
         setFieldVisible(boxModel, isElectronics || isVehicle);
 
-        // Trường riêng
         setFieldVisible(boxWarrantyPeriod, isElectronics);
         setFieldVisible(boxYear, isVehicle);
     }
 
-    /**
-     * Hàm logic khởi tạo sản phẩm từ các trường đã nhập
-     */
     private Item initializeItem(String selectValue) {
         if (selectValue == null) {
             System.err.println("Chưa chọn loại sản phẩm!");
@@ -185,18 +235,78 @@ public class CreateRoomUIController implements Initializable {
         return null;
     }
 
+    /**
+     * Xử lý nút "Tạo phòng":
+     * <ol>
+     *   <li>Validate và tạo Item từ dữ liệu form.</li>
+     *   <li>Lưu ảnh nếu có, thêm card vào Home (tương thích code cũ addNewAuctionCard).</li>
+     *   <li>Tạo AuctionRequest (trạng thái PENDING) và lưu vào AuctionRequestStorage.</li>
+     *   <li>Đóng overlay CreateAuctionRoom (hideOverLay).</li>
+     *   <li>Điều hướng sang màn hình "Yêu cầu đấu giá" và làm mới danh sách.</li>
+     * </ol>
+     */
     @FXML
-    // Khi admin bấm nút tạo phòng
     private void handleCreate() {
         String selectValue = selectItem.getValue();
         item = initializeItem(selectValue);
 
-        if (item != null && mainScreenController != null) {
-            LocalDateTime endTime = LocalDateTime.now().plusDays(1);
-            mainScreenController.addNewAuctionCard(item, endTime);
-            System.out.println("Đã tạo phòng đấu giá thành công cho: " + item.getName());
-            handleClose();
+        if (item == null) {
+            System.err.println("[CreateRoomUIController] Không thể tạo phòng: dữ liệu nhập không hợp lệ hoặc chưa đủ.");
+            return;
         }
+
+        if (mainScreenController == null) {
+            System.err.println("[CreateRoomUIController] Không thể tạo phòng: mainScreenController là null.");
+            return;
+        }
+
+        // 1. Lưu ảnh sản phẩm nếu người dùng đã chọn
+        if (selectedImageFile != null) {
+            String savedPath = ProductImageService.saveProductImage("ITEM-" + item.getId(), selectedImageFile);
+            item.setImagePath(savedPath);
+            ProductImageService.registerImage("AUC-" + item.getId(), savedPath);
+            ProductImageService.registerImage(item.getName(), savedPath);
+            ProductImageService.registerImage(String.valueOf(item.getId()), savedPath);
+        }
+
+        // 2. Thêm card vào Home (giữ nguyên hành vi cũ — tương thích CreateRoomUIController gốc)
+        LocalDateTime endTime = LocalDateTime.now().plusDays(1);
+        mainScreenController.addNewAuctionCard(item, endTime);
+        System.out.println("[CreateRoomUIController] Đã tạo card đấu giá trên Home cho: " + item.getName());
+
+        // 3. Tạo AuctionRequest lưu vào storage (trạng thái PENDING, chờ Admin duyệt)
+        String creatorId   = (clientSession != null && clientSession.getCurrentUserId()   != null)
+                             ? clientSession.getCurrentUserId()   : "UNKNOWN";
+        String creatorName = (clientSession != null && clientSession.getCurrentUserName() != null)
+                             ? clientSession.getCurrentUserName() : creatorId;
+
+        AuctionRequest request = new AuctionRequest(
+                creatorId,
+                creatorName,
+                item.getName(),
+                selectValue != null ? selectValue : "Khác",
+                item.getPrice(),
+                500_000.0,   // Bước giá mặc định — có thể mở rộng thêm field sau
+                "Yêu cầu tạo phiên đấu giá cho: " + item.getName(),
+                endTime
+        );
+        AuctionRequestStorage.getInstance().addRequest(request);
+        System.out.println("[CreateRoomUIController] Đã tạo AuctionRequest: " + request);
+
+        // 4. Reset trạng thái form
+        selectedImageFile = null;
+        if (lblImageFileName != null) {
+            lblImageFileName.setText("Chưa chọn ảnh (sử dụng ảnh mẫu theo danh mục)");
+        }
+        if (imgPreview != null) {
+            imgPreview.setImage(null);
+        }
+
+        // 5. Đóng overlay CreateAuctionRoom
+        mainScreenController.hideOverLay();
+
+        // 6. Điều hướng sang màn hình "Yêu cầu đấu giá" và làm mới danh sách
+        mainScreenController.handleNavAuctionRequests();
     }
 
     @FXML
@@ -206,3 +316,4 @@ public class CreateRoomUIController implements Initializable {
         }
     }
 }
+

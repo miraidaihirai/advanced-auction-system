@@ -15,6 +15,10 @@ public final class AuctionProtocol {
         // Prevent instantiation
     }
 
+    // Default connection configuration
+    public static final String DEFAULT_HOST = "127.0.0.1";
+    public static final int DEFAULT_PORT = 8888;
+
     // Client -> Server Commands
     public static final String CMD_LOGIN = "LOGIN";
     public static final String CMD_REGISTER = "REGISTER";

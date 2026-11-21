@@ -163,8 +163,20 @@ public class AuctionManager {
     }
 
     public User authenticate(String userId, String password) {
+        if (userId == null || password == null) {
+            return null;
+        }
         User user = userMap.get(userId);
-        if (user != null && password != null && user.getPassword().equals(password)) {
+        if (user == null) {
+            // Tìm kiếm không phân biệt chữ hoa chữ thường
+            for (Map.Entry<String, User> entry : userMap.entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(userId)) {
+                    user = entry.getValue();
+                    break;
+                }
+            }
+        }
+        if (user != null && password.equals(user.getPassword())) {
             return user;
         }
         return null;

@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class AuctionServer implements AuctionObserver {
 
-    public static final int DEFAULT_PORT = 8888;
+    public static final int DEFAULT_PORT = AuctionProtocol.DEFAULT_PORT;
     public static final String DEFAULT_DATA_FILE = AuctionManager.DEFAULT_STORAGE_PATH;
 
     private final int port;
@@ -272,11 +272,45 @@ public class AuctionServer implements AuctionObserver {
         if (loaded && (!manager.getAllUsers().isEmpty() || !manager.getAllAuctions().isEmpty())) {
             System.out.printf("[AuctionServer] Restored persistent data: %d users, %d auctions from %s%n",
                     manager.getAllUsers().size(), manager.getAllAuctions().size(), dataFilePath);
+            ensureDefaultUsers(manager);
+            printLoadedUsers(manager);
             return;
         }
 
         initSampleData();
         manager.saveState(dataFilePath);
+        printLoadedUsers(manager);
+    }
+
+    /**
+     * Đảm bảo các tài khoản mẫu bắt buộc luôn luôn tồn tại trong hệ thống.
+     */
+    public static void ensureDefaultUsers(AuctionManager manager) {
+        if (manager.getUser("SELLER-01") == null) {
+            manager.registerUser(new Seller("SELLER-01", "Alice", "password123"));
+        }
+        if (manager.getUser("BIDDER-01") == null) {
+            manager.registerUser(new Bidder("BIDDER-01", "Bob", "password123"));
+        }
+        if (manager.getUser("BIDDER-02") == null) {
+            manager.registerUser(new Bidder("BIDDER-02", "Charlie", "password123"));
+        }
+        if (manager.getUser("BIDDER-03") == null) {
+            manager.registerUser(new Bidder("BIDDER-03", "David", "password123"));
+        }
+        if (manager.getUser("ADMIN-01") == null) {
+            manager.registerUser(new Admin("ADMIN-01", "Administrator", "password123"));
+        }
+    }
+
+    private static void printLoadedUsers(AuctionManager manager) {
+        System.out.println("--------------------------------------------------");
+        System.out.println(" [AuctionServer] DANH SÁCH TÀI KHOẢN KHẢ DỤNG:");
+        for (User u : manager.getAllUsers()) {
+            System.out.printf("   - ID: %-12s | Tên: %-15s | Vai trò: %-8s | MK: password123%n",
+                    u.getId(), u.getName(), u.getRoleName());
+        }
+        System.out.println("--------------------------------------------------");
     }
 
     /**
