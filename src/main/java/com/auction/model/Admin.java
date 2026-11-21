@@ -28,5 +28,10 @@ public class Admin extends User implements AuctionObserver {
         System.out.printf("  [Giam sat Admin] Phien [%s] da dong. Gia cuoi: %.2f (Winner: %s)%n",
                 auction.getId(), auction.getCurrentPrice(), auction.getHighestBidderId());
     }
+
+    @Override
+    public String getRoleName() {
+        return "ADMIN";
+    }
 }
 

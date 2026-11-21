@@ -2,7 +2,9 @@
 
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <!-- VBox gốc căn giữa, gắn styleClass nền và đường dẫn file CSS -->
 
@@ -13,6 +15,11 @@
   <VBox alignment="TOP_LEFT" spacing="15" styleClass="details-card" maxWidth="450">
     <!-- Tiêu đề -->
     <Label styleClass="title-label" text="Chi Tiết Sản Phẩm"/>
+
+    <!-- Ảnh sản phẩm -->
+    <StackPane alignment="CENTER" prefHeight="130" maxHeight="140" styleClass="details-image-frame">
+      <ImageView fx:id="imgDetails" fitWidth="390" fitHeight="130" preserveRatio="false"/>
+    </StackPane>
     <!-- Nhóm thông tin: Tên sản phẩm -->
     <VBox fx:id="boxProductName" spacing="3">
       <Label styleClass="field-label" text="Tên sản phẩm"/>
@@ -28,9 +35,9 @@
       <Label styleClass="field-label" text="ID sản phẩm"/>
       <Label fx:id="lblId" styleClass="value-label" text="-- Chưa có dữ liệu --"/>
     </VBox>
-    <!-- Nhóm thông tin: Chất lượng -->
+    <!-- Nhóm thông tin: SỐ lượng -->
     <VBox fx:id="boxQuantity" spacing="3">
-      <Label styleClass="field-label" text="Chất lượng sản phẩm"/>
+      <Label styleClass="field-label" text="Số lượng sản phẩm"/>
       <Label fx:id="lblQuantity" styleClass="value-label" text="-- Chưa có dữ liệu --"/>
     </VBox>
     <!--Nhóm thông tin: Tên người sáng tác -->

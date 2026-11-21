@@ -5,29 +5,48 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <VBox fx:id="card" stylesheets="@../css/styleCard.css" styleClass="productCard"
-    xmlns="http://javafx.com/javafx/21" 
-    xmlns:fx="http://javafx.com/fxml/1"
-    fx:controller="com.auction.ui.ProductCardController">
+      prefWidth="260" maxWidth="280"
+      xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.auction.ui.ProductCardController">
     <children>
-        <!--Hình ảnh-->
-        
-        <!--Thông tin sản phẩm-->
-        <VBox spacing="4" styleClass="inforProduct">
-            <Label fx:id="lblId" styleClass="product-id"/>
-            <Label fx:id="lblName" styleClass="product-name"/>
-            <Label fx:id="lblPrice" styleClass="product-price"/>
+        <!-- Card Top Visual Banner / Category Header (No external icons/emojis) -->
+        <VBox alignment="CENTER_LEFT" spacing="6" styleClass="card-top-banner">
+            <HBox alignment="CENTER_LEFT" spacing="8">
+                <Label fx:id="lblCategory" text="[ ĐỒNG HỒ CỔ ]" styleClass="card-category-pill"/>
+                <HBox HBox.hgrow="ALWAYS" />
+                <Label fx:id="lblId" text="AUC-001" styleClass="product-id-badge"/>
+            </HBox>
+        </VBox>
+
+        <!-- Product Image Display (Matching Left Monitor in Photo) -->
+        <StackPane alignment="CENTER" styleClass="card-image-box" prefHeight="135" maxHeight="140">
+            <ImageView fx:id="imgProduct" fitWidth="232" fitHeight="135" preserveRatio="false"/>
+        </StackPane>
+
+        <!-- Product Information Body -->
+        <VBox spacing="8" styleClass="inforProduct">
+            <Label fx:id="lblName" text="Tên sản phẩm đấu giá" styleClass="product-name" wrapText="true"/>
             
-            <HBox alignment="CENTER_LEFT" spacing="10">
+            <VBox spacing="2">
+                <Label text="Giá hiện tại" styleClass="price-sub-label"/>
+                <Label fx:id="lblPrice" text="15,500,000 đ" styleClass="product-price"/>
+            </VBox>
+            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="meta-row">
                 <Label fx:id="lblTime" styleClass="time-label" text="03h 10m 10s"/>
+                <HBox HBox.hgrow="ALWAYS" />
                 <Label fx:id="lblBids" styleClass="bids-label" text="5 Bids" />
             </HBox>
-            <!-- Thêm nút Xem chi tiết vào cuối VBox của ProductCard.fxml -->
-            <Button text="Xem chi tiết" styleClass="bid-button" maxWidth="Infinity" onAction="#handleViewDetails"/>
-            <!--Nút đặt giá-->
-            <Button fx:id="btnBid" styleClass="bid-button" text="ĐẶT GIÁ" maxWidth="Infinity" />
+
+            <!-- Action Buttons Row -->
+            <VBox spacing="6" style="-fx-padding: 6 0 0 0;">
+                <Button fx:id="btnBid" text="VÀO ĐẤU GIÁ" styleClass="btn-bid-primary" maxWidth="Infinity" onAction="#handleOpenRoom"/>
+                <Button text="Xem thông số" styleClass="btn-details-secondary" maxWidth="Infinity" onAction="#handleViewDetails"/>
+            </VBox>
         </VBox>
     </children>
 </VBox>

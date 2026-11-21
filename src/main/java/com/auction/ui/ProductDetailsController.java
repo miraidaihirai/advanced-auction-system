@@ -7,10 +7,12 @@ import com.auction.item.Vehicle;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 
 public class ProductDetailsController {
 
+    @FXML private ImageView imgDetails;
     @FXML private Label lblProductName;
     @FXML private Label lblStartPrice;
     @FXML private Label lblId;
@@ -48,6 +50,10 @@ public class ProductDetailsController {
     public void initData(Item product) {
         this.currentItem = product;
         if (product == null) return;
+
+        if (imgDetails != null) {
+            ProductImageService.loadIntoImageView(imgDetails, "ITEM-" + product.getId(), product.getName(), product.getImagePath(), 390, 130);
+        }
 
         // Điền dữ liệu chung
         if (lblProductName != null) lblProductName.setText(product.getName());
