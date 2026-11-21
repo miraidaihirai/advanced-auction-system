@@ -5,12 +5,9 @@ import com.auction.item.factory.ArtFactory;
 import com.auction.item.factory.ElectronicsFactory;
 import com.auction.item.factory.ItemFactory;
 import com.auction.item.factory.VehicleFactory;
-import com.auction.model.AuctionRequest;
 import com.auction.session.ClientSession;
-import com.auction.storage.AuctionRequestStorage;
 import java.io.File;
 import java.net.URL;
-import java.time.LocalDateTime;
 import java.util.ResourceBundle;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -188,44 +185,56 @@ public class CreateRoomUIController implements Initializable {
 
   private Item initializeItem(String selectValue) {
     if (selectValue == null) {
-      System.err.println("Chưa chọn loại sản phẩm!");
+      NotificationManager.showWarning("Vui lòng chọn loại sản phẩm!");
       return null;
     }
 
     try {
       String name = txtProductName.getText() != null ? txtProductName.getText().trim() : "";
-      int id = Integer.parseInt(txtId.getText().trim());
-      int price = Integer.parseInt(txtStartPrice.getText().trim());
-      int quantity = Integer.parseInt(txtQuantity.getText().trim());
+      if (name.isEmpty()) {
+        NotificationManager.showWarning("Vui lòng nhập tên sản phẩm!");
+        return null;
+      }
+      int id = Integer.parseInt(cleanNumeric(txtId.getText()));
+      int price = Integer.parseInt(cleanNumeric(txtStartPrice.getText()));
+      int quantity = Integer.parseInt(cleanNumeric(txtQuantity.getText()));
+      if (price <= 0 || quantity <= 0) {
+        NotificationManager.showWarning("Giá khởi điểm và số lượng phải lớn hơn 0!");
+        return null;
+      }
 
       if (selectValue.equals("Đồ nghệ thuật")) {
         String artist = txtArtist.getText() != null ? txtArtist.getText().trim() : "";
         String medium = txtMedium.getText() != null ? txtMedium.getText().trim() : "";
-        int yearCreated = Integer.parseInt(txtYearCreated.getText().trim());
+        int yearCreated = Integer.parseInt(cleanNumeric(txtYearCreated.getText()));
         ItemFactory factory =
             new ArtFactory(name, id, price, quantity, artist, medium, yearCreated);
         return factory.createItem();
       } else if (selectValue.equals("Đồ điện")) {
         String brand = txtBrand.getText() != null ? txtBrand.getText().trim() : "";
         String model = txtModel.getText() != null ? txtModel.getText().trim() : "";
-        int warrantyPeriod = Integer.parseInt(txtWarrantyPeriod.getText().trim());
+        int warrantyPeriod = Integer.parseInt(cleanNumeric(txtWarrantyPeriod.getText()));
         ItemFactory factory =
             new ElectronicsFactory(name, id, price, quantity, brand, model, warrantyPeriod);
         return factory.createItem();
       } else if (selectValue.equals("Phương tiện giao thông")) {
         String make = txtBrand.getText() != null ? txtBrand.getText().trim() : "";
         String model = txtModel.getText() != null ? txtModel.getText().trim() : "";
-        int year = Integer.parseInt(txtYear.getText().trim());
+        int year = Integer.parseInt(cleanNumeric(txtYear.getText()));
         ItemFactory factory = new VehicleFactory(name, id, price, quantity, make, model, year);
         return factory.createItem();
       }
     } catch (NumberFormatException e) {
-      System.err.println(
-          "Lỗi nhập liệu: Một hoặc nhiều trường số (ID, Giá, Số lượng, Năm, Bảo hành) chưa hợp lệ!");
+      NotificationManager.showWarning(
+          "Một hoặc nhiều trường số (ID, Giá khởi điểm, Số lượng, Năm, Bảo hành) chưa hợp lệ!");
     } catch (Exception e) {
-      System.err.println("Lỗi khởi tạo sản phẩm: " + e.getMessage());
+      NotificationManager.showWarning("Lỗi khởi tạo sản phẩm: " + e.getMessage());
     }
     return null;
+  }
+
+  private static String cleanNumeric(String raw) {
+    return raw == null ? "" : raw.trim().replaceAll("[,._\\s]", "");
   }
 
   /**
@@ -233,10 +242,9 @@ public class CreateRoomUIController implements Initializable {
    *
    * <ol>
    *   <li>Validate và tạo Item từ dữ liệu form.
-   *   <li>Lưu ảnh nếu có, thêm card vào Home (tương thích code cũ addNewAuctionCard).
-   *   <li>Tạo AuctionRequest (trạng thái PENDING) và lưu vào AuctionRequestStorage.
-   *   <li>Đóng overlay CreateAuctionRoom (hideOverLay).
-   *   <li>Điều hướng sang màn hình "Yêu cầu đấu giá" và làm mới danh sách.
+   *   <li>Lưu ảnh nếu có.
+   *   <li>Gửi lệnh REQUEST_AUCTION lên AuctionServer để Admin xét duyệt.
+   *   <li>Đóng overlay CreateAuctionRoom và điều hướng sang màn hình "Yêu cầu đấu giá".
    * </ol>
    */
   @FXML
@@ -245,8 +253,11 @@ public class CreateRoomUIController implements Initializable {
     item = initializeItem(selectValue);
 
     if (item == null) {
-      System.err.println(
-          "[CreateRoomUIController] Không thể tạo phòng: dữ liệu nhập không hợp lệ hoặc chưa đủ.");
+      return;
+    }
+
+    if (clientSession == null || !clientSession.isConnected()) {
+      NotificationManager.showError("Chưa kết nối tới máy chủ để gửi yêu cầu tạo phòng!");
       return;
     }
 
@@ -257,45 +268,35 @@ public class CreateRoomUIController implements Initializable {
     }
 
     // 1. Lưu ảnh sản phẩm nếu người dùng đã chọn
+    String imageKey = "";
     if (selectedImageFile != null) {
       String savedPath =
           ProductImageService.saveProductImage("ITEM-" + item.getId(), selectedImageFile);
       item.setImagePath(savedPath);
-      ProductImageService.registerImage("AUC-" + item.getId(), savedPath);
       ProductImageService.registerImage(item.getName(), savedPath);
       ProductImageService.registerImage(String.valueOf(item.getId()), savedPath);
+      imageKey = savedPath != null ? savedPath : "";
     }
 
-    // 2. Thêm card vào Home (giữ nguyên hành vi cũ — tương thích CreateRoomUIController gốc)
-    LocalDateTime endTime = LocalDateTime.now().plusDays(1);
-    mainScreenController.addNewAuctionCard(item, endTime);
-    System.out.println(
-        "[CreateRoomUIController] Đã tạo card đấu giá trên Home cho: " + item.getName());
+    // 2. Gửi yêu cầu mở phòng đấu giá qua Socket lên AuctionServer
+    String categoryCode =
+        switch (selectValue) {
+          case "Đồ nghệ thuật" -> "ART";
+          case "Đồ điện" -> "ELECTRONICS";
+          case "Phương tiện giao thông" -> "VEHICLES";
+          default -> "COLLECTIBLE";
+        };
+    String description =
+        "Sản phẩm " + selectValue + ": " + item.getName() + " (SL: " + item.getQuantity() + ")";
+    clientSession
+        .getClient()
+        .requestAuction(
+            item.getName(), categoryCode, item.getPrice(), 500_000.0, 1800L, imageKey, description);
 
-    // 3. Tạo AuctionRequest lưu vào storage (trạng thái PENDING, chờ Admin duyệt)
-    String creatorId =
-        (clientSession != null && clientSession.getCurrentUserId() != null)
-            ? clientSession.getCurrentUserId()
-            : "UNKNOWN";
-    String creatorName =
-        (clientSession != null && clientSession.getCurrentUserName() != null)
-            ? clientSession.getCurrentUserName()
-            : creatorId;
+    NotificationManager.showSuccess(
+        "Đã gửi yêu cầu mở phòng \"" + item.getName() + "\" lên máy chủ chờ Admin duyệt!");
 
-    AuctionRequest request =
-        new AuctionRequest(
-            creatorId,
-            creatorName,
-            item.getName(),
-            selectValue != null ? selectValue : "Khác",
-            item.getPrice(),
-            500_000.0, // Bước giá mặc định — có thể mở rộng thêm field sau
-            "Yêu cầu tạo phiên đấu giá cho: " + item.getName(),
-            endTime);
-    AuctionRequestStorage.getInstance().addRequest(request);
-    System.out.println("[CreateRoomUIController] Đã tạo AuctionRequest: " + request);
-
-    // 4. Reset trạng thái form
+    // 3. Reset trạng thái form
     selectedImageFile = null;
     if (lblImageFileName != null) {
       lblImageFileName.setText("Chưa chọn ảnh (sử dụng ảnh mẫu theo danh mục)");
@@ -304,10 +305,10 @@ public class CreateRoomUIController implements Initializable {
       imgPreview.setImage(null);
     }
 
-    // 5. Đóng overlay CreateAuctionRoom
+    // 4. Đóng overlay CreateAuctionRoom
     mainScreenController.hideOverLay();
 
-    // 6. Điều hướng sang màn hình "Yêu cầu đấu giá" và làm mới danh sách
+    // 5. Điều hướng sang màn hình "Yêu cầu đấu giá" và làm mới danh sách từ Server
     mainScreenController.handleNavAuctionRequests();
   }
 

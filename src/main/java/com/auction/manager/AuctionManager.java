@@ -2,9 +2,11 @@ package com.auction.manager;
 
 import com.auction.exceptions.AuctionClosedException;
 import com.auction.exceptions.AuthenticationException;
+import com.auction.model.Admin;
 import com.auction.model.Auction;
 import com.auction.model.BidTransaction;
 import com.auction.model.Bidder;
+import com.auction.model.Seller;
 import com.auction.model.User;
 import com.auction.observer.AuctionObserver;
 import com.auction.storage.AuctionDataSnapshot;
@@ -12,6 +14,7 @@ import com.auction.storage.FileStorageService;
 import com.auction.storage.TransactionStorageService;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -45,6 +48,7 @@ public class AuctionManager {
 
   // Bộ đếm giao dịch thread-safe tránh trùng ID khi đặt giá đồng thời
   private static final AtomicLong txCounter = new AtomicLong(0);
+  private static final AtomicLong auctionRequestCounter = new AtomicLong(100);
 
   // 2. Private constructor ngăn tạo đối tượng từ bên ngoài
   private AuctionManager() {
@@ -120,6 +124,105 @@ public class AuctionManager {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Seller (hoặc Admin) gửi yêu cầu mở phòng đấu giá mới (trạng thái PENDING_APPROVAL chờ duyệt).
+   */
+  public Auction submitAuctionRequest(
+      String sellerId,
+      String itemName,
+      String category,
+      String description,
+      double startPrice,
+      double stepPrice,
+      long durationSeconds,
+      String imageKey) {
+    User user = userMap.get(sellerId);
+    if (!(user instanceof Seller) && !(user instanceof Admin)) {
+      throw new AuthenticationException("Only Sellers or Admins can submit auction room requests");
+    }
+    if (itemName == null || itemName.trim().isEmpty()) {
+      throw new IllegalArgumentException("Item name must not be empty");
+    }
+    if (!Double.isFinite(startPrice) || startPrice <= 0) {
+      throw new IllegalArgumentException("Start price must be positive");
+    }
+    if (!Double.isFinite(stepPrice) || stepPrice <= 0) {
+      throw new IllegalArgumentException("Step price must be positive");
+    }
+
+    String auctionId;
+    do {
+      auctionId = "AUC-" + auctionRequestCounter.incrementAndGet();
+    } while (auctionMap.containsKey(auctionId));
+
+    Auction pending =
+        Auction.createPendingRequest(
+            auctionId,
+            itemName.trim(),
+            sellerId,
+            startPrice,
+            stepPrice,
+            category,
+            description,
+            Math.max(30, durationSeconds),
+            imageKey);
+    addAuction(pending);
+    return pending;
+  }
+
+  /** Admin phê duyệt yêu cầu mở phòng đấu giá -> chuyển sang RUNNING và bắt đầu đếm ngược. */
+  public Auction approveAuctionRequest(
+      String adminId, String auctionId, Long overrideDurationSeconds) {
+    User user = userMap.get(adminId);
+    if (!(user instanceof Admin)) {
+      throw new AuthenticationException("Only Admins can approve auction requests");
+    }
+    Auction auction = auctionMap.get(auctionId);
+    if (auction == null) {
+      throw new AuctionClosedException("Auction not found: " + auctionId);
+    }
+    long durationSec =
+        (overrideDurationSeconds != null && overrideDurationSeconds > 0)
+            ? overrideDurationSeconds
+            : auction.getRequestedDurationSeconds();
+    auction.approveAndStart(Duration.ofSeconds(durationSec));
+    if (autoSave) {
+      saveState();
+    }
+    return auction;
+  }
+
+  /** Admin từ chối (hoặc Seller chủ phòng hủy) yêu cầu mở phòng đấu giá. */
+  public Auction rejectAuctionRequest(String actorId, String auctionId, String reason) {
+    User user = userMap.get(actorId);
+    Auction auction = auctionMap.get(auctionId);
+    if (auction == null) {
+      throw new AuctionClosedException("Auction not found: " + auctionId);
+    }
+    boolean isAdmin = user instanceof Admin;
+    boolean isOwnerSeller =
+        user instanceof Seller && actorId != null && actorId.equals(auction.getSellerId());
+    if (!isAdmin && !isOwnerSeller) {
+      throw new AuthenticationException(
+          "Only Admins or the owning Seller can reject/cancel this auction request");
+    }
+    auction.rejectRequest(reason);
+    if (autoSave) {
+      saveState();
+    }
+    return auction;
+  }
+
+  public List<Auction> getPendingApprovalAuctions() {
+    List<Auction> pending = new ArrayList<>();
+    for (Auction a : auctionMap.values()) {
+      if (a.getStatus() == Auction.Status.PENDING_APPROVAL) {
+        pending.add(a);
+      }
+    }
+    return Collections.unmodifiableList(pending);
   }
 
   public Auction getAuction(String auctionId) {

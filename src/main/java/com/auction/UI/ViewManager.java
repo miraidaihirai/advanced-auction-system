@@ -40,6 +40,11 @@ public class ViewManager {
    * vết trạng thái của tài khoản trước đó.
    */
   public static void clearCache() {
+    for (ViewEntry entry : cache.values()) {
+      if (entry.controller instanceof SessionAware aware) {
+        aware.dispose();
+      }
+    }
     cache.clear();
   }
 
@@ -53,6 +58,14 @@ public class ViewManager {
     Object controller = getController("AuctionRoom");
     if (controller instanceof AuctionRoomController roomController) {
       roomController.loadAuction(auction);
+    }
+  }
+
+  public static void openAuctionRoom(network.AuctionDetail detail) {
+    SwitchView("AuctionRoom");
+    Object controller = getController("AuctionRoom");
+    if (controller instanceof AuctionRoomController roomController) {
+      roomController.loadAuctionDetail(detail);
     }
   }
 

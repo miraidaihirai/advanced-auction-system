@@ -1,5 +1,6 @@
 package network;
 
+import com.auction.model.Auction;
 import com.auction.model.BidTransaction;
 import java.util.Locale;
 
@@ -33,6 +34,13 @@ public final class AuctionProtocol {
   public static final String CMD_PAY = "PAY";
   public static final String CMD_HISTORY = "HISTORY";
 
+  // Extended Commands: Tạo/duyệt phòng và đồng bộ chi tiết phiên
+  public static final String CMD_PROFILE = "PROFILE";
+  public static final String CMD_LIST_FULL = "LIST_FULL";
+  public static final String CMD_REQUEST_AUCTION = "REQUEST_AUCTION";
+  public static final String CMD_APPROVE_AUCTION = "APPROVE_AUCTION";
+  public static final String CMD_REJECT_AUCTION = "REJECT_AUCTION";
+
   // Server -> Client Status Responses
   public static final String RES_SUCCESS = "SUCCESS";
   public static final String RES_ERROR = "ERROR";
@@ -44,12 +52,61 @@ public final class AuctionProtocol {
   public static final String NOTIFY_WINNER_PREFIX = "NOTIFY WINNER";
   public static final String NOTIFY_SELLER_PREFIX = "NOTIFY SELLER";
   public static final String NOTIFY_PAID_PREFIX = "NOTIFY PAID";
+  public static final String NOTIFY_CATALOG_REFRESH = "NOTIFY CATALOG_REFRESH";
 
   public static final String AUCTIONS_BEGIN = "AUCTIONS_BEGIN";
   public static final String AUCTIONS_END = "AUCTIONS_END";
 
+  public static final String AUCTIONS_FULL_BEGIN = "AUCTIONS_FULL_BEGIN";
+  public static final String AUCTIONS_FULL_END = "AUCTIONS_FULL_END";
+  public static final String AUCTION_FULL_PREFIX = "AUCTION_FULL ";
+  public static final String PROFILE_DATA_PREFIX = "PROFILE_DATA ";
+
+  public static String formatProfileData(com.auction.model.User user) {
+    return String.format(
+        "%s%s|%s|%s",
+        PROFILE_DATA_PREFIX,
+        sanitizeField(user.getId()),
+        sanitizeField(user.getRoleName()),
+        sanitizeField(user.getName()));
+  }
+
   public static final String HISTORY_BEGIN = "HISTORY_BEGIN";
   public static final String HISTORY_END = "HISTORY_END";
+
+  public static String sanitizeField(String raw) {
+    if (raw == null) {
+      return "";
+    }
+    return raw.replace("|", "/").replace("\r", " ").replace("\n", " ").trim();
+  }
+
+  public static String formatAuctionFull(Auction a, String sellerName) {
+    String winner = a.getHighestBidderId() != null ? a.getHighestBidderId() : "NONE";
+    String safeSellerName =
+        (sellerName != null && !sellerName.isBlank()) ? sellerName : a.getSellerId();
+    return String.format(
+        Locale.US,
+        "%s%s|%s|%s|%s|%s|%.2f|%.2f|%.2f|%s|%s|%d|%d|%d|%s|%s|%s|%s",
+        AUCTION_FULL_PREFIX,
+        sanitizeField(a.getId()),
+        sanitizeField(a.getItemId()),
+        sanitizeField(a.getSellerId()),
+        sanitizeField(safeSellerName),
+        sanitizeField(a.getCategory()),
+        a.getStartPrice(),
+        a.getCurrentPrice(),
+        a.getStepPrice(),
+        sanitizeField(winner),
+        a.getStatus().name(),
+        a.getEndTimeMillis(),
+        a.getRequestedDurationSeconds(),
+        a.getBidHistory().size(),
+        "0",
+        sanitizeField(a.getImageKey()),
+        sanitizeField(a.getRejectionReason()),
+        sanitizeField(a.getDescription()));
+  }
 
   /** Tạo bản tin broadcast nhảy giá realtime tới các Client đang xem phiên. */
   public static String formatBidNotification(
