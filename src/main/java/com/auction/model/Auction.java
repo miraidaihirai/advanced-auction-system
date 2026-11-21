@@ -29,10 +29,12 @@ public class Auction implements AuctionSubject, Serializable {
 
   public enum Status {
     OPEN,
+    PENDING_APPROVAL,
     RUNNING,
     FINISHED,
     PAID,
-    CANCELED
+    CANCELED,
+    REJECTED
   }
 
   private static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
@@ -54,6 +56,13 @@ public class Auction implements AuctionSubject, Serializable {
   private String highestBidderId;
   private final List<BidTransaction> bidHistory;
   private long endTimeMillis;
+
+  // Metadata cho quy trình Seller -> Admin -> Phòng đấu giá
+  private String category = "COLLECTIBLE";
+  private String description = "";
+  private String imageKey = "";
+  private long requestedDurationSeconds = 300;
+  private String rejectionReason = "";
 
   // Concurrency control: ReentrantLock (fair lock đảm bảo FIFO cho các lượt bid)
   private transient ReentrantLock lock = new ReentrantLock(true);
@@ -77,6 +86,30 @@ public class Auction implements AuctionSubject, Serializable {
 
   public Auction(String id, Item item, String sellerId, double startPrice, double stepPrice) {
     this(id, item != null ? item.getName() : "Unknown Item", sellerId, startPrice, stepPrice);
+    if (item != null && item.getImagePath() != null) {
+      this.imageKey = item.getImagePath();
+    }
+  }
+
+  /** Tạo yêu cầu mở phòng đấu giá từ Seller ở trạng thái chờ Admin phê duyệt. */
+  public static Auction createPendingRequest(
+      String id,
+      String itemName,
+      String sellerId,
+      double startPrice,
+      double stepPrice,
+      String category,
+      String description,
+      long requestedDurationSeconds,
+      String imageKey) {
+    Auction auction = new Auction(id, itemName, sellerId, startPrice, stepPrice);
+    auction.status = Status.PENDING_APPROVAL;
+    auction.category =
+        (category != null && !category.isBlank()) ? category.trim().toUpperCase() : "COLLECTIBLE";
+    auction.description = description != null ? description.trim() : "";
+    auction.requestedDurationSeconds = Math.max(30, requestedDurationSeconds);
+    auction.imageKey = imageKey != null ? imageKey.trim() : "";
+    return auction;
   }
 
   public void startAuction() {
@@ -93,14 +126,52 @@ public class Auction implements AuctionSubject, Serializable {
       if (status != Status.OPEN) {
         throw new IllegalStateException("Only an OPEN auction can be started");
       }
-      this.status = Status.RUNNING;
-      this.endTimeMillis = System.currentTimeMillis() + duration.toMillis();
-      this.finishTask =
-          TIMER.schedule(this::finishIfRunning, duration.toMillis(), TimeUnit.MILLISECONDS);
-      System.out.printf("[Auction %s] Started auction for item: %s%n", id, itemId);
+      beginRunningLocked(duration);
     } finally {
       lock.unlock();
     }
+  }
+
+  /** Admin phê duyệt yêu cầu mở phòng của Seller và kích hoạt chạy ngay. */
+  public void approveAndStart(Duration duration) {
+    Duration effectiveDuration =
+        (duration != null && !duration.isZero() && !duration.isNegative())
+            ? duration
+            : Duration.ofSeconds(Math.max(30, requestedDurationSeconds));
+    lock.lock();
+    try {
+      if (status != Status.PENDING_APPROVAL && status != Status.OPEN) {
+        throw new IllegalStateException("Only PENDING_APPROVAL or OPEN auction can be approved");
+      }
+      this.rejectionReason = "";
+      beginRunningLocked(effectiveDuration);
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** Admin từ chối yêu cầu mở phòng của Seller kèm lý do. */
+  public void rejectRequest(String reason) {
+    lock.lock();
+    try {
+      if (status != Status.PENDING_APPROVAL) {
+        throw new IllegalStateException("Only PENDING_APPROVAL auction can be rejected");
+      }
+      this.status = Status.REJECTED;
+      this.rejectionReason =
+          (reason != null && !reason.isBlank()) ? reason.trim() : "Không đạt tiêu chuẩn kiểm duyệt";
+      System.out.printf("[Auction %s] Rejected by Admin. Reason: %s%n", id, rejectionReason);
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private void beginRunningLocked(Duration duration) {
+    this.status = Status.RUNNING;
+    this.endTimeMillis = System.currentTimeMillis() + duration.toMillis();
+    this.finishTask =
+        TIMER.schedule(this::finishIfRunning, duration.toMillis(), TimeUnit.MILLISECONDS);
+    System.out.printf("[Auction %s] Started auction for item: %s%n", id, itemId);
   }
 
   public void closeAuction() {
@@ -340,7 +411,52 @@ public class Auction implements AuctionSubject, Serializable {
   }
 
   public long getEndTimeMillis() {
-    return endTimeMillis;
+    lock.lock();
+    try {
+      return endTimeMillis;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  public String getCategory() {
+    return category != null ? category : "COLLECTIBLE";
+  }
+
+  public void setCategory(String category) {
+    if (category != null && !category.isBlank()) {
+      this.category = category.trim().toUpperCase();
+    }
+  }
+
+  public String getDescription() {
+    return description != null ? description : "";
+  }
+
+  public void setDescription(String description) {
+    this.description = description != null ? description.trim() : "";
+  }
+
+  public String getImageKey() {
+    return imageKey != null ? imageKey : "";
+  }
+
+  public void setImageKey(String imageKey) {
+    this.imageKey = imageKey != null ? imageKey.trim() : "";
+  }
+
+  public long getRequestedDurationSeconds() {
+    return requestedDurationSeconds > 0 ? requestedDurationSeconds : 300;
+  }
+
+  public void setRequestedDurationSeconds(long requestedDurationSeconds) {
+    if (requestedDurationSeconds > 0) {
+      this.requestedDurationSeconds = requestedDurationSeconds;
+    }
+  }
+
+  public String getRejectionReason() {
+    return rejectionReason != null ? rejectionReason : "";
   }
 
   /**
@@ -352,6 +468,18 @@ public class Auction implements AuctionSubject, Serializable {
     in.defaultReadObject();
     this.lock = new ReentrantLock(true);
     this.observers = new CopyOnWriteArrayList<>();
+    if (this.category == null) {
+      this.category = "COLLECTIBLE";
+    }
+    if (this.description == null) {
+      this.description = "";
+    }
+    if (this.imageKey == null) {
+      this.imageKey = "";
+    }
+    if (this.rejectionReason == null) {
+      this.rejectionReason = "";
+    }
 
     if (this.status == Status.RUNNING) {
       long remaining = endTimeMillis - System.currentTimeMillis();

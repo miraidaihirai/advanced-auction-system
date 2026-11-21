@@ -139,6 +139,21 @@ public class ClientHandler implements Runnable, AuctionObserver {
         case AuctionProtocol.CMD_HISTORY:
           handleHistory(parts);
           break;
+        case AuctionProtocol.CMD_PROFILE:
+          handleProfile();
+          break;
+        case AuctionProtocol.CMD_LIST_FULL:
+          handleListFull();
+          break;
+        case AuctionProtocol.CMD_REQUEST_AUCTION:
+          handleRequestAuction(line);
+          break;
+        case AuctionProtocol.CMD_APPROVE_AUCTION:
+          handleApproveAuction(parts);
+          break;
+        case AuctionProtocol.CMD_REJECT_AUCTION:
+          handleRejectAuction(line);
+          break;
         case AuctionProtocol.CMD_QUIT:
           sendMessage(AuctionProtocol.formatSuccess("BYE", "Goodbye!"));
           running = false;
@@ -488,6 +503,156 @@ public class ClientHandler implements Runnable, AuctionObserver {
       sendMessage(AuctionProtocol.formatTransactionRecord(tx));
     }
     sendMessage(String.format("%s %s", AuctionProtocol.HISTORY_END, auctionId));
+  }
+
+  private void handleProfile() {
+    if (currentUser == null) {
+      sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+      return;
+    }
+    User fresh = AuctionManager.getInstance().getUser(currentUser.getId());
+    if (fresh != null) {
+      this.currentUser = fresh;
+    }
+    sendMessage(AuctionProtocol.formatProfileData(this.currentUser));
+  }
+
+  private void handleListFull() {
+    AuctionManager manager = AuctionManager.getInstance();
+    sendMessage(AuctionProtocol.AUCTIONS_FULL_BEGIN);
+    for (Auction a : manager.getAllAuctions()) {
+      User seller = manager.getUser(a.getSellerId());
+      String sellerName = seller != null ? seller.getName() : a.getSellerId();
+      sendMessage(AuctionProtocol.formatAuctionFull(a, sellerName));
+    }
+    sendMessage(AuctionProtocol.AUCTIONS_FULL_END);
+  }
+
+  private void handleRequestAuction(String rawLine) {
+    if (currentUser == null) {
+      sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+      return;
+    }
+    if (!(currentUser instanceof Seller) && !(currentUser instanceof Admin)) {
+      sendMessage(
+          AuctionProtocol.formatError("Only Sellers or Admins can submit auction room requests"));
+      return;
+    }
+
+    int firstSpace = rawLine.indexOf(' ');
+    if (firstSpace < 0 || firstSpace >= rawLine.length() - 1) {
+      sendMessage(
+          AuctionProtocol.formatError(
+              "Usage: REQUEST_AUCTION <itemName>|<category>|<startPrice>|<stepPrice>|<durationSec>|<imageKey>|<description>"));
+      return;
+    }
+
+    String payload = rawLine.substring(firstSpace + 1).trim();
+    String[] fields = payload.split("\\|", -1);
+    if (fields.length < 5) {
+      sendMessage(AuctionProtocol.formatError("Invalid auction request payload"));
+      return;
+    }
+
+    try {
+      String itemName = fields[0].trim();
+      String category = fields[1].trim();
+      double startPrice = Double.parseDouble(fields[2].trim().replace(',', '.'));
+      double stepPrice = Double.parseDouble(fields[3].trim().replace(',', '.'));
+      long durationSec = Long.parseLong(fields[4].trim());
+      String imageKey = fields.length > 5 ? fields[5].trim() : "";
+      String description = fields.length > 6 ? fields[6].trim() : "";
+
+      Auction created =
+          AuctionManager.getInstance()
+              .submitAuctionRequest(
+                  currentUser.getId(),
+                  itemName,
+                  category,
+                  description,
+                  startPrice,
+                  stepPrice,
+                  durationSec,
+                  imageKey);
+
+      sendMessage(
+          AuctionProtocol.formatSuccess(AuctionProtocol.CMD_REQUEST_AUCTION, created.getId()));
+      if (server != null) {
+        server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
+      }
+    } catch (NumberFormatException e) {
+      sendMessage(AuctionProtocol.formatError("Invalid numeric field in auction request"));
+    } catch (Exception e) {
+      sendMessage(AuctionProtocol.formatError(e.getMessage()));
+    }
+  }
+
+  private void handleApproveAuction(String[] parts) {
+    if (currentUser == null) {
+      sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+      return;
+    }
+    if (!(currentUser instanceof Admin)) {
+      sendMessage(AuctionProtocol.formatError("Only Admins can approve auction requests"));
+      return;
+    }
+    if (parts.length < 2) {
+      sendMessage(
+          AuctionProtocol.formatError("Usage: APPROVE_AUCTION <auctionId> [durationSeconds]"));
+      return;
+    }
+    String auctionId = parts[1];
+    Long overrideDuration = null;
+    if (parts.length >= 3) {
+      try {
+        overrideDuration = Long.parseLong(parts[2]);
+      } catch (NumberFormatException e) {
+        sendMessage(AuctionProtocol.formatError("Invalid duration seconds: " + parts[2]));
+        return;
+      }
+    }
+
+    try {
+      AuctionManager.getInstance()
+          .approveAuctionRequest(currentUser.getId(), auctionId, overrideDuration);
+      sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_APPROVE_AUCTION, auctionId));
+      if (server != null) {
+        server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
+      }
+    } catch (Exception e) {
+      sendMessage(AuctionProtocol.formatError(e.getMessage()));
+    }
+  }
+
+  private void handleRejectAuction(String rawLine) {
+    if (currentUser == null) {
+      sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+      return;
+    }
+    if (!(currentUser instanceof Admin) && !(currentUser instanceof Seller)) {
+      sendMessage(
+          AuctionProtocol.formatError("Only Admins or Sellers can reject/cancel auction requests"));
+      return;
+    }
+    int firstSpace = rawLine.indexOf(' ');
+    if (firstSpace < 0 || firstSpace >= rawLine.length() - 1) {
+      sendMessage(AuctionProtocol.formatError("Usage: REJECT_AUCTION <auctionId>|<reason>"));
+      return;
+    }
+    String payload = rawLine.substring(firstSpace + 1).trim();
+    String[] fields = payload.split("\\|", 2);
+    String auctionId = fields[0].trim();
+    String reason = fields.length > 1 ? fields[1].trim() : "Không đạt tiêu chuẩn kiểm duyệt";
+
+    try {
+      AuctionManager.getInstance().rejectAuctionRequest(currentUser.getId(), auctionId, reason);
+      sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_REJECT_AUCTION, auctionId));
+      if (server != null) {
+        server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
+      }
+    } catch (Exception e) {
+      sendMessage(AuctionProtocol.formatError(e.getMessage()));
+    }
   }
 
   /** Observer Pattern Callback: Tự động bắn thông báo realtime qua Socket khi có lượt bid mới. */

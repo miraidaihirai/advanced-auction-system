@@ -7,6 +7,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
+import network.AuctionDetail;
 import network.AuctionSummary;
 
 public class addProductCard {
@@ -55,6 +56,32 @@ public class addProductCard {
       ProductCardController cardController = loader.getController();
 
       cardController.setAuctionData(auction);
+
+      productGridContainer.getChildren().add(productCard);
+
+      return productCard;
+
+    } catch (IOException e) {
+      e.printStackTrace();
+      System.err.println("Không thể tạo thẻ đấu giá từ dữ liệu Server.");
+      return null;
+    }
+  }
+
+  public static VBox addServerAuctionCard(FlowPane productGridContainer, AuctionDetail detail) {
+    if (productGridContainer == null || detail == null) {
+      return null;
+    }
+
+    try {
+      FXMLLoader loader =
+          new FXMLLoader(addProductCard.class.getResource("/com/auction/fxml/ProductCard.fxml"));
+
+      VBox productCard = loader.load();
+
+      ProductCardController cardController = loader.getController();
+
+      cardController.setAuctionDetail(detail);
 
       productGridContainer.getChildren().add(productCard);
 

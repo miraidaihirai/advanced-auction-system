@@ -11,6 +11,7 @@ import com.auction.observer.AuctionObserver;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -337,13 +338,49 @@ public class AuctionServer implements AuctionObserver {
 
     Auction auction1 =
         new Auction("AUC-001", "Laptop Dell XPS 15", alice.getId(), 10_000_000, 500_000);
-    auction1.startAuction();
+    auction1.setCategory("ELECTRONICS");
+    auction1.setDescription("Ultrabook vỏ nhôm CNC cao cấp, màn hình OLED, RAM 32GB, SSD 1TB.");
+    auction1.setRequestedDurationSeconds(2700);
+    auction1.startAuction(Duration.ofMinutes(45));
     manager.addAuction(auction1);
 
     Auction auction2 =
         new Auction("AUC-002", "Vintage Antique Vase", alice.getId(), 2_000_000, 100_000);
-    auction2.startAuction();
+    auction2.setCategory("ART");
+    auction2.setDescription("Bình gốm sứ cổ vẽ tay viền vàng, có giấy chứng nhận giám định.");
+    auction2.setRequestedDurationSeconds(2100);
+    auction2.startAuction(Duration.ofMinutes(35));
     manager.addAuction(auction2);
+
+    Auction auction3 =
+        new Auction("AUC-003", "Đồng Hồ Cơ Thụy Sĩ Vintage", alice.getId(), 19_500_000, 500_000);
+    auction3.setCategory("WATCHES");
+    auction3.setDescription("Đồng hồ cơ lên cót tay vàng hồng 18K nguyên bản, dây da bê thủ công.");
+    auction3.setRequestedDurationSeconds(3000);
+    auction3.startAuction(Duration.ofMinutes(50));
+    manager.addAuction(auction3);
+
+    Auction auction4 =
+        new Auction("AUC-004", "Porsche 911 Classic Silver", alice.getId(), 185_000_000, 5_000_000);
+    auction4.setCategory("VEHICLES");
+    auction4.setDescription(
+        "Xe thể thao cổ điển màu bạc ánh kim, động cơ nguyên bản đầy đủ hồ sơ.");
+    auction4.setRequestedDurationSeconds(3600);
+    auction4.startAuction(Duration.ofMinutes(60));
+    manager.addAuction(auction4);
+
+    Auction pending1 =
+        Auction.createPendingRequest(
+            "AUC-005",
+            "Đồng Hồ Patek Calatrava Gold",
+            alice.getId(),
+            42_000_000,
+            2_000_000,
+            "WATCHES",
+            "Phiên bản sưu tầm giới hạn vỏ vàng hồng 39mm, đầy đủ hộp sổ chính hãng.",
+            900,
+            "");
+    manager.addAuction(pending1);
 
     System.out.println("[AuctionServer] Sample auctions and users initialized.");
   }

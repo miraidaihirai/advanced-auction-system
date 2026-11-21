@@ -2,13 +2,16 @@ package com.auction.ui;
 
 import com.auction.item.Item;
 import java.text.NumberFormat;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Locale;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
+import network.AuctionDetail;
 import network.AuctionSummary;
 
 public class ProductCardController {
@@ -32,6 +35,7 @@ public class ProductCardController {
 
   private Item Product;
   private AuctionSummary auctionSummary;
+  private AuctionDetail auctionDetail;
   private HomeController homeController;
 
   private final TimelineCard timeline = new TimelineCard();
@@ -88,7 +92,13 @@ public class ProductCardController {
     }
 
     if (lblTime != null) {
-      lblTime.setText("03h 10m 15s");
+      if ("RUNNING".equalsIgnoreCase(auction.status())
+          || "ACTIVE".equalsIgnoreCase(auction.status())) {
+        lblTime.setText("Đang diễn ra");
+      } else {
+        lblTime.setText("Đã kết thúc");
+        lblTime.setStyle("-fx-text-fill: #9ca3af;");
+      }
     }
 
     if (imgProduct != null) {
@@ -99,6 +109,76 @@ public class ProductCardController {
     if (btnBid != null) {
       btnBid.setDisable(false);
     }
+  }
+
+  public void setAuctionDetail(AuctionDetail detail) {
+    if (detail == null) return;
+    this.auctionDetail = detail;
+    this.auctionSummary = detail.toSummary();
+    currencyFormat.setMaximumFractionDigits(0);
+
+    if (lblId != null) lblId.setText(detail.auctionId());
+    if (lblName != null) lblName.setText(detail.itemName());
+    if (lblCategory != null) {
+      lblCategory.setText(detectCategoryFromMeta(detail.category(), detail.itemName()));
+    }
+    if (lblPrice != null) lblPrice.setText(currencyFormat.format(detail.currentPrice()) + " đ");
+
+    String highestBidder = detail.highestBidderId();
+    if (lblBids != null) {
+      if (highestBidder == null || highestBidder.equalsIgnoreCase("NONE")) {
+        lblBids.setText(detail.bidCount() + " lượt • Chưa có giá");
+      } else {
+        lblBids.setText("Dẫn đầu: " + highestBidder);
+      }
+    }
+
+    if (lblTime != null) {
+      timeline.stop();
+      if (detail.isRunning() && detail.endTimeMillis() > System.currentTimeMillis()) {
+        LocalDateTime endTime =
+            LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(detail.endTimeMillis()), ZoneId.systemDefault());
+        timeline.startCountdown(endTime, lblTime);
+      } else if (detail.isPaid()) {
+        lblTime.setText("Đã thanh toán");
+        lblTime.setStyle("-fx-text-fill: #10B981;");
+      } else {
+        lblTime.setText("Đã kết thúc");
+        lblTime.setStyle("-fx-text-fill: #9ca3af;");
+      }
+    }
+
+    if (imgProduct != null) {
+      ProductImageService.loadIntoImageView(
+          imgProduct, detail.auctionId(), detail.itemName(), detail.imageKey(), 232, 135);
+    }
+
+    if (btnBid != null) {
+      btnBid.setDisable(false);
+      btnBid.setText(detail.isRunning() ? "VÀO ĐẤU GIÁ" : "XEM KẾT QUẢ");
+    }
+  }
+
+  private String detectCategoryFromMeta(String category, String name) {
+    if (category != null) {
+      switch (category.toUpperCase(Locale.ROOT)) {
+        case "WATCHES" -> {
+          return "[ ĐỒNG HỒ CỔ ]";
+        }
+        case "ELECTRONICS" -> {
+          return "[ ĐỒ ĐIỆN TỬ ]";
+        }
+        case "ART" -> {
+          return "[ NGHỆ THUẬT ]";
+        }
+        case "VEHICLES" -> {
+          return "[ XE CỘ ]";
+        }
+        default -> {}
+      }
+    }
+    return detectCategory(name);
   }
 
   private String detectCategory(String name) {
@@ -124,7 +204,9 @@ public class ProductCardController {
 
   @FXML
   public void handleOpenRoom() {
-    if (auctionSummary != null) {
+    if (auctionDetail != null) {
+      ViewManager.openAuctionRoom(auctionDetail);
+    } else if (auctionSummary != null) {
       ViewManager.openAuctionRoom(auctionSummary);
     } else if (Product != null) {
       AuctionSummary summary =

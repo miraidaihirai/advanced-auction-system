@@ -58,6 +58,12 @@ public class AuctionClient {
 
     default void onAuctionListReceived(List<AuctionSummary> auctions) {}
 
+    default void onProfileReceived(String userId, String role, String name) {}
+
+    default void onAuctionDetailsReceived(List<AuctionDetail> auctions) {}
+
+    default void onCatalogRefresh() {}
+
     // Được gọi khi nhận dòng AUCTION_INFO (phản hồi của lệnh INFO)
     default void onAuctionInfoReceived(
         String auctionId,
@@ -206,6 +212,7 @@ public class AuctionClient {
     String historyAuctionId = null;
     // Server gửi danh sách đấu giá theo từng dòng riêng biệt
     List<AuctionSummary> auctionBuffer = null;
+    List<AuctionDetail> fullAuctionBuffer = null;
 
     try {
       String line;
@@ -238,6 +245,32 @@ public class AuctionClient {
             final List<AuctionSummary> auctionList = List.copyOf(auctionBuffer);
             auctionBuffer = null;
             fire(l -> l.onAuctionListReceived(auctionList));
+
+          } else if (msg.equals(AuctionProtocol.AUCTIONS_FULL_BEGIN)) {
+            fullAuctionBuffer = new ArrayList<>();
+
+          } else if (msg.startsWith(AuctionProtocol.AUCTION_FULL_PREFIX)
+              && fullAuctionBuffer != null) {
+            try {
+              fullAuctionBuffer.add(parseAuctionDetailLine(msg));
+            } catch (IllegalArgumentException e) {
+              System.err.println("[AuctionClient] Dữ liệu AUCTION_FULL không hợp lệ: " + msg);
+            }
+
+          } else if (msg.equals(AuctionProtocol.AUCTIONS_FULL_END) && fullAuctionBuffer != null) {
+            final List<AuctionDetail> detailList = List.copyOf(fullAuctionBuffer);
+            fullAuctionBuffer = null;
+            fire(l -> l.onAuctionDetailsReceived(detailList));
+
+          } else if (msg.equals(AuctionProtocol.NOTIFY_CATALOG_REFRESH)) {
+            fire(AuctionEventListener::onCatalogRefresh);
+
+          } else if (msg.startsWith(AuctionProtocol.PROFILE_DATA_PREFIX)) {
+            String payload = msg.substring(AuctionProtocol.PROFILE_DATA_PREFIX.length());
+            String[] parts = payload.split("\\|", 3);
+            if (parts.length >= 3) {
+              fire(l -> l.onProfileReceived(parts[0], parts[1], parts[2]));
+            }
 
           } else if (msg.startsWith("AUCTION_INFO ")) {
             parseAndFireAuctionInfo(msg);
@@ -351,6 +384,32 @@ public class AuctionClient {
         disconnect();
       }
     }
+  }
+
+  private AuctionDetail parseAuctionDetailLine(String line) {
+    String payload = line.substring(AuctionProtocol.AUCTION_FULL_PREFIX.length());
+    String[] parts = payload.split("\\|", 17);
+    if (parts.length < 17) {
+      throw new IllegalArgumentException("Invalid AUCTION_FULL");
+    }
+    return new AuctionDetail(
+        parts[0],
+        parts[1],
+        parts[2],
+        parts[3],
+        parts[4],
+        parsePrice(parts[5]),
+        parsePrice(parts[6]),
+        parsePrice(parts[7]),
+        parts[8],
+        parts[9],
+        Long.parseLong(parts[10]),
+        Long.parseLong(parts[11]),
+        Integer.parseInt(parts[12]),
+        "1".equals(parts[13]),
+        parts[14],
+        parts[15],
+        parts[16]);
   }
 
   private AuctionSummary parseAuctionLine(String line) {
@@ -468,6 +527,54 @@ public class AuctionClient {
 
   public void payAuction(String auctionId) {
     sendRaw(String.format("%s %s", AuctionProtocol.CMD_PAY, auctionId));
+  }
+
+  public void requestProfile() {
+    sendRaw(AuctionProtocol.CMD_PROFILE);
+  }
+
+  public void requestFullList() {
+    sendRaw(AuctionProtocol.CMD_LIST_FULL);
+  }
+
+  public void requestAuction(
+      String itemName,
+      String category,
+      double startPrice,
+      double stepPrice,
+      long durationSeconds,
+      String imageKey,
+      String description) {
+    String payload =
+        String.format(
+            Locale.US,
+            "%s|%s|%.2f|%.2f|%d|%s|%s",
+            AuctionProtocol.sanitizeField(itemName),
+            AuctionProtocol.sanitizeField(category),
+            startPrice,
+            stepPrice,
+            durationSeconds,
+            AuctionProtocol.sanitizeField(imageKey),
+            AuctionProtocol.sanitizeField(description));
+    sendRaw(AuctionProtocol.CMD_REQUEST_AUCTION + " " + payload);
+  }
+
+  public void approveAuction(String auctionId) {
+    sendRaw(String.format("%s %s", AuctionProtocol.CMD_APPROVE_AUCTION, auctionId));
+  }
+
+  public void approveAuction(String auctionId, long durationSeconds) {
+    sendRaw(
+        String.format("%s %s %d", AuctionProtocol.CMD_APPROVE_AUCTION, auctionId, durationSeconds));
+  }
+
+  public void rejectAuction(String auctionId, String reason) {
+    sendRaw(
+        String.format(
+            "%s %s|%s",
+            AuctionProtocol.CMD_REJECT_AUCTION,
+            AuctionProtocol.sanitizeField(auctionId),
+            AuctionProtocol.sanitizeField(reason)));
   }
 
   public synchronized void disconnect() {

@@ -139,6 +139,12 @@
                     <!-- Giant CTA Button -->
                     <Button fx:id="btnPlaceBid" text="ĐẶT GIÁ NGAY" onAction="#handlePlaceBid" styleClass="btn-place-bid-cta" maxWidth="Infinity"/>
 
+                    <!-- Close / Pay Action Buttons -->
+                    <Button fx:id="btnCloseAuction" text="ĐÓNG PHIÊN ĐẤU GIÁ" onAction="#handleCloseAuction"
+                            styleClass="btn-quick-bid" maxWidth="Infinity" visible="false" managed="false"/>
+                    <Button fx:id="btnPayAuction" text="THANH TOÁN NGAY" onAction="#handlePayAuction"
+                            styleClass="btn-place-bid-cta" maxWidth="Infinity" visible="false" managed="false"/>
+
                     <!-- Realtime Status Alert -->
                     <Label fx:id="lblStatusMessage" text="Sẵn sàng tham gia phiên đấu giá" styleClass="status-message-label" wrapText="true" alignment="CENTER"/>
                 </VBox>

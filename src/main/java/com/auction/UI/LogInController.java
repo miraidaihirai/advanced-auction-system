@@ -42,64 +42,9 @@ public class LogInController implements SessionAware {
 
           try {
             if (rawMessage.startsWith("SUCCESS LOGIN ")) {
-              // Format: SUCCESS LOGIN <userId> <name> [ROLE]
-              String payload = rawMessage.substring("SUCCESS LOGIN ".length()).trim();
-              String[] parts = payload.split("\\s+");
-
-              String userId = parts.length > 0 ? parts[0] : "";
-              String userName = parts.length > 1 ? parts[1] : userId;
-
-              // Xác định vai trò dựa trực tiếp trên kiểu dữ liệu User (Admin, Seller, Bidder):
-              com.auction.model.User matchedUser = null;
-              try {
-                matchedUser = com.auction.manager.AuctionManager.getInstance().getUser(userId);
-              } catch (Exception ignored) {
+              if (clientSession != null && clientSession.isConnected()) {
+                clientSession.getClient().requestProfile();
               }
-
-              UserRole role = UserRole.UNKNOWN;
-              if (matchedUser != null) {
-                role = UserRole.fromUser(matchedUser);
-              } else if (parts.length > 2) {
-                role = UserRole.fromString(parts[2]);
-              } else {
-                role = UserRole.fromString(userId);
-              }
-
-              if (role == UserRole.UNKNOWN) {
-                role = UserRole.BIDDER;
-              }
-
-              // Khởi tạo đúng kiểu dữ liệu cụ thể (Seller, Admin, Bidder) theo vai trò
-              // Mật khẩu phiên cần tối thiểu 8 ký tự theo ràng buộc User.setPassword()
-              if (matchedUser == null && !userId.isBlank()) {
-                String sessionPwd = "password123";
-                if (role == UserRole.SELLER) {
-                  matchedUser = new com.auction.model.Seller(userId, userName, sessionPwd);
-                } else if (role == UserRole.ADMIN) {
-                  matchedUser = new com.auction.model.Admin(userId, userName, sessionPwd);
-                } else {
-                  matchedUser = new com.auction.model.Bidder(userId, userName, sessionPwd);
-                }
-              }
-
-              final com.auction.model.User finalUser = matchedUser;
-              final UserRole finalRole = role;
-
-              Platform.runLater(
-                  () -> {
-                    loginInProgress = false;
-                    errorLabel.setText("");
-                    // Lưu thông tin user và role vào session
-                    if (clientSession != null) {
-                      if (finalUser != null) {
-                        clientSession.setCurrentUser(finalUser);
-                      } else {
-                        clientSession.setCurrentUser(userId, userName, finalRole);
-                      }
-                    }
-                    ViewManager.SwitchView("Home");
-                  });
-
             } else if (rawMessage.startsWith("ERROR ")) {
 
               String serverError = rawMessage.substring("ERROR ".length());
@@ -120,6 +65,27 @@ public class LogInController implements SessionAware {
                   errorLabel.setText("Lỗi xử lý phản hồi đăng nhập: " + t.getMessage());
                 });
           }
+        }
+
+        @Override
+        public void onProfileReceived(String userId, String roleStr, String userName) {
+          if (!loginInProgress) {
+            return;
+          }
+          UserRole role = UserRole.fromString(roleStr);
+          if (role == UserRole.UNKNOWN) {
+            role = UserRole.BIDDER;
+          }
+          final UserRole finalRole = role;
+          Platform.runLater(
+              () -> {
+                loginInProgress = false;
+                errorLabel.setText("");
+                if (clientSession != null) {
+                  clientSession.setCurrentUser(userId, userName, finalRole);
+                }
+                ViewManager.SwitchView("Home");
+              });
         }
 
         @Override
@@ -152,6 +118,13 @@ public class LogInController implements SessionAware {
     }
 
     resetForm();
+  }
+
+  @Override
+  public void dispose() {
+    if (this.clientSession != null) {
+      this.clientSession.getClient().removeListener(loginListener);
+    }
   }
 
   /** Xóa sạch các trường nhập liệu và thông báo lỗi trên form đăng nhập. */

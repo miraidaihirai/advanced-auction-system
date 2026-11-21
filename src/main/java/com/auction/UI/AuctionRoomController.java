@@ -22,6 +22,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 import network.AuctionClient;
+import network.AuctionDetail;
 import network.AuctionSummary;
 
 public class AuctionRoomController implements SessionAware, AuctionClient.AuctionEventListener {
@@ -66,17 +67,25 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
 
   @FXML private Button btnPlaceBid;
 
+  @FXML private Button btnCloseAuction;
+
+  @FXML private Button btnPayAuction;
+
   @FXML private Label lblStatusMessage;
 
   private ClientSession clientSession;
   private String currentAuctionId = "";
+  private String sellerId = "";
+  private double startPrice = 0.0;
   private double currentPrice = 0.0;
   private double stepPrice = 500_000.0;
+  private String highestBidderId = "NONE";
+  private String currentStatus = "RUNNING";
   private String itemName = "";
+  private long endTimeMillis = 0L;
 
   private XYChart.Series<String, Number> priceSeries;
   private Timeline countdownTimeline;
-  private int remainingSeconds = 272; // ~04:32 countdown like in design
 
   private final NumberFormat currencyFormat =
       NumberFormat.getNumberInstance(Locale.forLanguageTag("vi-VN"));
@@ -104,19 +113,7 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     }
 
     countdownTimeline =
-        new Timeline(
-            new KeyFrame(
-                Duration.seconds(1),
-                e -> {
-                  if (remainingSeconds > 0) {
-                    remainingSeconds--;
-                    updateCountdownDisplay();
-                  } else {
-                    if (lblCountdownTimer != null) {
-                      lblCountdownTimer.setText("00:00:00");
-                    }
-                  }
-                }));
+        new Timeline(new KeyFrame(Duration.seconds(1), e -> updateCountdownDisplay()));
     countdownTimeline.setCycleCount(Timeline.INDEFINITE);
     countdownTimeline.play();
     updateCountdownDisplay();
@@ -126,10 +123,25 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     if (lblCountdownTimer == null) {
       return;
     }
-    int hours = remainingSeconds / 3600;
-    int minutes = (remainingSeconds % 3600) / 60;
-    int seconds = remainingSeconds % 60;
+    if (!isStatusRunning() || endTimeMillis <= 0L) {
+      lblCountdownTimer.setText("00:00:00");
+      return;
+    }
+    long rem = Math.max(0L, (endTimeMillis - System.currentTimeMillis()) / 1000L);
+    long hours = rem / 3600;
+    long minutes = (rem % 3600) / 60;
+    long seconds = rem % 60;
     lblCountdownTimer.setText(String.format("%02d:%02d:%02d", hours, minutes, seconds));
+  }
+
+  private boolean isStatusRunning() {
+    return "RUNNING".equalsIgnoreCase(currentStatus) || "ACTIVE".equalsIgnoreCase(currentStatus);
+  }
+
+  private boolean hasAnyBids() {
+    return highestBidderId != null
+        && !highestBidderId.isBlank()
+        && !"NONE".equalsIgnoreCase(highestBidderId);
   }
 
   @Override
@@ -144,18 +156,72 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     applyRoleMode();
   }
 
+  @Override
+  public void dispose() {
+    if (countdownTimeline != null) {
+      countdownTimeline.stop();
+    }
+    if (this.clientSession != null) {
+      this.clientSession.getClient().removeListener(this);
+    }
+  }
+
   private void applyRoleMode() {
     if (clientSession == null) return;
     Platform.runLater(
         () -> {
-          if (clientSession.isSeller()) {
+          boolean running = isStatusRunning();
+          boolean isSeller = clientSession.isSeller();
+          boolean isAdmin = clientSession.isAdmin();
+          boolean isOwnerSeller =
+              isSeller
+                  && clientSession.getCurrentUserId() != null
+                  && (sellerId.isEmpty() || sellerId.equals(clientSession.getCurrentUserId()));
+          boolean isWinner =
+              clientSession.isBidder()
+                  && clientSession.getCurrentUserId() != null
+                  && hasAnyBids()
+                  && clientSession.getCurrentUserId().equals(highestBidderId);
+
+          if (btnCloseAuction != null) {
+            boolean showClose = running && (isAdmin || isOwnerSeller);
+            btnCloseAuction.setVisible(showClose);
+            btnCloseAuction.setManaged(showClose);
+          }
+
+          if (btnPayAuction != null) {
+            boolean showPay = "FINISHED".equalsIgnoreCase(currentStatus) && isWinner;
+            btnPayAuction.setVisible(showPay);
+            btnPayAuction.setManaged(showPay);
+          }
+
+          if (!running) {
+            if (txtBidAmount != null) txtBidAmount.setDisable(true);
+            if (btnPlaceBid != null) {
+              btnPlaceBid.setDisable(true);
+              btnPlaceBid.setText(
+                  "PAID".equalsIgnoreCase(currentStatus) ? "ĐÃ THANH TOÁN" : "PHIÊN ĐÃ KẾT THÚC");
+            }
+            if ("PAID".equalsIgnoreCase(currentStatus)) {
+              setStatus("Phiên đấu giá đã hoàn tất thanh toán.", true);
+            } else if ("FINISHED".equalsIgnoreCase(currentStatus)) {
+              setStatus(
+                  isWinner
+                      ? "Chúc mừng! Bạn đã thắng phiên này. Hãy nhấn THANH TOÁN NGAY."
+                      : "Phiên đấu giá đã kết thúc.",
+                  isWinner);
+            }
+            return;
+          }
+
+          if (isSeller) {
             if (txtBidAmount != null) txtBidAmount.setDisable(true);
             if (btnPlaceBid != null) {
               btnPlaceBid.setDisable(true);
               btnPlaceBid.setText("CHẾ ĐỘ NGƯỜI BÁN (CHỈ THEO DÕI)");
             }
             setStatus("Chế độ Người bán: Theo dõi diễn biến phiên đấu giá", true);
-          } else if (clientSession.isAdmin()) {
+          } else if (isAdmin) {
             if (txtBidAmount != null) txtBidAmount.setDisable(true);
             if (btnPlaceBid != null) {
               btnPlaceBid.setDisable(true);
@@ -176,12 +242,42 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     if (auction == null) {
       return;
     }
+    AuctionDetail detail =
+        new AuctionDetail(
+            auction.auctionId(),
+            auction.itemId(),
+            "",
+            "",
+            "",
+            auction.currentPrice(),
+            auction.currentPrice(),
+            auction.stepPrice(),
+            auction.highestBidderId(),
+            auction.status(),
+            0L,
+            0L,
+            0,
+            false,
+            "",
+            "",
+            "");
+    loadAuctionDetail(detail);
+  }
 
-    this.currentAuctionId = auction.auctionId();
-    this.itemName = auction.itemId();
-    this.currentPrice = auction.currentPrice();
-    this.stepPrice = (auction.stepPrice() > 0) ? auction.stepPrice() : 500_000.0;
-    this.remainingSeconds = 272;
+  public void loadAuctionDetail(AuctionDetail detail) {
+    if (detail == null) {
+      return;
+    }
+
+    this.currentAuctionId = detail.auctionId();
+    this.itemName = detail.itemName();
+    this.sellerId = detail.sellerId() != null ? detail.sellerId() : "";
+    this.startPrice = detail.startPrice();
+    this.currentPrice = detail.currentPrice();
+    this.stepPrice = (detail.stepPrice() > 0) ? detail.stepPrice() : 500_000.0;
+    this.highestBidderId = detail.highestBidderId() != null ? detail.highestBidderId() : "NONE";
+    this.currentStatus = detail.status() != null ? detail.status() : "RUNNING";
+    this.endTimeMillis = detail.endTimeMillis();
 
     Platform.runLater(
         () -> {
@@ -193,7 +289,7 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
           }
           if (imgShowcase != null) {
             ProductImageService.loadIntoImageView(
-                imgShowcase, currentAuctionId, itemName, 520, 220);
+                imgShowcase, currentAuctionId, itemName, detail.imageKey(), 520, 220);
           }
           if (lblAuctionId != null) {
             lblAuctionId.setText("Mã phiên: " + currentAuctionId);
@@ -202,32 +298,32 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
             lblCategoryTag.setText(detectCategory(itemName));
           }
           if (lblSeller != null) {
-            String sellerDisplay = "Người bán (Đã xác minh)";
-            try {
-              com.auction.model.Auction a =
-                  com.auction.manager.AuctionManager.getInstance().getAuction(currentAuctionId);
-              if (a != null && a.getSellerId() != null && !a.getSellerId().isBlank()) {
-                sellerDisplay = a.getSellerId() + " (Đã xác minh)";
-              }
-            } catch (Exception ignored) {
-            }
+            String sellerDisplay =
+                (detail.sellerName() != null && !detail.sellerName().isBlank())
+                    ? detail.sellerName() + " (" + sellerId + ")"
+                    : (!sellerId.isEmpty()
+                        ? sellerId + " (Đã xác minh)"
+                        : "Người bán (Đã xác minh)");
             lblSeller.setText(sellerDisplay);
           }
           if (lblDescription != null) {
             lblDescription.setText(
-                "Sản phẩm đấu giá chính hãng, kèm giấy tờ kiểm định và bảo hành toàn diện.");
+                (detail.description() != null && !detail.description().isBlank())
+                    ? detail.description()
+                    : "Sản phẩm đấu giá chính hãng, kèm giấy tờ kiểm định và bảo hành toàn diện.");
           }
           if (lblStartPrice != null) {
-            lblStartPrice.setText(formatCurrency(currentPrice) + " đ");
+            lblStartPrice.setText(formatCurrency(startPrice) + " đ");
           }
           if (lblMinStep != null) {
             lblMinStep.setText(formatCurrency(stepPrice) + " đ");
           }
           if (lblAuctionStatus != null) {
-            lblAuctionStatus.setText(auction.status() != null ? auction.status() : "ACTIVE");
+            lblAuctionStatus.setText(currentStatus);
           }
 
-          updatePriceDisplay(auction.highestBidderId());
+          updatePriceDisplay(highestBidderId);
+          updateCountdownDisplay();
 
           if (priceSeries != null) {
             priceSeries.getData().clear();
@@ -237,18 +333,14 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
 
           if (lvBidHistory != null) {
             lvBidHistory.getItems().clear();
-            String leader =
-                (auction.highestBidderId() != null
-                        && !auction.highestBidderId().equalsIgnoreCase("NONE"))
-                    ? auction.highestBidderId()
-                    : "Chưa có";
+            String leader = hasAnyBids() ? highestBidderId : "Chưa có";
             lvBidHistory
                 .getItems()
                 .add(
                     String.format(
                         "[%s] Khởi điểm: %s đ (%s)",
                         LocalDateTime.now().format(timeFormatter),
-                        formatCurrency(currentPrice),
+                        formatCurrency(startPrice),
                         leader));
           }
 
@@ -305,7 +397,8 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
 
   private void setDefaultBidInput() {
     if (txtBidAmount != null) {
-      txtBidAmount.setText(String.format(Locale.US, "%.0f", currentPrice + stepPrice));
+      double suggested = hasAnyBids() ? (currentPrice + stepPrice) : currentPrice;
+      txtBidAmount.setText(String.format(Locale.US, "%.0f", suggested));
     }
   }
 
@@ -369,12 +462,18 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
       return;
     }
 
+    if (!isStatusRunning()) {
+      setStatus("Phiên đấu giá đã kết thúc hoặc không còn nhận đặt giá!", false);
+      return;
+    }
+
     if (clientSession == null || !clientSession.isConnected()) {
       setStatus("Chưa kết nối đến máy chủ!", false);
       return;
     }
 
-    String bidText = txtBidAmount != null ? txtBidAmount.getText().trim() : "";
+    String rawInput = txtBidAmount != null ? txtBidAmount.getText().trim() : "";
+    String bidText = rawInput.replaceAll("[,._\\s]", "");
     if (bidText.isEmpty()) {
       setStatus("Vui lòng nhập số tiền muốn đặt!", false);
       return;
@@ -382,9 +481,9 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
 
     try {
       double amount = Double.parseDouble(bidText);
-      if (amount <= currentPrice) {
-        setStatus(
-            "Giá đặt phải lớn hơn giá hiện tại (" + formatCurrency(currentPrice) + " đ)!", false);
+      double minRequired = hasAnyBids() ? (currentPrice + stepPrice) : currentPrice;
+      if (amount < minRequired) {
+        setStatus("Giá đặt phải từ " + formatCurrency(minRequired) + " đ trở lên!", false);
         return;
       }
 
@@ -394,6 +493,26 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     } catch (NumberFormatException e) {
       setStatus("Số tiền nhập vào không hợp lệ!", false);
     }
+  }
+
+  @FXML
+  public void handleCloseAuction() {
+    if (clientSession == null || !clientSession.isConnected()) {
+      setStatus("Chưa kết nối đến máy chủ!", false);
+      return;
+    }
+    clientSession.getClient().closeAuction(currentAuctionId);
+    setStatus("Đang gửi yêu cầu đóng phiên...", true);
+  }
+
+  @FXML
+  public void handlePayAuction() {
+    if (clientSession == null || !clientSession.isConnected()) {
+      setStatus("Chưa kết nối đến máy chủ!", false);
+      return;
+    }
+    clientSession.getClient().payAuction(currentAuctionId);
+    setStatus("Đang gửi yêu cầu thanh toán...", true);
   }
 
   @FXML
@@ -423,6 +542,7 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     Platform.runLater(
         () -> {
           this.currentPrice = newPrice;
+          this.highestBidderId = bidderId;
           updatePriceDisplay(bidderId);
           setDefaultBidInput();
 
@@ -476,8 +596,43 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
 
           BidTransaction latest = history.get(history.size() - 1);
           this.currentPrice = latest.getAmount();
+          this.highestBidderId = latest.getBidderId();
           updatePriceDisplay(latest.getBidderId());
           setDefaultBidInput();
+        });
+  }
+
+  @Override
+  public void onAuctionClosed(String auctionId, double finalPrice, String winnerId) {
+    if (!auctionId.equals(currentAuctionId)) {
+      return;
+    }
+    Platform.runLater(
+        () -> {
+          this.currentStatus = "FINISHED";
+          this.currentPrice = finalPrice;
+          this.highestBidderId = winnerId;
+          if (lblAuctionStatus != null) {
+            lblAuctionStatus.setText("FINISHED");
+          }
+          updatePriceDisplay(winnerId);
+          updateCountdownDisplay();
+          applyRoleMode();
+        });
+  }
+
+  @Override
+  public void onAuctionPaid(String auctionId, double finalPrice, String winnerId) {
+    if (!auctionId.equals(currentAuctionId)) {
+      return;
+    }
+    Platform.runLater(
+        () -> {
+          this.currentStatus = "PAID";
+          if (lblAuctionStatus != null) {
+            lblAuctionStatus.setText("PAID");
+          }
+          applyRoleMode();
         });
   }
 

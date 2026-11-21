@@ -19,6 +19,7 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import network.AuctionClient;
+import network.AuctionDetail;
 import network.AuctionSummary;
 
 /**
@@ -66,8 +67,7 @@ public class HomeController implements SessionAware {
   private ClientSession clientSession;
   private AuctionClient.AuctionEventListener auctionListListener;
 
-  private final ObservableList<AuctionSummary> auctionSummaries =
-      FXCollections.observableArrayList();
+  private final ObservableList<AuctionDetail> auctionDetails = FXCollections.observableArrayList();
   private final List<VBox> serverAuctionCards = new ArrayList<>();
   private String currentCategoryFilter = "ALL";
 
@@ -101,18 +101,29 @@ public class HomeController implements SessionAware {
                 String auctionId, double newPrice, String bidderId, String itemId) {
               Platform.runLater(
                   () -> {
-                    for (int i = 0; i < auctionSummaries.size(); i++) {
-                      AuctionSummary current = auctionSummaries.get(i);
+                    for (int i = 0; i < auctionDetails.size(); i++) {
+                      AuctionDetail current = auctionDetails.get(i);
                       if (current.auctionId().equals(auctionId)) {
-                        AuctionSummary updated =
-                            new AuctionSummary(
+                        AuctionDetail updated =
+                            new AuctionDetail(
                                 current.auctionId(),
-                                current.itemId(),
+                                current.itemName(),
+                                current.sellerId(),
+                                current.sellerName(),
+                                current.category(),
+                                current.startPrice(),
                                 newPrice,
                                 current.stepPrice(),
                                 bidderId,
-                                current.status());
-                        auctionSummaries.set(i, updated);
+                                current.status(),
+                                current.endTimeMillis(),
+                                current.requestedDurationSec(),
+                                current.bidCount() + 1,
+                                current.payoutSettled(),
+                                current.imageKey(),
+                                current.rejectionReason(),
+                                current.description());
+                        auctionDetails.set(i, updated);
                         renderFilteredCards();
                         break;
                       }
@@ -121,19 +132,83 @@ public class HomeController implements SessionAware {
             }
 
             @Override
-            public void onAuctionListReceived(List<AuctionSummary> auctions) {
+            public void onAuctionDetailsReceived(List<AuctionDetail> auctions) {
               Platform.runLater(
                   () -> {
-                    auctionSummaries.setAll(auctions);
+                    auctionDetails.setAll(auctions);
                     renderFilteredCards();
                   });
+            }
+
+            @Override
+            public void onAuctionListReceived(List<AuctionSummary> auctions) {
+              // Dự phòng nếu nhận LIST rút gọn
+              if (!auctionDetails.isEmpty()) {
+                return;
+              }
+              Platform.runLater(
+                  () -> {
+                    List<AuctionDetail> mapped = new ArrayList<>();
+                    for (AuctionSummary s : auctions) {
+                      mapped.add(
+                          new AuctionDetail(
+                              s.auctionId(),
+                              s.itemId(),
+                              "SELLER-01",
+                              "Người bán",
+                              "COLLECTIBLE",
+                              s.currentPrice(),
+                              s.currentPrice(),
+                              s.stepPrice(),
+                              s.highestBidderId(),
+                              s.status(),
+                              0L,
+                              0L,
+                              0,
+                              false,
+                              "",
+                              "",
+                              ""));
+                    }
+                    auctionDetails.setAll(mapped);
+                    renderFilteredCards();
+                  });
+            }
+
+            @Override
+            public void onCatalogRefresh() {
+              if (client.isConnected()) {
+                client.requestFullList();
+              }
+            }
+
+            @Override
+            public void onAuctionClosed(String auctionId, double finalPrice, String winnerId) {
+              if (client.isConnected()) {
+                client.requestFullList();
+              }
+            }
+
+            @Override
+            public void onAuctionPaid(String auctionId, double finalPrice, String winnerId) {
+              if (client.isConnected()) {
+                client.requestFullList();
+              }
             }
           };
       client.addListener(auctionListListener);
     }
 
     if (client.isConnected()) {
-      client.requestList();
+      client.requestFullList();
+    }
+  }
+
+  @Override
+  public void dispose() {
+    if (this.clientSession != null && auctionListListener != null) {
+      this.clientSession.getClient().removeListener(auctionListListener);
+      auctionListListener = null;
     }
   }
 
@@ -216,7 +291,8 @@ public class HomeController implements SessionAware {
             ? searchField.getText().trim().toLowerCase()
             : "";
 
-    for (AuctionSummary auction : auctionSummaries) {
+    for (AuctionDetail auction : auctionDetails) {
+      if (auction.isPendingApproval() || auction.isRejected()) continue;
       if (!matchesFilter(auction, keyword, currentCategoryFilter)) continue;
 
       VBox card = addProductCard.addServerAuctionCard(productGridContainer, auction);
@@ -226,28 +302,37 @@ public class HomeController implements SessionAware {
     }
   }
 
-  private boolean matchesFilter(AuctionSummary auction, String keyword, String category) {
-    String name = auction.itemId().toLowerCase();
+  private boolean matchesFilter(AuctionDetail auction, String keyword, String category) {
+    String name = auction.itemName().toLowerCase();
     String id = auction.auctionId().toLowerCase();
 
     if (!keyword.isEmpty() && !name.contains(keyword) && !id.contains(keyword)) return false;
 
     if (category == null || category.equals("ALL")) return true;
 
+    String auctionCat = auction.category() != null ? auction.category().toUpperCase() : "";
     return switch (category) {
-      case "ACTIVE" -> auction.status() != null && auction.status().equalsIgnoreCase("ACTIVE");
-      case "WATCHES" -> name.contains("đồng hồ") || name.contains("watch");
+      case "ACTIVE" -> auction.isRunning();
+      case "WATCHES" ->
+          "WATCHES".equals(auctionCat) || name.contains("đồng hồ") || name.contains("watch");
       case "ELECTRONICS" ->
-          name.contains("dell")
+          "ELECTRONICS".equals(auctionCat)
+              || name.contains("dell")
               || name.contains("laptop")
               || name.contains("máy ảnh")
               || name.contains("camera");
       case "ART" ->
-          name.contains("bình")
+          "ART".equals(auctionCat)
+              || name.contains("bình")
               || name.contains("vase")
               || name.contains("tranh")
               || name.contains("art");
-      case "VEHICLES" -> name.contains("xe") || name.contains("car") || name.contains("auto");
+      case "VEHICLES" ->
+          "VEHICLES".equals(auctionCat)
+              || name.contains("xe")
+              || name.contains("car")
+              || name.contains("porsche")
+              || name.contains("auto");
       default -> true;
     };
   }
@@ -255,7 +340,7 @@ public class HomeController implements SessionAware {
   @FXML
   public void handleRefreshList() {
     if (clientSession != null && clientSession.isConnected()) {
-      clientSession.getClient().requestList();
+      clientSession.getClient().requestFullList();
     }
   }
 
