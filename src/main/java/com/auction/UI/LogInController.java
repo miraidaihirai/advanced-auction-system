@@ -1,260 +1,259 @@
-
 package com.auction.ui;
 
 import com.auction.session.ClientSession;
 import com.auction.session.UserRole;
-
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.AnchorPane;
-
 import network.AuctionClient;
 
 public class LogInController implements SessionAware {
-    // Cho ViewManager truyền ClientSession vào Controller
-    // ClientSession lưu kết nối dùng chung của ứng dụng
-    @FXML
-    private AnchorPane LoginPane;
+  // Cho ViewManager truyền ClientSession vào Controller
+  // ClientSession lưu kết nối dùng chung của ứng dụng
+  @FXML private AnchorPane LoginPane;
 
-    @FXML
-    private TextField usernameField;
+  @FXML private TextField usernameField;
 
-    @FXML
-    private PasswordField passwordField;
+  @FXML private PasswordField passwordField;
 
-    @FXML
-    private Label errorLabel;
+  @FXML private Label errorLabel;
 
-    private ClientSession clientSession;
+  private ClientSession clientSession;
 
-    private volatile boolean loginInProgress = false;
+  private volatile boolean loginInProgress = false;
 
-    private final AuctionClient.AuctionEventListener loginListener = new AuctionClient.AuctionEventListener() {
+  private final AuctionClient.AuctionEventListener loginListener =
+      new AuctionClient.AuctionEventListener() {
         // Lắng nghe phản hồi của AuctionServer
         @Override
-        public void onBidUpdate(String auctionId, double newPrice,
-                String bidderId, String itemId) {
-        }
+        public void onBidUpdate(
+            String auctionId, double newPrice, String bidderId, String itemId) {}
 
         @Override
         public void onMessageReceived(String rawMessage) {
-            System.out.println("[LogInController] onMessageReceived: " + rawMessage);
+          System.out.println("[LogInController] onMessageReceived: " + rawMessage);
 
-            if (!loginInProgress) {
-                return;
-            }
+          if (!loginInProgress) {
+            return;
+          }
 
-            try {
-                if (rawMessage.startsWith("SUCCESS LOGIN ")) {
-                    // Format: SUCCESS LOGIN <userId> <name> [ROLE]
-                    String payload = rawMessage.substring("SUCCESS LOGIN ".length()).trim();
-                    String[] parts = payload.split("\\s+");
+          try {
+            if (rawMessage.startsWith("SUCCESS LOGIN ")) {
+              // Format: SUCCESS LOGIN <userId> <name> [ROLE]
+              String payload = rawMessage.substring("SUCCESS LOGIN ".length()).trim();
+              String[] parts = payload.split("\\s+");
 
-                    String userId   = parts.length > 0 ? parts[0] : "";
-                    String userName = parts.length > 1 ? parts[1] : userId;
+              String userId = parts.length > 0 ? parts[0] : "";
+              String userName = parts.length > 1 ? parts[1] : userId;
 
-                    // Xác định vai trò dựa trực tiếp trên kiểu dữ liệu User (Admin, Seller, Bidder):
-                    com.auction.model.User matchedUser = null;
-                    try {
-                        matchedUser = com.auction.manager.AuctionManager.getInstance().getUser(userId);
-                    } catch (Exception ignored) {
-                    }
+              // Xác định vai trò dựa trực tiếp trên kiểu dữ liệu User (Admin, Seller, Bidder):
+              com.auction.model.User matchedUser = null;
+              try {
+                matchedUser = com.auction.manager.AuctionManager.getInstance().getUser(userId);
+              } catch (Exception ignored) {
+              }
 
-                    UserRole role = UserRole.UNKNOWN;
-                    if (matchedUser != null) {
-                        role = UserRole.fromUser(matchedUser);
-                    } else if (parts.length > 2) {
-                        role = UserRole.fromString(parts[2]);
-                    } else {
-                        role = UserRole.fromString(userId);
-                    }
+              UserRole role = UserRole.UNKNOWN;
+              if (matchedUser != null) {
+                role = UserRole.fromUser(matchedUser);
+              } else if (parts.length > 2) {
+                role = UserRole.fromString(parts[2]);
+              } else {
+                role = UserRole.fromString(userId);
+              }
 
-                    if (role == UserRole.UNKNOWN) {
-                        role = UserRole.BIDDER;
-                    }
+              if (role == UserRole.UNKNOWN) {
+                role = UserRole.BIDDER;
+              }
 
-                    // Khởi tạo đúng kiểu dữ liệu cụ thể (Seller, Admin, Bidder) theo vai trò
-                    // Mật khẩu phiên cần tối thiểu 8 ký tự theo ràng buộc User.setPassword()
-                    if (matchedUser == null && !userId.isBlank()) {
-                        String sessionPwd = "password123";
-                        if (role == UserRole.SELLER) {
-                            matchedUser = new com.auction.model.Seller(userId, userName, sessionPwd);
-                        } else if (role == UserRole.ADMIN) {
-                            matchedUser = new com.auction.model.Admin(userId, userName, sessionPwd);
-                        } else {
-                            matchedUser = new com.auction.model.Bidder(userId, userName, sessionPwd);
-                        }
-                    }
-
-                    final com.auction.model.User finalUser = matchedUser;
-                    final UserRole finalRole = role;
-
-                    Platform.runLater(() -> {
-                        loginInProgress = false;
-                        errorLabel.setText("");
-                        // Lưu thông tin user và role vào session
-                        if (clientSession != null) {
-                            if (finalUser != null) {
-                                clientSession.setCurrentUser(finalUser);
-                            } else {
-                                clientSession.setCurrentUser(userId, userName, finalRole);
-                            }
-                        }
-                        ViewManager.SwitchView("Home");
-                    });
-
-                } else if (rawMessage.startsWith("ERROR ")) {
-
-                    String serverError = rawMessage.substring("ERROR ".length());
-
-                    Platform.runLater(() -> {
-                        loginInProgress = false;
-                        errorLabel.setText(translateLoginError(serverError));
-                    });
+              // Khởi tạo đúng kiểu dữ liệu cụ thể (Seller, Admin, Bidder) theo vai trò
+              // Mật khẩu phiên cần tối thiểu 8 ký tự theo ràng buộc User.setPassword()
+              if (matchedUser == null && !userId.isBlank()) {
+                String sessionPwd = "password123";
+                if (role == UserRole.SELLER) {
+                  matchedUser = new com.auction.model.Seller(userId, userName, sessionPwd);
+                } else if (role == UserRole.ADMIN) {
+                  matchedUser = new com.auction.model.Admin(userId, userName, sessionPwd);
+                } else {
+                  matchedUser = new com.auction.model.Bidder(userId, userName, sessionPwd);
                 }
-            } catch (Throwable t) {
-                System.err.println("[LogInController] Error handling onMessageReceived: " + t.getMessage());
-                t.printStackTrace();
-                Platform.runLater(() -> {
+              }
+
+              final com.auction.model.User finalUser = matchedUser;
+              final UserRole finalRole = role;
+
+              Platform.runLater(
+                  () -> {
                     loginInProgress = false;
-                    errorLabel.setText("Lỗi xử lý phản hồi đăng nhập: " + t.getMessage());
-                });
+                    errorLabel.setText("");
+                    // Lưu thông tin user và role vào session
+                    if (clientSession != null) {
+                      if (finalUser != null) {
+                        clientSession.setCurrentUser(finalUser);
+                      } else {
+                        clientSession.setCurrentUser(userId, userName, finalRole);
+                      }
+                    }
+                    ViewManager.SwitchView("Home");
+                  });
+
+            } else if (rawMessage.startsWith("ERROR ")) {
+
+              String serverError = rawMessage.substring("ERROR ".length());
+
+              Platform.runLater(
+                  () -> {
+                    loginInProgress = false;
+                    errorLabel.setText(translateLoginError(serverError));
+                  });
             }
+          } catch (Throwable t) {
+            System.err.println(
+                "[LogInController] Error handling onMessageReceived: " + t.getMessage());
+            t.printStackTrace();
+            Platform.runLater(
+                () -> {
+                  loginInProgress = false;
+                  errorLabel.setText("Lỗi xử lý phản hồi đăng nhập: " + t.getMessage());
+                });
+          }
         }
 
         @Override
         public void onDisconnected() {
 
-            if (!loginInProgress) {
-                return;
-            }
+          if (!loginInProgress) {
+            return;
+          }
 
-            Platform.runLater(() -> {
+          Platform.runLater(
+              () -> {
                 loginInProgress = false;
-                errorLabel.setText(
-                        "Mất kết nối đến máy chủ. Vui lòng thử lại.");
-            });
+                errorLabel.setText("Mất kết nối đến máy chủ. Vui lòng thử lại.");
+              });
         }
         // Nhận sự kiện mất kết nối từ AuctionClient trên Socket listener thread
         // Platform.runLater() cập nhật errorLabel qua JavaFX Application Thread
-    };
+      };
 
-    @Override
-    public void setClientSession(ClientSession session) {
-        if (this.clientSession != null && this.clientSession != session) {
-            this.clientSession.getClient().removeListener(loginListener);
-        }
-
-        this.clientSession = session;
-
-        if (this.clientSession != null) {
-            this.clientSession.getClient().addListener(loginListener);
-        }
-
-        resetForm();
+  @Override
+  public void setClientSession(ClientSession session) {
+    if (this.clientSession != null && this.clientSession != session) {
+      this.clientSession.getClient().removeListener(loginListener);
     }
 
-    /**
-     * Xóa sạch các trường nhập liệu và thông báo lỗi trên form đăng nhập.
-     */
-    public void resetForm() {
-        loginInProgress = false;
-        if (usernameField != null) {
-            usernameField.clear();
-        }
-        if (passwordField != null) {
-            passwordField.clear();
-        }
-        if (errorLabel != null) {
-            errorLabel.setText("");
-        }
+    this.clientSession = session;
+
+    if (this.clientSession != null) {
+      this.clientSession.getClient().addListener(loginListener);
     }
-    // Đăng kí listener với Auction Client
 
-    @FXML
-    public void SwitchToHome() {
+    resetForm();
+  }
 
-        if (loginInProgress) {
-            return;
-        }
+  /** Xóa sạch các trường nhập liệu và thông báo lỗi trên form đăng nhập. */
+  public void resetForm() {
+    loginInProgress = false;
+    if (usernameField != null) {
+      usernameField.clear();
+    }
+    if (passwordField != null) {
+      passwordField.clear();
+    }
+    if (errorLabel != null) {
+      errorLabel.setText("");
+    }
+  }
 
-        String userId = usernameField.getText().trim();
-        String password = passwordField.getText();
+  // Đăng kí listener với Auction Client
 
-        if (userId.isEmpty() || password.isEmpty()) {
-            errorLabel.setText(
-                    "Vui lòng nhập tên đăng nhập và mật khẩu.");
-            return;
-        }
+  @FXML
+  public void SwitchToHome() {
 
-        if (clientSession == null) {
-            errorLabel.setText(
-                    "Phiên kết nối chưa được khởi tạo.");
-            return;
-        }
+    if (loginInProgress) {
+      return;
+    }
 
-        loginInProgress = true;
-        errorLabel.setText("Đang kết nối đến máy chủ...");
+    String userId = usernameField.getText().trim();
+    String password = passwordField.getText();
 
-        // Watchdog timeout 8s: tự động mở khóa nếu Server không phản hồi, tránh treo giao diện
-        Thread watchdogThread = new Thread(() -> {
-            try {
+    if (userId.isEmpty() || password.isEmpty()) {
+      errorLabel.setText("Vui lòng nhập tên đăng nhập và mật khẩu.");
+      return;
+    }
+
+    if (clientSession == null) {
+      errorLabel.setText("Phiên kết nối chưa được khởi tạo.");
+      return;
+    }
+
+    loginInProgress = true;
+    errorLabel.setText("Đang kết nối đến máy chủ...");
+
+    // Watchdog timeout 8s: tự động mở khóa nếu Server không phản hồi, tránh treo giao diện
+    Thread watchdogThread =
+        new Thread(
+            () -> {
+              try {
                 Thread.sleep(8000);
                 if (loginInProgress) {
-                    Platform.runLater(() -> {
+                  Platform.runLater(
+                      () -> {
                         if (loginInProgress) {
-                            loginInProgress = false;
-                            errorLabel.setText("Máy chủ không phản hồi yêu cầu. Vui lòng thử lại.");
+                          loginInProgress = false;
+                          errorLabel.setText("Máy chủ không phản hồi yêu cầu. Vui lòng thử lại.");
                         }
-                    });
+                      });
                 }
-            } catch (InterruptedException ignored) {
-            }
-        }, "login-watchdog");
-        watchdogThread.setDaemon(true);
-        watchdogThread.start();
+              } catch (InterruptedException ignored) {
+              }
+            },
+            "login-watchdog");
+    watchdogThread.setDaemon(true);
+    watchdogThread.start();
 
-        Thread loginThread = new Thread(() -> {
-            try {
+    Thread loginThread =
+        new Thread(
+            () -> {
+              try {
                 System.out.println("[LogInController] Connecting to server...");
                 clientSession.connect();
-                System.out.println("[LogInController] Sending LOGIN command for userId='" + userId + "'...");
+                System.out.println(
+                    "[LogInController] Sending LOGIN command for userId='" + userId + "'...");
                 clientSession.getClient().login(userId, password);
-            } catch (Exception e) {
+              } catch (Exception e) {
                 System.err.println("[LogInController] Connect failed: " + e.getMessage());
-                Platform.runLater(() -> {
-                    loginInProgress = false;
-                    errorLabel.setText("Không thể kết nối đến máy chủ. Vui lòng kiểm tra AuctionServer đã được bật!");
-                });
-            }
-        }, "login-worker");
+                Platform.runLater(
+                    () -> {
+                      loginInProgress = false;
+                      errorLabel.setText(
+                          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra AuctionServer đã được bật!");
+                    });
+              }
+            },
+            "login-worker");
 
-        loginThread.setDaemon(true);
-        loginThread.start();
-    }
+    loginThread.setDaemon(true);
+    loginThread.start();
+  }
 
-    // Kiểm tra dữ liệu, kết nối Server và gửi yêu cầu LOGIN
-    @FXML
-    public void SwitchToRegister() {
-        ViewManager.SwitchView("Register");
-    }
+  // Kiểm tra dữ liệu, kết nối Server và gửi yêu cầu LOGIN
+  @FXML
+  public void SwitchToRegister() {
+    ViewManager.SwitchView("Register");
+  }
 
-    private String translateLoginError(String message) {
+  private String translateLoginError(String message) {
 
-        return switch (message.trim()) {
+    return switch (message.trim()) {
+      case "Invalid user credentials" -> "Tên đăng nhập hoặc mật khẩu không chính xác.";
 
-            case "Invalid user credentials" ->
-                "Tên đăng nhập hoặc mật khẩu không chính xác.";
+      case "Usage: LOGIN <userId> <password>" -> "Thông tin đăng nhập không hợp lệ.";
 
-            case "Usage: LOGIN <userId> <password>" ->
-                "Thông tin đăng nhập không hợp lệ.";
-
-            default ->
-                "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.";
-        };
-    }
-
+      default -> "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.";
+    };
+  }
 }

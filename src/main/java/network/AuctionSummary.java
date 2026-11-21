@@ -6,7 +6,5 @@ public record AuctionSummary(
     double currentPrice,
     double stepPrice,
     String highestBidderId,
-    String status
-) {
-}
+    String status) {}
 // Record chỉ lưu trữ dữ liệu không cần thay đổi sau khi khởi tạo
