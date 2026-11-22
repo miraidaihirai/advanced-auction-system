@@ -44,11 +44,35 @@ public class AuctionClient {
 
         default void onDisconnected() {
         }
-default void onAuctionListReceived(List<AuctionSummary> auctions) {
-}
 
-// Được gọi khi Client nhận đủ danh sách đấu giá
-// auctions chứa toàn bộ các phiên đấu giá đã xong
+        default void onAuctionListReceived(List<AuctionSummary> auctions) {
+        }
+
+        default void onProfileReceived(UserProfile profile) {
+        }
+
+        default void onAuctionDetailsReceived(List<AuctionDetail> auctions) {
+        }
+
+        default void onWalletHistoryReceived(List<WalletTxDTO> transactions) {
+        }
+
+        default void onUsersListReceived(List<UserProfile> users) {
+        }
+
+        default void onCatalogRefresh() {
+        }
+
+        default void onChatMessageReceived(
+                String auctionId,
+                String senderId,
+                String senderName,
+                String role,
+                String message) {
+        }
+
+        default void onChatHistoryReceived(String auctionId, List<ChatMessageDTO> messages) {
+        }
     }
 
     private final String host;
@@ -96,6 +120,11 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
         String currentHistoryAuctionId = null;
 
         List<AuctionSummary> currentAuctionBuffer = null;
+        List<AuctionDetail> currentFullAuctionBuffer = null;
+        List<WalletTxDTO> currentWalletBuffer = null;
+        List<UserProfile> currentUsersBuffer = null;
+        List<ChatMessageDTO> currentChatHistoryBuffer = null;
+        String currentChatHistoryAuctionId = null;
         // Server gửi danh sách đấu giá theo từng dòng riêng biệt
         try {
             String line;
@@ -141,6 +170,109 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
                     }
 
                     currentAuctionBuffer = null;
+                } else if (line.equals(AuctionProtocol.AUCTIONS_FULL_BEGIN)) {
+                    currentFullAuctionBuffer = new ArrayList<>();
+                } else if (line.startsWith(AuctionProtocol.AUCTION_FULL_PREFIX) && currentFullAuctionBuffer != null) {
+                    try {
+                        currentFullAuctionBuffer.add(parseAuctionDetailLine(line));
+                    } catch (IllegalArgumentException e) {
+                        System.err.println("[AuctionClient] Dữ liệu AUCTION_FULL không hợp lệ: " + line);
+                    }
+                } else if (line.equals(AuctionProtocol.AUCTIONS_FULL_END) && currentFullAuctionBuffer != null) {
+                    List<AuctionDetail> detailList = List.copyOf(currentFullAuctionBuffer);
+                    for (AuctionEventListener listener : listeners) {
+                        try {
+                            listener.onAuctionDetailsReceived(detailList);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    currentFullAuctionBuffer = null;
+                } else if (line.startsWith(AuctionProtocol.PROFILE_DATA_PREFIX)) {
+                    try {
+                        UserProfile profile = parseProfileLine(line);
+                        for (AuctionEventListener listener : listeners) {
+                            try {
+                                listener.onProfileReceived(profile);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    } catch (IllegalArgumentException e) {
+                        System.err.println("[AuctionClient] Dữ liệu PROFILE_DATA không hợp lệ: " + line);
+                    }
+                } else if (line.equals(AuctionProtocol.WALLET_BEGIN)) {
+                    currentWalletBuffer = new ArrayList<>();
+                } else if (line.startsWith(AuctionProtocol.WALLET_TX_PREFIX) && currentWalletBuffer != null) {
+                    try {
+                        currentWalletBuffer.add(parseWalletTxLine(line));
+                    } catch (IllegalArgumentException e) {
+                        System.err.println("[AuctionClient] Dữ liệu WALLET_TX không hợp lệ: " + line);
+                    }
+                } else if (line.equals(AuctionProtocol.WALLET_END) && currentWalletBuffer != null) {
+                    List<WalletTxDTO> walletList = List.copyOf(currentWalletBuffer);
+                    for (AuctionEventListener listener : listeners) {
+                        try {
+                            listener.onWalletHistoryReceived(walletList);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    currentWalletBuffer = null;
+                } else if (line.equals(AuctionProtocol.USERS_BEGIN)) {
+                    currentUsersBuffer = new ArrayList<>();
+                } else if (line.startsWith(AuctionProtocol.USER_ROW_PREFIX) && currentUsersBuffer != null) {
+                    try {
+                        currentUsersBuffer.add(parseUserRowLine(line));
+                    } catch (IllegalArgumentException e) {
+                        System.err.println("[AuctionClient] Dữ liệu USER_ROW không hợp lệ: " + line);
+                    }
+                } else if (line.equals(AuctionProtocol.USERS_END) && currentUsersBuffer != null) {
+                    List<UserProfile> usersList = List.copyOf(currentUsersBuffer);
+                    for (AuctionEventListener listener : listeners) {
+                        try {
+                            listener.onUsersListReceived(usersList);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    currentUsersBuffer = null;
+                } else if (line.equals(AuctionProtocol.NOTIFY_CATALOG_REFRESH)) {
+                    for (AuctionEventListener listener : listeners) {
+                        try {
+                            listener.onCatalogRefresh();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                } else if (line.startsWith(AuctionProtocol.CHAT_HISTORY_BEGIN)) {
+                    String[] parts = line.split("\\s+", 2);
+                    currentChatHistoryAuctionId = parts.length >= 2 ? parts[1].trim() : "";
+                    currentChatHistoryBuffer = new ArrayList<>();
+                } else if (line.startsWith(AuctionProtocol.CHAT_ROW_PREFIX) && currentChatHistoryBuffer != null) {
+                    String payload = line.substring(AuctionProtocol.CHAT_ROW_PREFIX.length());
+                    String[] parts = payload.split("\\|", 6);
+                    if (parts.length >= 6) {
+                        currentChatHistoryBuffer.add(new ChatMessageDTO(
+                                parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]));
+                    }
+                } else if (line.equals(AuctionProtocol.CHAT_HISTORY_END) && currentChatHistoryBuffer != null) {
+                    List<ChatMessageDTO> chatList = List.copyOf(currentChatHistoryBuffer);
+                    String histAucId = currentChatHistoryAuctionId != null ? currentChatHistoryAuctionId : "";
+                    for (AuctionEventListener listener : listeners) {
+                        try {
+                            listener.onChatHistoryReceived(histAucId, chatList);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    currentChatHistoryBuffer = null;
+                    currentChatHistoryAuctionId = null;
+                } else if (line.startsWith(AuctionProtocol.NOTIFY_CHAT_PREFIX)) {
+                    String payload = line.substring(AuctionProtocol.NOTIFY_CHAT_PREFIX.length());
+                    String[] parts = payload.split("\\|", 5);
+                    if (parts.length >= 5) {
+                        for (AuctionEventListener listener : listeners) {
+                            try {
+                                listener.onChatMessageReceived(parts[0], parts[1], parts[2], parts[3], parts[4]);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
                 }
                 // AUCTIONS_BIGINS tạo bộ đệm mới
                 // AUCTION gọi parseAuctionLine() để chuyển String[] thành AuctionSummary
@@ -393,6 +525,168 @@ default void onAuctionListReceived(List<AuctionSummary> auctions) {
 
     public void payAuction(String auctionId) {
         sendRaw(String.format("%s %s", AuctionProtocol.CMD_PAY, auctionId));
+    }
+
+    public void requestProfile() {
+        sendRaw(AuctionProtocol.CMD_PROFILE);
+    }
+
+    public void requestFullList() {
+        sendRaw(AuctionProtocol.CMD_LIST_FULL);
+    }
+
+    public void requestAuction(
+            String itemName,
+            String category,
+            double startPrice,
+            double stepPrice,
+            long durationSeconds,
+            String imageKey,
+            String description) {
+        String payload = String.format(Locale.US, "%s|%s|%.2f|%.2f|%d|%s|%s",
+                AuctionProtocol.sanitizeField(itemName),
+                AuctionProtocol.sanitizeField(category),
+                startPrice,
+                stepPrice,
+                durationSeconds,
+                AuctionProtocol.sanitizeField(imageKey),
+                AuctionProtocol.sanitizeField(description));
+        sendRaw(AuctionProtocol.CMD_REQUEST_AUCTION + " " + payload);
+    }
+
+    public void approveAuction(String auctionId) {
+        sendRaw(String.format("%s %s", AuctionProtocol.CMD_APPROVE_AUCTION, auctionId));
+    }
+
+    public void approveAuction(String auctionId, long durationSeconds) {
+        sendRaw(String.format("%s %s %d", AuctionProtocol.CMD_APPROVE_AUCTION, auctionId, durationSeconds));
+    }
+
+    public void rejectAuction(String auctionId, String reason) {
+        sendRaw(String.format("%s %s|%s",
+                AuctionProtocol.CMD_REJECT_AUCTION,
+                AuctionProtocol.sanitizeField(auctionId),
+                AuctionProtocol.sanitizeField(reason)));
+    }
+
+    public void configureAutoBid(String auctionId, double maxBid, double increment) {
+        sendRaw(String.format(Locale.US, "%s %s %.2f %.2f",
+                AuctionProtocol.CMD_AUTOBID, auctionId, maxBid, increment));
+    }
+
+    public void cancelAutoBid(String auctionId) {
+        sendRaw(String.format("%s %s", AuctionProtocol.CMD_AUTOBID_OFF, auctionId));
+    }
+
+    public void requestWalletHistory() {
+        sendRaw(AuctionProtocol.CMD_WALLET_HISTORY);
+    }
+
+    public void topUpWallet(double amount) {
+        sendRaw(String.format(Locale.US, "%s %.2f", AuctionProtocol.CMD_TOPUP, amount));
+    }
+
+    public void topUpWallet(double amount, String channel) {
+        String safeChannel = AuctionProtocol.sanitizeField(channel);
+        if (safeChannel.isEmpty()) {
+            topUpWallet(amount);
+            return;
+        }
+        sendRaw(String.format(Locale.US, "%s %.2f %s", AuctionProtocol.CMD_TOPUP, amount, safeChannel));
+    }
+
+    public void withdrawWallet(double amount, String destination) {
+        String safeDest = AuctionProtocol.sanitizeField(destination);
+        if (safeDest.isEmpty()) {
+            sendRaw(String.format(Locale.US, "%s %.2f", AuctionProtocol.CMD_WITHDRAW, amount));
+            return;
+        }
+        sendRaw(String.format(Locale.US, "%s %.2f %s", AuctionProtocol.CMD_WITHDRAW, amount, safeDest));
+    }
+
+    public void requestUsersList() {
+        sendRaw(AuctionProtocol.CMD_LIST_USERS);
+    }
+
+    public void sendRoomChat(String auctionId, String message) {
+        sendRaw(String.format("%s %s|%s",
+                AuctionProtocol.CMD_CHAT,
+                AuctionProtocol.sanitizeField(auctionId),
+                AuctionProtocol.sanitizeField(message)));
+    }
+
+    public void requestChatHistory(String auctionId) {
+        sendRaw(String.format("%s %s", AuctionProtocol.CMD_CHAT_HISTORY, AuctionProtocol.sanitizeField(auctionId)));
+    }
+
+    private UserProfile parseProfileLine(String line) {
+        String payload = line.substring(AuctionProtocol.PROFILE_DATA_PREFIX.length());
+        String[] parts = payload.split("\\|", 4);
+        if (parts.length < 4) {
+            throw new IllegalArgumentException("Invalid PROFILE_DATA");
+        }
+        return new UserProfile(
+                parts[0],
+                parts[3],
+                parts[1],
+                Double.parseDouble(parts[2].replace(',', '.')));
+    }
+
+    private UserProfile parseUserRowLine(String line) {
+        String payload = line.substring(AuctionProtocol.USER_ROW_PREFIX.length());
+        String[] parts = payload.split("\\|", 4);
+        if (parts.length < 4) {
+            throw new IllegalArgumentException("Invalid USER_ROW");
+        }
+        return new UserProfile(
+                parts[0],
+                parts[1],
+                parts[2],
+                Double.parseDouble(parts[3].replace(',', '.')));
+    }
+
+    private AuctionDetail parseAuctionDetailLine(String line) {
+        String payload = line.substring(AuctionProtocol.AUCTION_FULL_PREFIX.length());
+        String[] parts = payload.split("\\|", 17);
+        if (parts.length < 17) {
+            throw new IllegalArgumentException("Invalid AUCTION_FULL");
+        }
+        return new AuctionDetail(
+                parts[0],
+                parts[1],
+                parts[2],
+                parts[3],
+                parts[4],
+                Double.parseDouble(parts[5].replace(',', '.')),
+                Double.parseDouble(parts[6].replace(',', '.')),
+                Double.parseDouble(parts[7].replace(',', '.')),
+                parts[8],
+                parts[9],
+                Long.parseLong(parts[10]),
+                Long.parseLong(parts[11]),
+                Integer.parseInt(parts[12]),
+                "1".equals(parts[13]),
+                parts[14],
+                parts[15],
+                parts[16]);
+    }
+
+    private WalletTxDTO parseWalletTxLine(String line) {
+        String payload = line.substring(AuctionProtocol.WALLET_TX_PREFIX.length());
+        String[] parts = payload.split("\\|", 9);
+        if (parts.length < 9) {
+            throw new IllegalArgumentException("Invalid WALLET_TX");
+        }
+        return new WalletTxDTO(
+                parts[0],
+                parts[1],
+                parts[2],
+                parts[3],
+                parts[4],
+                parts[5],
+                Double.parseDouble(parts[6].replace(',', '.')),
+                Double.parseDouble(parts[7].replace(',', '.')),
+                parts[8]);
     }
 
     public synchronized void disconnect() {

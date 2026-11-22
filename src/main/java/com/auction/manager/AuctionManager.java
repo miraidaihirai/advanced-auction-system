@@ -1,9 +1,14 @@
 package com.auction.manager;
 
+import com.auction.model.Admin;
 import com.auction.model.Auction;
+import com.auction.model.AutoBidConfig;
 import com.auction.model.BidTransaction;
 import com.auction.model.Bidder;
+import com.auction.model.ChatMessage;
+import com.auction.model.Seller;
 import com.auction.model.User;
+import com.auction.model.WalletTransaction;
 import com.auction.observer.AuctionObserver;
 import com.auction.storage.AuctionDataSnapshot;
 import com.auction.storage.FileStorageService;
@@ -13,10 +18,12 @@ import com.auction.exceptions.AuctionClosedException;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,6 +44,7 @@ public class AuctionManager {
     private final Map<String, Auction> auctionMap;
     private final Map<String, User> userMap;
     private final List<AuctionObserver> globalObservers = new CopyOnWriteArrayList<>();
+    private final List<WalletTransaction> walletTransactions = new CopyOnWriteArrayList<>();
 
     // Quản lý lưu trữ file và lịch sử giao dịch
     private FileStorageService storageService;
@@ -46,6 +54,8 @@ public class AuctionManager {
 
     // Bộ đếm giao dịch thread-safe tránh trùng ID khi đặt giá đồng thời
     private static final AtomicLong txCounter = new AtomicLong(0);
+    private static final AtomicLong walletTxCounter = new AtomicLong(0);
+    private static final AtomicLong auctionRequestCounter = new AtomicLong(100);
 
     // 2. Private constructor ngăn tạo đối tượng từ bên ngoài
     private AuctionManager() {
@@ -102,6 +112,7 @@ public class AuctionManager {
         Auction auction = auctionMap.get(auctionId);
         if (auction != null) {
             auction.finishAuction();
+            settleAuctionFunds(auction);
             if (autoSave) {
                 saveState();
             }
@@ -114,12 +125,291 @@ public class AuctionManager {
         Auction auction = auctionMap.get(auctionId);
         if (auction != null) {
             auction.markPaid();
+            settleAuctionFunds(auction);
             if (autoSave) {
                 saveState();
             }
             return true;
         }
         return false;
+    }
+
+    /**
+     * Thanh toán tự động sau khi phiên đấu giá thành công: tiền chảy từ người thắng (Bidder)
+     * về trực tiếp ví người bán (Seller). Đảm bảo idempotent (không bao giờ cộng trùng).
+     */
+    public synchronized boolean settleAuctionFunds(Auction auction) {
+        if (auction == null || !auction.claimPayoutSettlement()) {
+            return false;
+        }
+
+        double finalAmount = auction.getCurrentPrice();
+        String winnerId = auction.getHighestBidderId();
+        String sellerId = auction.getSellerId();
+
+        User winner = winnerId != null ? userMap.get(winnerId) : null;
+        User seller = sellerId != null ? userMap.get(sellerId) : null;
+
+        if (winner != null && finalAmount > 0) {
+            winner.deductBalance(finalAmount);
+            walletTransactions.add(new WalletTransaction(
+                    "WTX-" + System.currentTimeMillis() + "-" + walletTxCounter.incrementAndGet(),
+                    winner.getId(),
+                    sellerId != null ? sellerId : "SELLER",
+                    auction.getId(),
+                    auction.getItemId(),
+                    WalletTransaction.Type.AUCTION_PAYMENT,
+                    -finalAmount,
+                    winner.getBalance()));
+        }
+
+        if (seller != null && finalAmount > 0) {
+            seller.addBalance(finalAmount);
+            walletTransactions.add(new WalletTransaction(
+                    "WTX-" + System.currentTimeMillis() + "-" + walletTxCounter.incrementAndGet(),
+                    seller.getId(),
+                    winnerId != null ? winnerId : "BIDDER",
+                    auction.getId(),
+                    auction.getItemId(),
+                    WalletTransaction.Type.PAYOUT_RECEIVED,
+                    finalAmount,
+                    seller.getBalance()));
+            System.out.printf("[BidX Settlement] +%.2f VND -> Seller [%s] (new balance: %.2f) for auction [%s]%n",
+                    finalAmount, seller.getId(), seller.getBalance(), auction.getId());
+        }
+
+        if (autoSave) {
+            saveState();
+        }
+        return true;
+    }
+
+    /**
+     * Seller gửi yêu cầu mở phòng đấu giá mới (trạng thái PENDING_APPROVAL chờ Admin duyệt).
+     */
+    public Auction submitAuctionRequest(
+            String sellerId,
+            String itemName,
+            String category,
+            String description,
+            double startPrice,
+            double stepPrice,
+            long durationSeconds,
+            String imageKey) {
+        User user = userMap.get(sellerId);
+        if (!(user instanceof Seller)) {
+            throw new AuthenticationException("Only Sellers can submit auction room requests");
+        }
+        if (itemName == null || itemName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Item name must not be empty");
+        }
+        if (!Double.isFinite(startPrice) || startPrice <= 0) {
+            throw new IllegalArgumentException("Start price must be positive");
+        }
+        if (!Double.isFinite(stepPrice) || stepPrice <= 0) {
+            throw new IllegalArgumentException("Step price must be positive");
+        }
+
+        String auctionId;
+        do {
+            auctionId = "AUC-" + auctionRequestCounter.incrementAndGet();
+        } while (auctionMap.containsKey(auctionId));
+
+        Auction pending = Auction.createPendingRequest(
+                auctionId,
+                itemName.trim(),
+                sellerId,
+                startPrice,
+                stepPrice,
+                category,
+                description,
+                Math.max(30, durationSeconds),
+                imageKey);
+        addAuction(pending);
+        return pending;
+    }
+
+    /**
+     * Admin phê duyệt yêu cầu mở phòng đấu giá của Seller -> chuyển sang RUNNING và bắt đầu đếm ngược.
+     */
+    public Auction approveAuctionRequest(String adminId, String auctionId, Long overrideDurationSeconds) {
+        User user = userMap.get(adminId);
+        if (!(user instanceof Admin)) {
+            throw new AuthenticationException("Only Admins can approve auction requests");
+        }
+        Auction auction = auctionMap.get(auctionId);
+        if (auction == null) {
+            throw new AuctionClosedException("Auction not found: " + auctionId);
+        }
+        long durationSec = (overrideDurationSeconds != null && overrideDurationSeconds > 0)
+                ? overrideDurationSeconds
+                : auction.getRequestedDurationSeconds();
+        auction.approveAndStart(Duration.ofSeconds(durationSec));
+        if (autoSave) {
+            saveState();
+        }
+        return auction;
+    }
+
+    /**
+     * Admin từ chối yêu cầu mở phòng đấu giá của Seller kèm lý do.
+     */
+    public Auction rejectAuctionRequest(String adminId, String auctionId, String reason) {
+        User user = userMap.get(adminId);
+        if (!(user instanceof Admin)) {
+            throw new AuthenticationException("Only Admins can reject auction requests");
+        }
+        Auction auction = auctionMap.get(auctionId);
+        if (auction == null) {
+            throw new AuctionClosedException("Auction not found: " + auctionId);
+        }
+        auction.rejectRequest(reason);
+        if (autoSave) {
+            saveState();
+        }
+        return auction;
+    }
+
+    public List<Auction> getPendingApprovalAuctions() {
+        List<Auction> pending = new ArrayList<>();
+        for (Auction a : auctionMap.values()) {
+            if (a.getStatus() == Auction.Status.PENDING_APPROVAL) {
+                pending.add(a);
+            }
+        }
+        return Collections.unmodifiableList(pending);
+    }
+
+    public List<Auction> getAuctionsBySeller(String sellerId) {
+        if (sellerId == null) {
+            return Collections.emptyList();
+        }
+        List<Auction> list = new ArrayList<>();
+        for (Auction a : auctionMap.values()) {
+            if (sellerId.equals(a.getSellerId())) {
+                list.add(a);
+            }
+        }
+        return Collections.unmodifiableList(list);
+    }
+
+    public double topUpWallet(String userId, double amount) {
+        return topUpWallet(userId, amount, "BIDX-BANK");
+    }
+
+    public double topUpWallet(String userId, double amount, String channel) {
+        User user = userMap.get(userId);
+        if (user == null) {
+            throw new AuthenticationException("User not found: " + userId);
+        }
+        if (user instanceof Admin) {
+            throw new AuthenticationException("Admin account does not use personal top-up wallet");
+        }
+        if (!Double.isFinite(amount) || amount <= 0) {
+            throw new IllegalArgumentException("Top-up amount must be positive");
+        }
+        String safeChannel = (channel != null && !channel.trim().isEmpty()) ? channel.trim() : "BIDX-BANK";
+        double updatedBalance;
+        synchronized (user) {
+            user.addBalance(amount);
+            updatedBalance = user.getBalance();
+        }
+        walletTransactions.add(new WalletTransaction(
+                "WTX-" + System.currentTimeMillis() + "-" + walletTxCounter.incrementAndGet(),
+                user.getId(),
+                safeChannel,
+                "-",
+                "Nạp tiền vào ví (" + safeChannel + ")",
+                WalletTransaction.Type.TOP_UP,
+                amount,
+                updatedBalance));
+        if (autoSave) {
+            saveState();
+        }
+        return updatedBalance;
+    }
+
+    public double withdrawWallet(String userId, double amount, String destination) {
+        User user = userMap.get(userId);
+        if (user == null) {
+            throw new AuthenticationException("User not found: " + userId);
+        }
+        if (user instanceof Admin) {
+            throw new AuthenticationException("Admin account does not use personal withdraw wallet");
+        }
+        if (!Double.isFinite(amount) || amount <= 0) {
+            throw new IllegalArgumentException("Withdraw amount must be positive");
+        }
+        String safeDest = (destination != null && !destination.trim().isEmpty())
+                ? destination.trim()
+                : "Ngân hàng liên kết";
+        double updatedBalance;
+        synchronized (user) {
+            if (user.getBalance() < amount) {
+                throw new IllegalArgumentException("Số dư ví không đủ để rút " + String.format("%,.0f", amount) + " đ");
+            }
+            user.deductBalance(amount);
+            updatedBalance = user.getBalance();
+        }
+        walletTransactions.add(new WalletTransaction(
+                "WTX-" + System.currentTimeMillis() + "-" + walletTxCounter.incrementAndGet(),
+                user.getId(),
+                safeDest,
+                "-",
+                "Rút tiền về " + safeDest,
+                WalletTransaction.Type.WITHDRAW,
+                -amount,
+                updatedBalance));
+        if (autoSave) {
+            saveState();
+        }
+        return updatedBalance;
+    }
+
+    public List<WalletTransaction> getWalletTransactionsForUser(String userId) {
+        if (userId == null) {
+            return Collections.emptyList();
+        }
+        List<WalletTransaction> result = new ArrayList<>();
+        for (WalletTransaction tx : walletTransactions) {
+            if (userId.equals(tx.getUserId())) {
+                result.add(tx);
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    public List<WalletTransaction> getAllWalletTransactions() {
+        return Collections.unmodifiableList(new ArrayList<>(walletTransactions));
+    }
+
+    public ChatMessage recordChatMessage(
+            String auctionId,
+            String senderId,
+            String senderName,
+            String role,
+            String message) {
+        if (auctionId == null || message == null || message.trim().isEmpty()) {
+            return null;
+        }
+        Auction auction = auctionMap.get(auctionId);
+        if (auction == null) {
+            return null;
+        }
+        ChatMessage chatMsg = new ChatMessage(auctionId, senderId, senderName, role, message.trim());
+        auction.addChatMessage(chatMsg);
+        if (autoSave) {
+            saveState();
+        }
+        return chatMsg;
+    }
+
+    public List<ChatMessage> getChatHistory(String auctionId) {
+        if (auctionId == null) {
+            return Collections.emptyList();
+        }
+        Auction auction = auctionMap.get(auctionId);
+        return auction != null ? auction.getChatHistory() : Collections.emptyList();
     }
 
     public Auction getAuction(String auctionId) {
@@ -194,11 +484,98 @@ public class AuctionManager {
         BidTransaction tx = new BidTransaction(transactionId, auctionId, bidderId, amount);
         boolean success = auction.placeBid(tx);
 
-        if (success && autoSave) {
-            saveState();
+        if (success) {
+            processAutoBids(auction);
+            if (autoSave) {
+                saveState();
+            }
         }
 
         return success;
+    }
+
+    /**
+     * Đăng ký Đấu giá tự động (Auto-Bidding) cho Bidder với giá trần và bước tăng.
+     */
+    public void configureAutoBid(String auctionId, String bidderId, String password, double maxBid, double increment) {
+        User user = userMap.get(bidderId);
+        if (!(user instanceof Bidder) || password == null || !user.getPassword().equals(password)) {
+            throw new AuthenticationException("Only authenticated Bidders can configure Auto-Bid");
+        }
+        Auction auction = auctionMap.get(auctionId);
+        if (auction == null) {
+            throw new AuctionClosedException("Auction not found: " + auctionId);
+        }
+        if (auction.getStatus() != Auction.Status.RUNNING) {
+            throw new AuctionClosedException("Auction is not RUNNING");
+        }
+        double minStep = Math.max(auction.getStepPrice(), increment);
+        if (maxBid < auction.getCurrentPrice() + auction.getStepPrice() && !bidderId.equals(auction.getHighestBidderId())) {
+            throw new IllegalArgumentException("Max bid must be at least current price + step price");
+        }
+
+        auction.registerAutoBid(new AutoBidConfig(bidderId, maxBid, minStep));
+        processAutoBids(auction);
+        if (autoSave) {
+            saveState();
+        }
+    }
+
+    public void cancelAutoBid(String auctionId, String bidderId) {
+        Auction auction = auctionMap.get(auctionId);
+        if (auction != null && bidderId != null) {
+            auction.cancelAutoBid(bidderId);
+        }
+    }
+
+    /**
+     * Xử lý tự động trả giá bằng PriorityQueue khi có đối thủ vượt giá.
+     * Đảm bảo không vượt quá maxBid, ưu tiên người đăng ký sớm khi cùng maxBid, và chống vòng lặp vô hạn.
+     */
+    private void processAutoBids(Auction auction) {
+        if (auction == null || auction.getStatus() != Auction.Status.RUNNING) {
+            return;
+        }
+        Map<String, AutoBidConfig> configs = auction.getAutoBids();
+        if (configs.isEmpty()) {
+            return;
+        }
+
+        int safetyLimit = 100;
+        while (safetyLimit-- > 0 && auction.getStatus() == Auction.Status.RUNNING) {
+            PriorityQueue<AutoBidConfig> queue = new PriorityQueue<>(configs.values());
+            boolean placedAny = false;
+            String currentLeader = auction.getHighestBidderId();
+            double minNext = auction.getBidHistory().isEmpty()
+                    ? auction.getStartPrice()
+                    : auction.getCurrentPrice() + auction.getStepPrice();
+
+            while (!queue.isEmpty()) {
+                AutoBidConfig candidate = queue.poll();
+                if (candidate.getBidderId().equals(currentLeader)) {
+                    continue;
+                }
+                if (candidate.getMaxBid() < minNext) {
+                    continue;
+                }
+                double desired = auction.getBidHistory().isEmpty()
+                        ? auction.getStartPrice()
+                        : auction.getCurrentPrice() + Math.max(auction.getStepPrice(), candidate.getIncrement());
+                double bidAmount = Math.min(candidate.getMaxBid(), Math.max(minNext, desired));
+                String txId = "AUTO-TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
+                try {
+                    auction.placeBid(new BidTransaction(txId, auction.getId(), candidate.getBidderId(), bidAmount));
+                    placedAny = true;
+                    break;
+                } catch (Exception ignored) {
+                    break;
+                }
+            }
+
+            if (!placedAny) {
+                break;
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -288,6 +665,7 @@ public class AuctionManager {
         }
         auctionMap.clear();
         userMap.clear();
+        walletTransactions.clear();
     }
 
     /**
@@ -310,7 +688,7 @@ public class AuctionManager {
     public synchronized void saveState(File file) {
         try {
             AuctionDataSnapshot snapshot = new AuctionDataSnapshot(
-                    getAllUsers(), getAllAuctions(), getAllTransactions());
+                    getAllUsers(), getAllAuctions(), getAllTransactions(), getAllWalletTransactions());
             storageService.saveSnapshot(snapshot, file);
             System.out.printf("[AuctionManager] Successfully saved state (%d users, %d auctions, %d txs) to: %s%n",
                     snapshot.getUsers().size(), snapshot.getAuctions().size(),
@@ -355,6 +733,8 @@ public class AuctionManager {
             for (Auction auction : snapshot.getAuctions()) {
                 this.auctionMap.put(auction.getId(), auction);
             }
+            this.walletTransactions.clear();
+            this.walletTransactions.addAll(snapshot.getWalletTransactions());
 
             System.out.printf("[AuctionManager] Successfully restored state (%d users, %d auctions, %d txs) from: %s%n",
                     snapshot.getUsers().size(), snapshot.getAuctions().size(),
