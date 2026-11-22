@@ -3,6 +3,7 @@ package com.auction.storage;
 import com.auction.model.Auction;
 import com.auction.model.BidTransaction;
 import com.auction.model.User;
+import com.auction.model.WalletTransaction;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -19,13 +20,22 @@ public class AuctionDataSnapshot implements Serializable {
     private final List<User> users;
     private final List<Auction> auctions;
     private final List<BidTransaction> transactions;
+    private final List<WalletTransaction> walletTransactions;
     private final long savedAt;
 
     public AuctionDataSnapshot(List<User> users, List<Auction> auctions) {
-        this(users, auctions, null);
+        this(users, auctions, null, null);
     }
 
     public AuctionDataSnapshot(List<User> users, List<Auction> auctions, List<BidTransaction> transactions) {
+        this(users, auctions, transactions, null);
+    }
+
+    public AuctionDataSnapshot(
+            List<User> users,
+            List<Auction> auctions,
+            List<BidTransaction> transactions,
+            List<WalletTransaction> walletTransactions) {
         this.users = users != null ? new ArrayList<>(users) : new ArrayList<>();
         this.auctions = auctions != null ? new ArrayList<>(auctions) : new ArrayList<>();
         if (transactions != null) {
@@ -37,6 +47,7 @@ public class AuctionDataSnapshot implements Serializable {
             }
             this.transactions = allTx;
         }
+        this.walletTransactions = walletTransactions != null ? new ArrayList<>(walletTransactions) : new ArrayList<>();
         this.savedAt = System.currentTimeMillis();
     }
 
@@ -50,6 +61,10 @@ public class AuctionDataSnapshot implements Serializable {
 
     public List<BidTransaction> getTransactions() {
         return Collections.unmodifiableList(transactions != null ? transactions : Collections.emptyList());
+    }
+
+    public List<WalletTransaction> getWalletTransactions() {
+        return Collections.unmodifiableList(walletTransactions != null ? walletTransactions : Collections.emptyList());
     }
 
     public long getSavedAt() {

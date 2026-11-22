@@ -8,45 +8,53 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox fx:id="card" stylesheets="@../css/styleCard.css" styleClass="productCard"
-      prefWidth="260" maxWidth="280"
-      xmlns="http://javafx.com/javafx/21"
+<VBox fx:id="card"
+      stylesheets="@../css/bidx-theme.css"
+      styleClass="product-card"
+      prefWidth="248" minWidth="244" maxWidth="254"
+      spacing="9"
+      onMouseClicked="#handleCardClick"
+      xmlns="http://javafx.com/javafx/21" 
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.auction.ui.ProductCardController">
-    <children>
-        <!-- Card Top Visual Banner / Category Header (No external icons/emojis) -->
-        <VBox alignment="CENTER_LEFT" spacing="6" styleClass="card-top-banner">
-            <HBox alignment="CENTER_LEFT" spacing="8">
-                <Label fx:id="lblCategory" text="[ ĐỒNG HỒ CỔ ]" styleClass="card-category-pill"/>
-                <HBox HBox.hgrow="ALWAYS" />
-                <Label fx:id="lblId" text="AUC-001" styleClass="product-id-badge"/>
-            </HBox>
-        </VBox>
-
-        <!-- Product Image Display (Matching Left Monitor in Photo) -->
-        <StackPane alignment="CENTER" styleClass="card-image-box" prefHeight="135" maxHeight="140">
-            <ImageView fx:id="imgProduct" fitWidth="232" fitHeight="135" preserveRatio="false"/>
-        </StackPane>
-
-        <!-- Product Information Body -->
-        <VBox spacing="8" styleClass="inforProduct">
-            <Label fx:id="lblName" text="Tên sản phẩm đấu giá" styleClass="product-name" wrapText="true"/>
-            
-            <VBox spacing="2">
-                <Label text="Giá hiện tại" styleClass="price-sub-label"/>
-                <Label fx:id="lblPrice" text="15,500,000 đ" styleClass="product-price"/>
-            </VBox>
-            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="meta-row">
-                <Label fx:id="lblTime" styleClass="time-label" text="03h 10m 10s"/>
-                <HBox HBox.hgrow="ALWAYS" />
-                <Label fx:id="lblBids" styleClass="bids-label" text="5 Bids" />
-            </HBox>
-
-            <!-- Action Buttons Row -->
-            <VBox spacing="6" style="-fx-padding: 6 0 0 0;">
-                <Button fx:id="btnBid" text="VÀO ĐẤU GIÁ" styleClass="btn-bid-primary" maxWidth="Infinity" onAction="#handleOpenRoom"/>
-                <Button text="Xem thông số" styleClass="btn-details-secondary" maxWidth="Infinity" onAction="#handleViewDetails"/>
-            </VBox>
-        </VBox>
-    </children>
+  <!-- Studio Photo + Floating Status & Favorite Heart -->
+  <StackPane styleClass="card-img-wrap" prefHeight="142" maxHeight="142">
+    <ImageView fx:id="imgProduct" fitWidth="224" fitHeight="142" preserveRatio="false"/>
+    <Label fx:id="lblStatusBadge" text="● LIVE" styleClass="badge-live"
+                           StackPane.alignment="TOP_LEFT">
+      <StackPane.margin>
+        <Insets top="8" left="8"/>
+      </StackPane.margin>
+    </Label>
+    <Button fx:id="btnFavorite" onAction="#handleToggleFavorite" styleClass="card-fav-btn"
+                            StackPane.alignment="TOP_RIGHT">
+      <StackPane.margin>
+        <Insets top="8" right="8"/>
+      </StackPane.margin>
+    </Button>
+  </StackPane>
+  <!-- Title & Category -->
+  <VBox spacing="3">
+    <HBox alignment="CENTER_LEFT" spacing="6">
+      <Label fx:id="lblCategory" text="Đồng hồ cổ" styleClass="card-category"/>
+      <Label text="•" style="-fx-text-fill: #475569; -fx-font-size: 10px;"/>
+      <Label fx:id="lblId" text="AUC-001" style="-fx-text-fill: #64748B; -fx-font-size: 10.5px; -fx-font-weight: bold;"/>
+    </HBox>
+    <Label fx:id="lblName" text="Đồng Hồ Cơ Thụy Sĩ Vintage Gold" styleClass="card-title"
+                           wrapText="true" minHeight="38" maxHeight="40"/>
+  </VBox>
+  <!-- Price -->
+  <VBox spacing="1">
+    <Label text="Giá hiện tại" styleClass="card-price-caption"/>
+    <Label fx:id="lblPrice" text="19,500,000 đ" styleClass="card-price"/>
+  </VBox>
+  <!-- Countdown & Bid Count -->
+  <HBox alignment="CENTER_LEFT" spacing="8">
+    <Label fx:id="lblTime" text="00h 44m 18s" styleClass="card-timer"/>
+    <HBox HBox.hgrow="ALWAYS"/>
+    <Label fx:id="lblBids" text="0 Bids" styleClass="card-bids"/>
+  </HBox>
+  <!-- Primary CTA Button -->
+  <Button fx:id="btnBid" text="ĐẶT GIÁ" onAction="#handleOpenRoom"
+                  maxWidth="Infinity" styleClass="btn-card-bid"/>
 </VBox>

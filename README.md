@@ -1,30 +1,41 @@
-# Online Auction System
+# BidX — Luxury Realtime Online Auction System
 
 [![Java CI with Maven](https://github.com/miraidaihirai/advanced-auction-system/actions/workflows/maven.yml/badge.svg)](https://github.com/miraidaihirai/advanced-auction-system/actions/workflows/maven.yml)
 ![Java](https://img.shields.io/badge/Java-21-blue)
 ![Maven](https://img.shields.io/badge/Maven-3.9+-blue)
 ![JavaFX](https://img.shields.io/badge/JavaFX-21-blue)
+![Tests](https://img.shields.io/badge/Tests-128%20Passing-brightgreen)
 ![Storage](https://img.shields.io/badge/Storage-Serialization%20%26%20SQLite-blue)
 
-Online Auction System is a desktop client-server application for online auctions. The system lets users register and log in, sellers create and manage items, bidders browse auctions and place realtime bids, and admins manage users, auctions, and transaction history. Persistent data is stored via Java Serialization and SQLite.
+**BidX** is a desktop client-server online auction platform built with Java 21, JavaFX 21, and multi-threaded TCP Sockets. The platform implements strict 3-role workflows (**Bidder**, **Seller**, and **Admin**): Sellers submit auction room requests, Admins review and approve/reject listings onto the live marketplace, Bidders compete in realtime with manual bids or PriorityQueue Auto-Bidding protected by Anti-Sniping (+30s), and winning auction proceeds settle automatically into the Seller's wallet with full bank deposit/withdrawal management.
 
-The project scope focuses on a course-level auction workflow: a JavaFX client connects to a Java TCP socket server, both sides exchange structured protocol messages, the server stores users/items/auctions/bid transactions, and live bidding updates are pushed realtime to clients watching the same auction using the Observer Pattern.
+## Team Members
+
+| Member | Role in Demo | Sample Account |
+| --- | --- | --- |
+| **Tuấn Đại** | Seller | `SELLER-01` |
+| **Phạm Trường** | Seller | `SELLER-02` |
+| **Xuân Thắng** | Bidder | `BIDDER-01` |
+| **Huy Hưng** | Bidder | `BIDDER-02` |
+| **BidX Admin** | Admin | `ADMIN-01` |
+
+*(All sample accounts use password `password123`.)*
 
 ## Tech Stack
 
-- Java 21
-- Maven 3.6+ build management
-- JavaFX 21 for desktop client UI (FXML, SceneBuilder, CSS)
-- Multi-threaded TCP Sockets for realtime client-server communication
-- Design Patterns: Singleton (`AuctionManager`), Factory Method (`ItemFactory`), Observer Pattern (`AuctionObserver`)
-- Concurrency Control: `ReentrantLock` (fair lock), `ConcurrentHashMap`, `CopyOnWriteArrayList`, cached daemon thread pool
-- Data Persistence: Java Object Serialization (`data/auction_data.ser`) and SQLite JDBC
-- JUnit 5 & JaCoCo for automated unit tests, stress tests, and coverage measurement
-- GitHub Actions CI/CD running automated build and test on push/PR
+- **Language & Runtime**: Java 21
+- **Build & Packaging**: Maven 3.6+, `maven-shade-plugin` (standalone Fat JAR `target/OnlineAuctionApp.jar`)
+- **Desktop UI**: JavaFX 21 (FXML, CSS Dark Luxury / Light Ivory theme switcher, 60 FPS Canvas Promo Showcase, SVG vector icons, synthesized audio effects)
+- **Networking**: Multi-threaded TCP Socket Server (`AuctionServer`, `ClientHandler`) & `AuctionClient` with structured UTF-8 line protocol (`AuctionProtocol`) and 20s heartbeat `PING`/`PONG`
+- **Design Patterns**:
+  - **Singleton**: `AuctionManager`
+  - **Factory Method**: `ItemFactory` (`ElectronicsFactory`, `ArtFactory`, `VehicleFactory`)
+  - **Observer Pattern (over TCP Sockets)**: `AuctionSubject`, `AuctionObserver`, realtime `NOTIFY` broadcasts
+- **Concurrency Control**: `ReentrantLock(true)` fair lock on `Auction`, `ConcurrentHashMap`, `CopyOnWriteArrayList`, `PriorityQueue` Auto-Bidding, atomic `synchronized` wallet debit/credit
+- **Persistence**: Java Object Serialization (`data/auction_data.ser`) and SQLite JDBC (`sqlite-jdbc`)
+- **Testing & CI/CD**: JUnit 5 (128 unit, protocol, workflow & concurrency stress tests), JaCoCo coverage, GitHub Actions
 
 ## Installation Requirements
-
-Install the following tools before running the project:
 
 - JDK 21 or newer
 - Maven 3.6 or newer
@@ -46,139 +57,147 @@ git --version
 |   |-- main/
 |   |   |-- java/
 |   |   |   |-- com/auction/
-|   |   |   |   |-- exceptions/    Custom domain exceptions
-|   |   |   |   |-- item/          Item inheritance hierarchy & Factory Method
-|   |   |   |   |-- manager/       AuctionManager (Singleton central manager)
-|   |   |   |   |-- model/         Domain models (Auction, User, Bidder, Seller, Admin)
-|   |   |   |   |-- observer/      Observer pattern interfaces (Subject & Observer)
-|   |   |   |   |-- session/       ClientSession management
-|   |   |   |   |-- storage/       FileStorageService & TransactionStorageService
-|   |   |   |   `-- ui/            JavaFX controllers, ViewManager, App, Launcher
-|   |   |   `-- network/           Socket Server, ClientHandler, Protocol, Client
+|   |   |   |   |-- exceptions/    Custom domain exceptions (AuctionClosed, Authentication, InvalidBid)
+|   |   |   |   |-- item/          Item hierarchy (Electronics, Art, Vehicle) & ItemFactory
+|   |   |   |   |-- manager/       AuctionManager (Singleton state, approval, settlement, wallet, auto-bid)
+|   |   |   |   |-- model/         Auction, User, Bidder, Seller, Admin, BidTransaction,
+|   |   |   |   |                  AutoBidConfig, WalletTransaction, ChatMessage
+|   |   |   |   |-- observer/      AuctionSubject & AuctionObserver interfaces
+|   |   |   |   |-- session/       ClientSession (socket lifecycle, per-user isolation, heartbeat)
+|   |   |   |   |-- storage/       AuctionDataSnapshot, FileStorageService, TransactionStorageService
+|   |   |   |   `-- ui/            JavaFX controllers & components (App, Launcher, ViewManager,
+|   |   |   |                      LogIn, Register, Home, AuctionRoom, SellerDashboard, AdminDashboard,
+|   |   |   |                      AddProductCard, ProductCard, BidXWalletPanel, BidXEmojiPicker,
+|   |   |   |                      BidXPromoShowcase, BidXAnimations, ThemeManager, NotificationManager,
+|   |   |   |                      ProductImageService, SoundEffects, SvgIcons, FormatUtils)
+|   |   |   `-- network/           AuctionServer, ClientHandler, AuctionClient, AuctionProtocol,
+|   |   |                          AuctionDetail, AuctionSummary, UserProfile, WalletTxDTO, ChatMessageDTO
 |   |   `-- resources/com/auction/
-|   |       |-- fxml/              FXML screen layouts (LogIn, Register, Home, CreateRoom, ...)
-|   |       `-- css/               CSS styles
-|   `-- test/java/                 JUnit 5 unit tests & Concurrency stress tests
-|-- data/                          Persistent serialized storage directory
-|-- start-server.bat               1-click batch script to start Socket Server
-|-- start-client.bat               1-click batch script to start JavaFX Client
-|-- pom.xml                        Maven build configuration
-|-- TASKS.md                       Group task division & progress tracking
+|   |       |-- css/               bidx-theme.css (Dark Luxury) & bidx-light.css (Light Ivory)
+|   |       |-- fxml/              LogIn, Register, Home, AuctionRoom, SellerDashboard,
+|   |       |                      AdminDashboard, ProductCard
+|   |       `-- images/            BidX 3D brand logo + 22 studio product photographs
+|   `-- test/java/                 128 JUnit 5 unit, workflow, persistence & concurrency stress tests
+|-- data/                          Persistent serialized state (`auction_data.ser`) & uploaded images
+|-- start-server.bat               1-click Windows script to start BidX Socket Server
+|-- start-client.bat               1-click Windows script to start BidX JavaFX Client
+|-- pom.xml                        Maven build & Fat JAR shade configuration
+|-- TASKS.md                       Team task division & progress tracking
 `-- README.md
 ```
 
-Main components:
-
-- `network`: Socket Multi-threaded Server on port `8888`, `ClientHandler` with heartbeat timeout, text-based `AuctionProtocol`, and `AuctionClient`.
-- `com.auction.model`: OOP core domain models with `ReentrantLock` concurrency protection against lost updates.
-- `com.auction.manager`: Singleton `AuctionManager` managing global system state, in-memory caches, and persistence.
-- `com.auction.ui`: JavaFX MVC desktop client with screens for login, registration, home auction cards, seller room creation, and product details.
-
 ## Data Storage & Persistence Configuration
 
-The server automatically restores previous data if available, or seeds sample users and auctions:
+The server automatically restores saved data from `data/auction_data.ser` on startup, or initializes the default 4-member team + Admin and **22 live luxury auctions across 5 categories (`Siêu Xe`, `Đồng hồ cổ`, `Đồ điện tử`, `Nghệ thuật`, `Khác`) + 2 pending Seller requests**.
 
-- Persistent file path: `data/auction_data.ser`
-- Database: SQLite JDBC (`sqlite-jdbc`) for additional structured records
+Auto-save is triggered automatically whenever:
+- A user registers.
+- A Seller submits an auction request or Admin approves/rejects it.
+- A bid is placed (manual or Auto-Bid) or an auction transitions to `FINISHED` / `PAID`.
+- A wallet deposit (`TOPUP`), withdrawal (`WITHDRAW`), or automatic auction settlement (`PAYOUT_RECEIVED`) executes.
+- A room chat message is sent.
 
-Auto-save is triggered when:
-- A new user registers.
-- A new auction is created.
-- A bid is successfully placed.
-- An auction transitions to `FINISHED` or `PAID`.
-
-To reset to clean sample data, simply remove the `data/auction_data.ser` file before starting the server.
+To reset to fresh sample data, delete `data/auction_data.ser` before starting the server.
 
 ## Build And Test
 
 Run commands from the repository root:
 
 ```bash
-# Run full test suite (all 64 unit & stress tests)
+# Run full test suite (all 128 unit, role-workflow, persistence & stress tests)
 mvn clean test
+
+# Full build, test, Fat JAR packaging, and JaCoCo coverage report
+mvn clean verify
 ```
 
-Build executable standalone Fat JAR:
-
-```bash
-mvn clean package -DskipTests
-```
-
-This generates `target/OnlineAuctionApp.jar` (~23 MB), which includes the full JavaFX runtime, SQLite driver, and assets.
+Packaging generates the standalone Fat JAR at `target/OnlineAuctionApp.jar` (~23 MB) bundling JavaFX 21 runtime, SQLite JDBC driver, stylesheets, and all 23 studio image assets.
 
 ## Run Server And Client
 
 Required startup order:
 
-1. Start the Server on port `8888`.
-2. Start the Client (JavaFX UI).
+1. Start the **BidX Server** on port `8888`.
+2. Launch one or more **BidX Clients** (Bidder, Seller, Admin can connect simultaneously).
 
 ### Option 1: 1-Click Scripts (Windows)
 
-- Double-click [start-server.bat](start-server.bat) to launch the Socket Server.
-- Double-click [start-client.bat](start-client.bat) to launch the JavaFX Client (instant launch via JAR).
+- Double-click [start-server.bat](start-server.bat) to start the Socket Server.
+- Double-click [start-client.bat](start-client.bat) to launch the JavaFX Client (auto-builds if needed, instant launch via Fat JAR).
 
 ### Option 2: Command Line
 
-Terminal 1 - Server:
+Terminal 1 — Server (`localhost:8888`):
 
 ```bash
-java -cp target/classes network.AuctionServer
+java -cp target/OnlineAuctionApp.jar network.AuctionServer
 ```
 
-*(Or via Maven on PowerShell: `mvn compile exec:java "-Dexec.mainClass=network.AuctionServer"`)*
-
-The server listens on:
-
-```text
-localhost:8888
-```
-
-Terminal 2 - Client:
+Terminal 2 — Client:
 
 ```bash
-mvn javafx:run
+java -jar target/OnlineAuctionApp.jar
 ```
 
-*(Or run standalone JAR: `java -jar target/OnlineAuctionApp.jar`)*
+*(Alternatively: `mvn javafx:run`)*
 
 ## Demo Accounts
 
-Sample accounts loaded on initial server startup:
+Sample accounts loaded on initial server startup (default password: `password123`):
 
-| Role | Username | Password | Purpose |
-| --- | --- | --- | --- |
-| Bidder | `BIDDER-01` | `password123` | Browsing auctions & realtime bidding |
-| Bidder | `BIDDER-02` | `password123` | Competing bidder |
-| Bidder | `BIDDER-03` | `password123` | Competing bidder |
-| Seller | `SELLER-01` | `password123` | Creating rooms & listing products |
-| Admin | `ADMIN-01` | `password123` | System management & moderation |
+| Role | Account ID | Display Name | Initial Balance | Permissions |
+| --- | --- | --- | --- | --- |
+| **Bidder** | `BIDDER-01` | Xuân Thắng | 500,000,000 đ | Browse approved rooms, place bids, Auto-Bid, Deposit/Withdraw wallet, Live Chat |
+| **Bidder** | `BIDDER-02` | Huy Hưng | 500,000,000 đ | Competing bidder, Deposit/Withdraw wallet, Live Chat |
+| **Seller** | `SELLER-01` | Tuấn Đại | 0 đ | Submit auction room requests, monitor live rooms, receive automatic payouts & withdraw to bank |
+| **Seller** | `SELLER-02` | Phạm Trường | 0 đ | Submit auction room requests, monitor live rooms, receive automatic payouts & withdraw to bank |
+| **Admin** | `ADMIN-01` | BidX Admin | 0 đ | Approve/reject Seller requests, supervise/force-close live rooms, audit users & platform cashflow |
 
-Seeded demo items include `Laptop Dell XPS 15` and `Vintage Antique Vase`.
+Seeded live catalog spans **22 auctions across 5 categories**:
+- **Siêu Xe (5)**: Rolls-Royce Phantom VIII Bespoke, Lamborghini Aventador SVJ Giallo, Ferrari SF90 Stradale Rosso Corsa, Mercedes-AMG G63 Matte Black Edition, Porsche 911 Classic Silver.
+- **Đồng hồ cổ (4)**: Rolex Cosmograph Daytona 18K Gold, Audemars Piguet Royal Oak Blue Dial, Đồng Hồ Skeleton Tourbillon, Đồng Hồ Cơ Thụy Sĩ Vintage.
+- **Đồ điện tử (4)**: MacBook Pro 16 M4 Max Space Black, Tai Nghe Hi-End Focal Utopia Carbon, Máy Ảnh Film Cổ Leica M3, Laptop Dell XPS 15 OLED.
+- **Nghệ thuật (4)**: Đàn Grand Piano Steinway & Sons Model D, Tượng Đồng Mạ Vàng Khổng Tước Khai Phú, Tranh Sơn Dầu Hoàng Hôn Biển, Bình Sứ Thanh Hoa Thế Kỷ 19.
+- **Khác (5)**: Nhẫn Kim Cương Tự Nhiên 3.5 Carat GIA, Túi Hermès Birkin 30 Da Cá Sấu Cognac, Rượu Whisky Chivas Regal Collector Edition, Nước Hoa Hoàng Gia Oud Amber Extrait, Bộ Cờ Vua Hoàng Gia Đá Cẩm Thạch Ý.
 
-## Completed Features
+## Key Features
 
-- User registration and role-based authentication for `BIDDER`, `SELLER`, and `ADMIN`.
-- Multi-threaded Socket Server handling concurrent client sessions using a cached daemon thread pool.
-- Concurrency protection: `Auction.placeBid()` controlled by `ReentrantLock(true)` (fair lock) preventing lost updates and race conditions.
-- Observer Pattern over Sockets: realtime push notifications for `NOTIFY BID`, `NOTIFY CLOSED`, `NOTIFY WINNER`, `NOTIFY SELLER`, and `NOTIFY PAID`.
-- Heartbeat and timeout handling with `AtomicBoolean` cleanup ensuring zero socket/thread leaks.
-- Factory Method Pattern for item instantiation (`ElectronicsFactory`, `ArtFactory`, `VehicleFactory`).
-- Desktop JavaFX UI screens (MVC): Login, Register, Home card catalog, Seller Create Room, Product Details.
-- Data persistence via Object Serialization and SQLite.
-- Concurrency stress tests with 10 concurrent threads bidding simultaneously and 20 rapid disconnects (`ServerConcurrencyStressTest.java`).
-- Automated CI/CD workflow with GitHub Actions.
+- **Strict 3-Role Workflow (UI + Server Enforced)**:
+  - **Seller**: submits room requests (`PENDING_APPROVAL`), uploads or selects studio photos, cannot place bids.
+  - **Admin**: approves (`APPROVE_AUCTION` → `RUNNING`) or rejects (`REJECT_AUCTION` with reason), supervises live rooms, audits wallets & cashflow.
+  - **Bidder**: browses approved listings, places bids with dynamic scaled quick-bid chips, configures Auto-Bid, pays won auctions.
+- **Automatic Settlement & Fintech Wallet Hub**:
+  - When a live auction finishes with a winner, the winning amount transfers automatically from Bidder to Seller wallet (idempotent, never double-credited on `PAY`).
+  - Full **Deposit (`TOPUP`) & Bank Withdrawal (`WITHDRAW`)** interface for both Bidder and Seller with atomic overdraft protection and live transaction ledger.
+- **Realtime Bidding Engine**:
+  - Fair `ReentrantLock(true)` on `Auction.placeBid()` eliminating lost updates and race conditions.
+  - `PriorityQueue` **Auto-Bidding** and **Anti-Sniping (+30s)** extension on last-30-second bids.
+  - Realtime price `LineChart`, Glassmorphism Toast notifications, confetti celebrations, and bid shockwaves.
+- **Persistent Live Room Chat & 3D Color Emoji Picker**:
+  - Room messages persist on the server (`CHAT_HISTORY`) across logouts, account switches, and server restarts.
+  - Messenger-style searchable **48-emoji full-color 3D picker** + floating live room reactions.
+- **Luxury Dual-Theme Desktop UI**:
+  - Instant **Dark Luxury ↔ Light Ivory** theme switcher (`ThemeManager`) across all 6 screens.
+  - 60 FPS animated `BidXPromoShowcase` canvas on Login & Register screens.
+  - Multi-angle product gallery (`Toàn cảnh`, `Cận cảnh`, `Góc trái`, `Góc phải`) strictly locked to each item's real studio photo.
+- **Testing & Quality**:
+  - **128 automated JUnit 5 tests** covering domain models, serialization, protocol, role/wallet/chat workflows (`BidXRoleWorkflowTest`), and concurrency stress (`ServerConcurrencyStressTest`).
 
 ## System Architecture
+
+### Class Diagram
 
 ```mermaid
 classDiagram
     class User {
         <<abstract>>
-        #String id
-        #String name
-        #String password
-        +verifyPassword(String) boolean
+        -String id
+        -String name
+        -String password
+        -double balance
+        +getRole() String
+        +addBalance(double)
+        +deductBalance(double) boolean
     }
     class Bidder {
         +Bidder(id, name, pass)
@@ -195,9 +214,14 @@ classDiagram
 
     class Item {
         <<abstract>>
-        #String id
-        #String name
-        #double price
+        -int id
+        -String name
+        -int price
+        -String imagePath
+    }
+    class ItemFactory {
+        <<abstract>>
+        +createItem() Item
     }
     class Electronics {
         -int warrantyPeriod
@@ -213,17 +237,62 @@ classDiagram
     Item <|-- Electronics
     Item <|-- Art
     Item <|-- Vehicle
+    ItemFactory ..> Item : creates
+
+    class AuctionObserver {
+        <<interface>>
+        +onNewBid(Auction, BidTransaction)
+        +onAuctionClosed(Auction)
+        +onAuctionPaid(Auction)
+    }
 
     class Auction {
         -String id
         -double currentPrice
         -Status status
         -ReentrantLock lock
+        -List~BidTransaction~ bidHistory
+        -List~ChatMessage~ chatHistory
+        -Map~String, AutoBidConfig~ autoBids
         +placeBid(BidTransaction) boolean
-        +startAuction(Duration)
+        +approveAndStart(Duration)
+        +rejectRequest(String)
         +finishAuction()
-        +markPaid()
+        +claimPayoutSettlement() boolean
+        +addChatMessage(ChatMessage)
     }
+    Auction o--> BidTransaction
+    Auction o--> AutoBidConfig
+    Auction o--> ChatMessage
+    Auction --> AuctionObserver : notifies
+
+    class WalletTransaction {
+        -String id
+        -String userId
+        -Type type
+        -double amount
+        -double balanceAfter
+    }
+
+    class AuctionManager {
+        <<Singleton>>
+        -static AuctionManager instance
+        +getInstance()$ AuctionManager
+        +submitAuctionRequest(...) Auction
+        +approveAuctionRequest(...) Auction
+        +rejectAuctionRequest(...) Auction
+        +placeBid(...) boolean
+        +configureAutoBid(...)
+        +settleAuctionFunds(Auction)
+        +topUpWallet(userId, amount, channel) double
+        +withdrawWallet(userId, amount, dest) double
+        +recordChatMessage(...) ChatMessage
+        +saveState()
+        +loadState()
+    }
+    AuctionManager o--> Auction
+    AuctionManager o--> User
+    AuctionManager o--> WalletTransaction
 
     class AuctionServer {
         -int port
@@ -237,22 +306,42 @@ classDiagram
         +run()
         +close()
     }
+    AuctionObserver <|.. AuctionServer
+    AuctionObserver <|.. ClientHandler
     AuctionServer *--> ClientHandler
+    ClientHandler ..> AuctionManager
+```
 
-    class AuctionManager {
-        <<Singleton>>
-        -static AuctionManager instance
-        +getInstance()$ AuctionManager
-        +placeBid(...) boolean
-        +saveState()
-        +loadState()
-    }
-    AuctionManager o--> Auction
-    AuctionManager o--> User
+### Core Role & Settlement Workflow
+
+```mermaid
+sequenceDiagram
+    participant S as Seller (Tuấn Đại)
+    participant A as Admin (BidX Admin)
+    participant SV as AuctionServer / Manager
+    participant B as Bidder (Xuân Thắng / Huy Hưng)
+
+    S->>SV: REQUEST_AUCTION (item, price, step, image)
+    SV-->>S: SUCCESS REQUEST_AUCTION (PENDING_APPROVAL)
+    SV-->>A: NOTIFY CATALOG_REFRESH
+
+    A->>SV: APPROVE_AUCTION (auctionId)
+    SV-->>A: SUCCESS APPROVE_AUCTION (status = RUNNING)
+    SV-->>B: NOTIFY CATALOG_REFRESH (Live on Marketplace)
+
+    B->>SV: JOIN + CHAT_HISTORY + BID / AUTOBID
+    SV-->>B: NOTIFY BID (realtime price & chart update)
+    SV-->>S: NOTIFY BID (live revenue monitor)
+
+    Note over SV: Timer ends (Anti-Sniping +30s if last-30s bid) or Admin CLOSE
+    SV->>SV: settleAuctionFunds() — Bidder(-price) -> Seller(+price)
+    SV-->>B: NOTIFY WINNER
+    SV-->>S: NOTIFY SELLER (+revenue in Seller Wallet)
+
+    S->>SV: WITHDRAW (amount, bankAccount)
+    SV-->>S: SUCCESS WITHDRAW (updated balance + WalletTransaction)
 ```
 
 ## Documentation
 
 - [Project task assignment and roadmap](TASKS.md)
-
-## Report And Demo Video (Updating...)

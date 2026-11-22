@@ -8,9 +8,19 @@ import com.auction.observer.AuctionObserver;
  */
 public class Bidder extends User implements AuctionObserver {
     private static final long serialVersionUID = 1L;
+    public static final double DEFAULT_INITIAL_BALANCE = 500_000_000.0;
 
     public Bidder(String id, String name, String password) {
-        super(id, name, password);
+        super(id, name, password, DEFAULT_INITIAL_BALANCE);
+    }
+
+    public Bidder(String id, String name, String password, double initialBalance) {
+        super(id, name, password, initialBalance);
+    }
+
+    @Override
+    public String getRole() {
+        return "BIDDER";
     }
 
     @Override

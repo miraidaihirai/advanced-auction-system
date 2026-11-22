@@ -1,0 +1,428 @@
+/* ============================================================================
+ * BidX — Luxury Ivory & Pearl Light Theme Override (JavaFX 21 CSS)
+ * Activated dynamically via ThemeManager.toggleTheme()
+ * ============================================================================ */
+
+.light-mode,
+.light-mode .app-shell {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #0F172A;
+}
+
+/* Auth Background & Cards */
+.light-mode .auth-root {
+    -fx-background-color: linear-gradient(to bottom right, #FFF7ED, #F1F5F9, #EEF2FF);
+}
+.light-mode .auth-card {
+    -fx-background-color: rgba(255, 255, 255, 0.95);
+    -fx-border-color: rgba(15, 23, 42, 0.10);
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.14), 32, 0.08, 0, 10);
+}
+.light-mode .auth-card-title,
+.light-mode .auth-brand-inline,
+.light-mode .sidebar-brand-name,
+.light-mode .topbar-title,
+.light-mode .room-header-title,
+.light-mode .item-hero-title,
+.light-mode .section-title,
+.light-mode .hero-title,
+.light-mode .card-title,
+.light-mode .room-price-big,
+.light-mode .kpi-value,
+.light-mode .text-primary {
+    -fx-text-fill: #0F172A;
+}
+.light-mode .auth-card-sub,
+.light-mode .section-sub,
+.light-mode .hero-subtitle,
+.light-mode .card-category,
+.light-mode .card-bids,
+.light-mode .text-secondary {
+    -fx-text-fill: #334155;
+}
+.light-mode .field-label,
+.light-mode .kpi-label,
+.light-mode .sidebar-wallet-label,
+.light-mode .text-muted {
+    -fx-text-fill: #475569;
+}
+.light-mode .card-price-caption,
+.light-mode .kpi-sub,
+.light-mode .text-subtle {
+    -fx-text-fill: #64748B;
+}
+.light-mode .text-accent-orange {
+    -fx-text-fill: #EA580C;
+}
+.light-mode .text-accent-gold {
+    -fx-text-fill: #D97706;
+}
+.light-mode .text-accent-emerald {
+    -fx-text-fill: #059669;
+}
+.light-mode .text-accent-cyan {
+    -fx-text-fill: #0284C7;
+}
+.light-mode .text-accent-crimson {
+    -fx-text-fill: #E11D48;
+}
+
+/* Sidebar */
+.light-mode .sidebar {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: transparent rgba(15, 23, 42, 0.08) transparent transparent;
+}
+.light-mode .nav-btn {
+    -fx-text-fill: #475569;
+}
+.light-mode .nav-btn:hover {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #0F172A;
+}
+.light-mode .nav-btn-active {
+    -fx-background-color: linear-gradient(to right, rgba(255, 123, 36, 0.16), rgba(255, 77, 45, 0.04));
+    -fx-text-fill: #C2410C;
+    -fx-border-color: rgba(255, 123, 36, 0.45);
+}
+.light-mode .nav-btn-active-seller {
+    -fx-background-color: linear-gradient(to right, rgba(16, 185, 129, 0.16), rgba(16, 185, 129, 0.03));
+    -fx-text-fill: #047857;
+    -fx-border-color: rgba(16, 185, 129, 0.48);
+}
+.light-mode .nav-btn-active-admin {
+    -fx-background-color: linear-gradient(to right, rgba(2, 132, 199, 0.15), rgba(99, 102, 241, 0.04));
+    -fx-text-fill: #0369A1;
+    -fx-border-color: rgba(2, 132, 199, 0.45);
+}
+.light-mode .sidebar-wallet-card {
+    -fx-background-color: linear-gradient(to bottom right, #FFFBEB, #F8FAFC);
+    -fx-border-color: rgba(245, 158, 11, 0.28);
+}
+.light-mode .sidebar-wallet-amount {
+    -fx-text-fill: #D97706;
+}
+.light-mode .sidebar-wallet-amount-seller {
+    -fx-text-fill: #059669;
+}
+
+/* Topbar, Search & Pills */
+.light-mode .topbar {
+    -fx-background-color: rgba(255, 255, 255, 0.94);
+    -fx-border-color: transparent transparent rgba(15, 23, 42, 0.08) transparent;
+}
+.light-mode .search-box {
+    -fx-background-color: #F1F5F9;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .search-textfield {
+    -fx-text-fill: #0F172A;
+    -fx-prompt-text-fill: #64748B;
+}
+.light-mode .icon-circle-btn,
+.light-mode .theme-toggle-btn {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #0F172A;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .icon-circle-btn:hover,
+.light-mode .theme-toggle-btn:hover {
+    -fx-background-color: #E2E8F0;
+    -fx-border-color: #FF7B24;
+}
+.light-mode .filter-pill {
+    -fx-background-color: #FFFFFF;
+    -fx-text-fill: #475569;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .filter-pill:hover {
+    -fx-background-color: #F8FAFC;
+    -fx-text-fill: #0F172A;
+}
+.light-mode .filter-pill-active {
+    -fx-background-color: linear-gradient(to right, rgba(255, 123, 36, 0.16), rgba(244, 63, 94, 0.10));
+    -fx-text-fill: #EA580C;
+    -fx-border-color: #FF7B24;
+}
+
+/* Inputs, Combos, Buttons */
+.light-mode .bidx-input,
+.light-mode .bidx-textarea {
+    -fx-background-color: #F8FAFC;
+    -fx-control-inner-background: #F8FAFC;
+    -fx-text-fill: #0F172A;
+    -fx-prompt-text-fill: #94A3B8;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .bidx-input:focused,
+.light-mode .bidx-textarea:focused {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #FF7B24;
+}
+.light-mode .bidx-combo {
+    -fx-background-color: #F8FAFC;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .bidx-combo .list-cell {
+    -fx-background-color: #FFFFFF;
+    -fx-text-fill: #0F172A;
+}
+.light-mode .bidx-combo .list-view .list-cell:hover {
+    -fx-background-color: #FFF7ED;
+}
+.light-mode .btn-ghost {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #334155;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .btn-ghost:hover {
+    -fx-background-color: #E2E8F0;
+    -fx-text-fill: #0F172A;
+}
+.light-mode .demo-pill {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #334155;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .demo-pill:hover {
+    -fx-background-color: #FFEDD5;
+    -fx-border-color: #FF7B24;
+    -fx-text-fill: #C2410C;
+}
+.light-mode .demo-pill-seller:hover {
+    -fx-background-color: #D1FAE5;
+    -fx-border-color: #10B981;
+    -fx-text-fill: #047857;
+}
+.light-mode .demo-pill-admin:hover {
+    -fx-background-color: #E0F2FE;
+    -fx-border-color: #0284C7;
+    -fx-text-fill: #0369A1;
+}
+.light-mode .role-choice-card {
+    -fx-background-color: #F8FAFC;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .role-choice-selected {
+    -fx-background-color: #FFF7ED;
+    -fx-border-color: #FF7B24;
+}
+
+/* Surfaces, Product Cards, Hero, KPI, Queues */
+.light-mode .surface-panel,
+.light-mode .kpi-card,
+.light-mode .product-card,
+.light-mode .queue-row-card,
+.light-mode .ledger-row {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: rgba(15, 23, 42, 0.09);
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.07), 16, 0.05, 0, 4);
+}
+.light-mode .product-card:hover,
+.light-mode .queue-row-card:hover {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: rgba(255, 123, 36, 0.72);
+}
+.light-mode .sub-surface,
+.light-mode .wallet-pill {
+    -fx-background-color: #F8FAFC;
+    -fx-border-color: rgba(15, 23, 42, 0.09);
+}
+.light-mode .hero-banner {
+    -fx-background-color: linear-gradient(to right, #FFF7ED, #FFFFFF, #FDF2F8);
+    -fx-border-color: rgba(255, 123, 36, 0.35);
+    -fx-effect: dropshadow(gaussian, rgba(255, 123, 36, 0.12), 20, 0.05, 0, 6);
+}
+.light-mode .ticker-bar {
+    -fx-background-color: linear-gradient(to right, #FFF7ED, #F5F3FF, #F0F9FF);
+    -fx-border-color: rgba(255, 123, 36, 0.30);
+}
+.light-mode .kpi-card-highlight-emerald {
+    -fx-background-color: linear-gradient(to bottom right, #ECFDF5, #FFFFFF);
+    -fx-border-color: rgba(16, 185, 129, 0.45);
+}
+.light-mode .kpi-value-emerald {
+    -fx-text-fill: #059669;
+}
+.light-mode .kpi-value-amber {
+    -fx-text-fill: #D97706;
+}
+.light-mode .kpi-card-highlight-cyan {
+    -fx-background-color: linear-gradient(to bottom right, #F0F9FF, #FFFFFF);
+    -fx-border-color: rgba(2, 132, 199, 0.40);
+}
+.light-mode .kpi-value-cyan {
+    -fx-text-fill: #0284C7;
+}
+.light-mode .card-price {
+    -fx-text-fill: #EA580C;
+}
+.light-mode .btn-card-bid {
+    -fx-background-color: #FFF7ED;
+    -fx-text-fill: #EA580C;
+    -fx-border-color: #FF7B24;
+}
+.light-mode .btn-card-bid:hover {
+    -fx-background-color: linear-gradient(to right, #FF8C2B, #FF4D2D);
+    -fx-text-fill: #FFFFFF;
+}
+
+/* Auction Room Timer, Quick Chips, Feed, Chat & Chart in Light Mode */
+.light-mode .room-timer-box {
+    -fx-background-color: linear-gradient(to bottom, #FFF1F2, #FFE4E6);
+    -fx-border-color: rgba(225, 29, 72, 0.45);
+    -fx-effect: dropshadow(gaussian, rgba(225, 29, 72, 0.14), 16, 0.05, 0, 4);
+}
+.light-mode .room-timer-title {
+    -fx-text-fill: #9F1239;
+}
+.light-mode .room-timer-digits {
+    -fx-text-fill: #E11D48;
+}
+.light-mode .btn-quick-chip {
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #0F172A;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .btn-quick-chip:hover {
+    -fx-background-color: #FFEDD5;
+    -fx-border-color: #FF7B24;
+    -fx-text-fill: #C2410C;
+}
+.light-mode .bid-feed-row,
+.light-mode .chat-bubble {
+    -fx-background-color: #F8FAFC;
+}
+.light-mode .chat-text {
+    -fx-fill: #0F172A;
+}
+.light-mode .btn-emoji-trigger {
+    -fx-background-color: #F1F5F9;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .btn-emoji-trigger:hover {
+    -fx-background-color: #FEF3C7;
+    -fx-border-color: #F59E0B;
+}
+.light-mode .bid-feed-row-leader {
+    -fx-background-color: #FFF7ED;
+    -fx-border-color: rgba(255, 123, 36, 0.55);
+}
+.light-mode .bidx-chart .chart-plot-background {
+    -fx-background-color: #F8FAFC;
+}
+.light-mode .bidx-chart .chart-vertical-grid-lines,
+.light-mode .bidx-chart .chart-horizontal-grid-lines {
+    -fx-stroke: rgba(15, 23, 42, 0.08);
+}
+.light-mode .bidx-chart .axis-label,
+.light-mode .bidx-chart .axis {
+    -fx-text-fill: #475569;
+    -fx-tick-label-fill: #475569;
+}
+.light-mode .bidx-chart .chart-line-symbol {
+    -fx-background-color: #FF7B24, #FFFFFF;
+}
+.light-mode .toggle-track-off {
+    -fx-background-color: #CBD5E1;
+}
+.light-mode .modal-card {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: rgba(15, 23, 42, 0.12);
+}
+.light-mode .progress-bar > .track {
+    -fx-background-color: #E2E8F0;
+}
+.light-mode .badge-live {
+    -fx-background-color: rgba(16, 185, 129, 0.14);
+    -fx-text-fill: #047857;
+}
+.light-mode .badge-pending {
+    -fx-background-color: rgba(245, 158, 11, 0.16);
+    -fx-text-fill: #B45309;
+}
+.light-mode .badge-finished {
+    -fx-background-color: rgba(99, 102, 241, 0.14);
+    -fx-text-fill: #4338CA;
+}
+.light-mode .badge-paid {
+    -fx-background-color: rgba(16, 185, 129, 0.16);
+    -fx-text-fill: #047857;
+}
+.light-mode .badge-rejected {
+    -fx-background-color: rgba(244, 63, 94, 0.14);
+    -fx-text-fill: #BE123C;
+}
+.light-mode .badge-muted {
+    -fx-background-color: #E2E8F0;
+    -fx-text-fill: #475569;
+}
+.light-mode .role-chip-bidder {
+    -fx-background-color: #FFEDD5;
+    -fx-text-fill: #C2410C;
+}
+.light-mode .role-chip-seller {
+    -fx-background-color: #D1FAE5;
+    -fx-text-fill: #047857;
+}
+.light-mode .role-chip-admin {
+    -fx-background-color: #E0F2FE;
+    -fx-text-fill: #0369A1;
+}
+
+/* Wallet Hub (Deposit & Withdraw) in Light Mode */
+.light-mode .wallet-platinum-card {
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.22), 24, 0.12, 0, 8);
+}
+.light-mode .wallet-platinum-card-seller {
+    -fx-effect: dropshadow(gaussian, rgba(5, 150, 105, 0.22), 24, 0.12, 0, 8);
+}
+.light-mode .wallet-seg-wrap {
+    -fx-background-color: #F1F5F9;
+    -fx-border-color: #E2E8F0;
+}
+.light-mode .wallet-seg-btn {
+    -fx-text-fill: #475569;
+}
+.light-mode .wallet-seg-btn:hover {
+    -fx-text-fill: #0F172A;
+}
+.light-mode .wallet-seg-deposit-active,
+.light-mode .wallet-seg-withdraw-active {
+    -fx-text-fill: #FFFFFF;
+}
+.light-mode .bank-chip {
+    -fx-background-color: #F8FAFC;
+    -fx-text-fill: #334155;
+    -fx-border-color: #CBD5E1;
+}
+.light-mode .bank-chip:hover {
+    -fx-background-color: #FFFFFF;
+    -fx-text-fill: #0F172A;
+    -fx-border-color: #94A3B8;
+}
+.light-mode .bank-chip-active {
+    -fx-background-color: #ECFDF5;
+    -fx-text-fill: #047857;
+    -fx-border-color: #10B981;
+}
+.light-mode .bank-chip-active-withdraw {
+    -fx-background-color: #FFF7ED;
+    -fx-text-fill: #C2410C;
+    -fx-border-color: #FF7B24;
+}
+.light-mode .wallet-preview-bar {
+    -fx-background-color: #ECFDF5;
+    -fx-border-color: rgba(16, 185, 129, 0.35);
+}
+.light-mode .wallet-preview-bar-withdraw {
+    -fx-background-color: #FFF7ED;
+    -fx-border-color: rgba(255, 123, 36, 0.35);
+}
+.light-mode .sidebar-mini-deposit {
+    -fx-background-color: #D1FAE5;
+    -fx-text-fill: #047857;
+}
+.light-mode .sidebar-mini-withdraw {
+    -fx-background-color: #FFEDD5;
+    -fx-text-fill: #C2410C;
+}

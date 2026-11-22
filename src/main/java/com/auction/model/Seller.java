@@ -10,7 +10,16 @@ public class Seller extends User implements AuctionObserver {
     private static final long serialVersionUID = 1L;
 
     public Seller(String id, String name, String password) {
-        super(id, name, password);
+        super(id, name, password, 0.0);
+    }
+
+    public Seller(String id, String name, String password, double initialBalance) {
+        super(id, name, password, initialBalance);
+    }
+
+    @Override
+    public String getRole() {
+        return "SELLER";
     }
 
     @Override
