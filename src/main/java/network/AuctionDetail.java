@@ -20,8 +20,31 @@ public record AuctionDetail(
         boolean payoutSettled,
         String imageKey,
         String rejectionReason,
-        String description
+        String description,
+        String itemSpecs
 ) {
+    public AuctionDetail(
+            String auctionId,
+            String itemName,
+            String sellerId,
+            String sellerName,
+            String category,
+            double startPrice,
+            double currentPrice,
+            double stepPrice,
+            String highestBidderId,
+            String status,
+            long endTimeMillis,
+            long requestedDurationSec,
+            int bidCount,
+            boolean payoutSettled,
+            String imageKey,
+            String rejectionReason,
+            String description) {
+        this(auctionId, itemName, sellerId, sellerName, category, startPrice, currentPrice, stepPrice,
+                highestBidderId, status, endTimeMillis, requestedDurationSec, bidCount, payoutSettled,
+                imageKey, rejectionReason, description, "");
+    }
     public AuctionSummary toSummary() {
         return new AuctionSummary(auctionId, itemName, currentPrice, stepPrice, highestBidderId, status);
     }
@@ -31,7 +54,7 @@ public record AuctionDetail(
     }
 
     public boolean isPendingApproval() {
-        return "PENDING_APPROVAL".equalsIgnoreCase(status);
+        return "OPEN".equalsIgnoreCase(status);
     }
 
     public boolean isFinished() {
@@ -43,7 +66,7 @@ public record AuctionDetail(
     }
 
     public boolean isRejected() {
-        return "REJECTED".equalsIgnoreCase(status);
+        return "CANCELED".equalsIgnoreCase(status);
     }
 
     public boolean hasWinner() {

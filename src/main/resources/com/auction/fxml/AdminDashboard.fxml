@@ -7,6 +7,7 @@
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
@@ -15,13 +16,14 @@
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.auction.ui.AdminDashboardController"
            stylesheets="@../css/bidx-theme.css"
+           minWidth="0" minHeight="0"
            styleClass="app-shell">
 
-    <BorderPane styleClass="app-shell">
+    <BorderPane minWidth="0" minHeight="0" styleClass="app-shell">
 
         <!-- Left Admin Control Sidebar -->
         <left>
-            <VBox spacing="14" prefWidth="254" minWidth="242" maxWidth="264" styleClass="sidebar">
+            <VBox spacing="14" prefWidth="238" minWidth="210" maxWidth="254" styleClass="sidebar">
                 <HBox spacing="11" alignment="CENTER_LEFT" style="-fx-padding: 2 6 8 6;">
                     <StackPane fx:id="sidebarLogoWrap" style="-fx-background-color: #0D1322; -fx-background-radius: 12; -fx-border-color: rgba(56,189,248,0.55); -fx-border-radius: 12; -fx-padding: 2;">
                         <ImageView fx:id="imgSidebarLogo" fitWidth="38" fitHeight="38" preserveRatio="true"/>
@@ -57,95 +59,95 @@
 
         <!-- Main Admin Workspace -->
         <center>
-            <BorderPane styleClass="app-shell">
+            <BorderPane minWidth="0" minHeight="0" styleClass="app-shell">
                 <top>
-                    <HBox spacing="12" alignment="CENTER_LEFT" styleClass="topbar">
-                        <VBox spacing="2">
-                            <Label fx:id="lblTopTitle" text="BidX Admin Command Center" styleClass="topbar-title"/>
+                    <HBox spacing="12" alignment="CENTER_LEFT" minWidth="0" styleClass="topbar">
+                        <VBox spacing="2" minWidth="0" HBox.hgrow="ALWAYS">
+                            <Label fx:id="lblTopTitle" text="BidX Admin Command Center" minWidth="0" styleClass="topbar-title"/>
                             <Label text="Kiểm duyệt yêu cầu mở phòng của Seller • Giám sát phiên LIVE &amp; dòng tiền quyết toán"
-                                   styleClass="text-subtle" style="-fx-font-size: 12px;"/>
+                                   minWidth="0" styleClass="text-subtle" style="-fx-font-size: 12px;"/>
                         </VBox>
-                        <HBox HBox.hgrow="ALWAYS"/>
-                        <Button fx:id="btnThemeToggle" text="Light" onAction="#handleToggleTheme" styleClass="theme-toggle-btn"/>
-                        <Label text="● QUYỀN ADMIN" styleClass="role-chip-admin"/>
+                        <Button fx:id="btnThemeToggle" text="Light" minWidth="-Infinity" onAction="#handleToggleTheme" styleClass="theme-toggle-btn"/>
+                        <Label text="● QUYỀN ADMIN" minWidth="-Infinity" styleClass="role-chip-admin"/>
                         <Button fx:id="btnRefresh" onAction="#handleRefresh" styleClass="icon-circle-btn"/>
                     </HBox>
                 </top>
 
                 <center>
-                    <VBox spacing="0">
+                    <VBox spacing="0" minWidth="0" minHeight="0">
                         <!-- Top KPI Strip (Always Visible on Admin Dashboard) -->
-                        <HBox spacing="16" style="-fx-padding: 18 26 6 26;">
-                            <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="kpi-card">
+                        <HBox spacing="12" minWidth="0" style="-fx-padding: 14 22 6 22;">
+                            <VBox spacing="5" minWidth="135" HBox.hgrow="ALWAYS" styleClass="kpi-card">
                                 <Label text="YÊU CẦU CHỜ DUYỆT" styleClass="kpi-label"/>
                                 <Label fx:id="lblKpiPending" text="0" styleClass="kpi-value-amber"/>
-                                <Label text="Từ các Seller đang chờ lên sàn" styleClass="kpi-sub"/>
+                                <Label text="Từ các Seller chờ lên sàn" wrapText="true" styleClass="kpi-sub"/>
                             </VBox>
-                            <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="kpi-card">
+                            <VBox spacing="5" minWidth="135" HBox.hgrow="ALWAYS" styleClass="kpi-card">
                                 <Label text="PHIÊN ĐANG LIVE" styleClass="kpi-label"/>
                                 <Label fx:id="lblKpiLive" text="0" styleClass="kpi-value-emerald"/>
-                                <Label text="Đang mở cho Bidder đặt giá" styleClass="kpi-sub"/>
+                                <Label text="Đang mở cho Bidder đặt giá" wrapText="true" styleClass="kpi-sub"/>
                             </VBox>
-                            <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="kpi-card-highlight-cyan">
-                                <Label text="DOANH THU ĐÃ CHẢY VỀ SELLER" styleClass="kpi-label"/>
+                            <VBox spacing="5" minWidth="165" HBox.hgrow="ALWAYS" styleClass="kpi-card-highlight-cyan">
+                                <Label text="DOANH THU VỀ SELLER" styleClass="kpi-label"/>
                                 <Label fx:id="lblKpiSellerPayout" text="0 đ" styleClass="kpi-value-cyan"/>
-                                <Label text="Tổng giá trị quyết toán thành công" styleClass="kpi-sub"/>
+                                <Label text="Tổng giá trị quyết toán" wrapText="true" styleClass="kpi-sub"/>
                             </VBox>
-                            <VBox spacing="6" HBox.hgrow="ALWAYS" styleClass="kpi-card">
+                            <VBox spacing="5" minWidth="135" HBox.hgrow="ALWAYS" styleClass="kpi-card">
                                 <Label text="TỔNG TÀI KHOẢN" styleClass="kpi-label"/>
                                 <Label fx:id="lblKpiUsers" text="0" styleClass="kpi-value"/>
-                                <Label fx:id="lblKpiUsersSub" text="Bidder • Seller • Admin" styleClass="kpi-sub"/>
+                                <Label fx:id="lblKpiUsersSub" text="Bidder • Seller • Admin" wrapText="true" styleClass="kpi-sub"/>
                             </VBox>
                         </HBox>
 
-                        <StackPane VBox.vgrow="ALWAYS">
+                        <StackPane VBox.vgrow="ALWAYS" minWidth="0" minHeight="0">
 
                             <!-- TAB 1: APPROVAL QUEUE -->
-                            <ScrollPane fx:id="tabQueue" fitToWidth="true" styleClass="bidx-scroll">
-                                <VBox spacing="14" style="-fx-padding: 16 26 28 26;">
-                                    <HBox alignment="CENTER_LEFT">
-                                        <Label text="Hàng đợi yêu cầu mở phòng đấu giá từ Seller" styleClass="section-title"/>
+                            <ScrollPane fx:id="tabQueue" fitToWidth="true" hbarPolicy="NEVER" minWidth="0" styleClass="bidx-scroll">
+                                <VBox spacing="14" minWidth="0" style="-fx-padding: 16 22 26 22;">
+                                    <HBox alignment="CENTER_LEFT" spacing="10" minWidth="0">
+                                        <Label text="Hàng đợi yêu cầu mở phòng đấu giá từ Seller" minWidth="0" styleClass="section-title"/>
                                         <HBox HBox.hgrow="ALWAYS"/>
-                                        <Label fx:id="lblQueueSummary" text="0 yêu cầu chờ duyệt" styleClass="badge-pending"/>
+                                        <Label fx:id="lblQueueSummary" text="0 yêu cầu chờ duyệt" minWidth="-Infinity" styleClass="badge-pending"/>
                                     </HBox>
-                                    <VBox fx:id="approvalQueueContainer" spacing="14"/>
+                                    <VBox fx:id="approvalQueueContainer" spacing="14" minWidth="0"/>
                                 </VBox>
                             </ScrollPane>
 
                             <!-- TAB 2: ALL AUCTIONS MONITOR -->
-                            <ScrollPane fx:id="tabMonitor" fitToWidth="true" visible="false" managed="false" styleClass="bidx-scroll">
-                                <VBox spacing="14" style="-fx-padding: 16 26 28 26;">
-                                    <HBox spacing="10" alignment="CENTER_LEFT">
+                            <ScrollPane fx:id="tabMonitor" fitToWidth="true" hbarPolicy="NEVER" minWidth="0" visible="false" managed="false" styleClass="bidx-scroll">
+                                <VBox spacing="14" minWidth="0" style="-fx-padding: 16 22 26 22;">
+                                    <VBox spacing="10" minWidth="0">
                                         <Label text="Giám sát toàn bộ phiên đấu giá trên sàn" styleClass="section-title"/>
-                                        <HBox HBox.hgrow="ALWAYS"/>
-                                        <Button fx:id="monAll" text="Tất cả" onAction="#filterMonAll" styleClass="filter-pill, filter-pill-active"/>
-                                        <Button fx:id="monLive" text="Đang LIVE" onAction="#filterMonLive" styleClass="filter-pill"/>
-                                        <Button fx:id="monFinished" text="Đã kết thúc / Đã trả tiền" onAction="#filterMonEnded" styleClass="filter-pill"/>
-                                        <Button fx:id="monRejected" text="Đã từ chối" onAction="#filterMonRejected" styleClass="filter-pill"/>
-                                    </HBox>
-                                    <VBox fx:id="monitorListContainer" spacing="12"/>
+                                        <FlowPane hgap="8" vgap="7" alignment="CENTER_LEFT" minWidth="0">
+                                            <Button fx:id="monAll" text="Tất cả" onAction="#filterMonAll" styleClass="filter-pill, filter-pill-active"/>
+                                            <Button fx:id="monLive" text="Đang LIVE" onAction="#filterMonLive" styleClass="filter-pill"/>
+                                            <Button fx:id="monFinished" text="Đã kết thúc / Đã trả tiền" onAction="#filterMonEnded" styleClass="filter-pill"/>
+                                            <Button fx:id="monRejected" text="Đã từ chối" onAction="#filterMonRejected" styleClass="filter-pill"/>
+                                        </FlowPane>
+                                    </VBox>
+                                    <VBox fx:id="monitorListContainer" spacing="12" minWidth="0"/>
                                 </VBox>
                             </ScrollPane>
 
                             <!-- TAB 3: USERS & LIVE WALLETS -->
-                            <ScrollPane fx:id="tabUsers" fitToWidth="true" visible="false" managed="false" styleClass="bidx-scroll">
-                                <VBox spacing="14" style="-fx-padding: 16 26 28 26;">
+                            <ScrollPane fx:id="tabUsers" fitToWidth="true" hbarPolicy="NEVER" minWidth="0" visible="false" managed="false" styleClass="bidx-scroll">
+                                <VBox spacing="14" minWidth="0" style="-fx-padding: 16 22 26 22;">
                                     <VBox spacing="3">
                                         <Label text="Danh sách người dùng &amp; Số dư ví trực tuyến" styleClass="section-title"/>
-                                        <Label text="Theo dõi trực tiếp số dư ví của từng Bidder và tổng tiền đã chảy vào túi từng Seller." styleClass="section-sub"/>
+                                        <Label text="Theo dõi trực tiếp số dư ví của từng Bidder và tổng tiền đã chảy vào túi từng Seller." wrapText="true" styleClass="section-sub"/>
                                     </VBox>
-                                    <VBox fx:id="usersListContainer" spacing="10"/>
+                                    <VBox fx:id="usersListContainer" spacing="10" minWidth="0"/>
                                 </VBox>
                             </ScrollPane>
 
                             <!-- TAB 4: PLATFORM MONEY FLOW -->
-                            <ScrollPane fx:id="tabMoneyFlow" fitToWidth="true" visible="false" managed="false" styleClass="bidx-scroll">
-                                <VBox spacing="14" style="-fx-padding: 16 26 28 26;">
+                            <ScrollPane fx:id="tabMoneyFlow" fitToWidth="true" hbarPolicy="NEVER" minWidth="0" visible="false" managed="false" styleClass="bidx-scroll">
+                                <VBox spacing="14" minWidth="0" style="-fx-padding: 16 22 26 22;">
                                     <VBox spacing="3">
                                         <Label text="Nhật ký dòng tiền toàn hệ thống BidX" styleClass="section-title"/>
-                                        <Label text="Ghi nhận tự động mỗi khi phiên kết thúc thành công và tiền chuyển từ Bidder sang ví Seller." styleClass="section-sub"/>
+                                        <Label text="Ghi nhận tự động mỗi khi phiên kết thúc thành công và tiền chuyển từ Bidder sang ví Seller." wrapText="true" styleClass="section-sub"/>
                                     </VBox>
-                                    <VBox fx:id="moneyFlowContainer" spacing="10"/>
+                                    <VBox fx:id="moneyFlowContainer" spacing="10" minWidth="0"/>
                                 </VBox>
                             </ScrollPane>
 

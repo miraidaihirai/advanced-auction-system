@@ -58,7 +58,7 @@ public class AuctionServerPersistenceTest {
         AuctionServer.initData(storageFile.getAbsolutePath());
         server1 = new AuctionServer(port1);
         server1.startAsync();
-        Thread.sleep(150);
+        waitUntilRunning(server1);
 
         // 2. Client kết nối, đăng ký tài khoản mới và đặt giá
         AuctionClient client1 = new AuctionClient("localhost", port1);
@@ -111,7 +111,7 @@ public class AuctionServerPersistenceTest {
 
         server2 = new AuctionServer(port2);
         server2.startAsync();
-        Thread.sleep(150);
+        waitUntilRunning(server2);
 
         // 6. Client kết nối tới Server lần 2: Đăng nhập trực tiếp không cần đăng ký
         // lại!
@@ -141,5 +141,13 @@ public class AuctionServerPersistenceTest {
                 "Client 2 phải đăng nhập và đặt giá thành công trên server 2");
 
         client2.disconnect();
+    }
+
+    private static void waitUntilRunning(AuctionServer server) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 3000;
+        while (!server.isRunning() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(25);
+        }
+        assertTrue(server.isRunning(), "Server phải khởi động sẵn sàng trước khi Client kết nối");
     }
 }

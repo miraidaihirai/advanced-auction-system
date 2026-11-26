@@ -100,16 +100,20 @@ public class BidXPromoShowcase extends StackPane {
     private double flashAlpha = 0.0;
 
     public BidXPromoShowcase() {
-        setPrefSize(W, H);
-        setMinSize(500, 580);
+        setPrefSize(490, 555);
+        setMinSize(350, 420);
         setMaxSize(W, H);
 
-        canvas = new Canvas(W, H);
+        canvas = new Canvas(490, 555);
+        canvas.widthProperty().bind(widthProperty());
+        canvas.heightProperty().bind(heightProperty());
         getChildren().add(canvas);
 
-        Rectangle clip = new Rectangle(W, H);
-        clip.setArcWidth(32);
-        clip.setArcHeight(32);
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(widthProperty());
+        clip.heightProperty().bind(heightProperty());
+        clip.setArcWidth(30);
+        clip.setArcHeight(30);
         setClip(clip);
 
         setStyle("-fx-background-color: #0B1020; -fx-background-radius: 16; -fx-cursor: hand;");
@@ -177,7 +181,14 @@ public class BidXPromoShowcase extends StackPane {
     }
 
     private void renderFrame(double t, double dt) {
+        double cw = canvas.getWidth();
+        double ch = canvas.getHeight();
+        if (cw <= 1 || ch <= 1) {
+            return;
+        }
         GraphicsContext g = canvas.getGraphicsContext2D();
+        g.save();
+        g.scale(cw / W, ch / H);
 
         double totalSlot = t / SCENE_DURATION + manualOffset;
         int sceneIdx = ((int) Math.floor(totalSlot)) % SCENES.length;
@@ -272,6 +283,7 @@ public class BidXPromoShowcase extends StackPane {
             g.fillRect(0, 0, W, H);
             flashAlpha = Math.max(0, flashAlpha - dt * 2.4);
         }
+        g.restore();
     }
 
     private void drawKenBurnsImage(GraphicsContext g, Image img, double progress, double alpha) {

@@ -100,6 +100,15 @@ public class AuctionClient {
         listeners.remove(listener);
     }
 
+    public void copyListenersTo(AuctionClient target) {
+        if (target == null || target == this) {
+            return;
+        }
+        for (AuctionEventListener listener : listeners) {
+            target.addListener(listener);
+        }
+    }
+
     public synchronized void connect() throws IOException {
         if (connected) {
             return;
@@ -543,15 +552,55 @@ public class AuctionClient {
             long durationSeconds,
             String imageKey,
             String description) {
-        String payload = String.format(Locale.US, "%s|%s|%.2f|%.2f|%d|%s|%s",
+        requestAuction(itemName, category, startPrice, stepPrice, durationSeconds, imageKey, description, "");
+    }
+
+    public void requestAuction(
+            String itemName,
+            String category,
+            double startPrice,
+            double stepPrice,
+            long durationSeconds,
+            String imageKey,
+            String description,
+            String itemSpecs) {
+        String payload = String.format(Locale.US, "%s|%s|%.2f|%.2f|%d|%s|%s|%s",
                 AuctionProtocol.sanitizeField(itemName),
                 AuctionProtocol.sanitizeField(category),
                 startPrice,
                 stepPrice,
                 durationSeconds,
                 AuctionProtocol.sanitizeField(imageKey),
-                AuctionProtocol.sanitizeField(description));
+                AuctionProtocol.sanitizeField(description),
+                AuctionProtocol.sanitizeField(itemSpecs));
         sendRaw(AuctionProtocol.CMD_REQUEST_AUCTION + " " + payload);
+    }
+
+    public void updateAuction(
+            String auctionId,
+            String itemName,
+            String category,
+            double startPrice,
+            double stepPrice,
+            long durationSeconds,
+            String imageKey,
+            String description,
+            String itemSpecs) {
+        String payload = String.format(Locale.US, "%s|%s|%s|%.2f|%.2f|%d|%s|%s|%s",
+                AuctionProtocol.sanitizeField(auctionId),
+                AuctionProtocol.sanitizeField(itemName),
+                AuctionProtocol.sanitizeField(category),
+                startPrice,
+                stepPrice,
+                durationSeconds,
+                AuctionProtocol.sanitizeField(imageKey),
+                AuctionProtocol.sanitizeField(description),
+                AuctionProtocol.sanitizeField(itemSpecs));
+        sendRaw(AuctionProtocol.CMD_UPDATE_AUCTION + " " + payload);
+    }
+
+    public void deleteAuction(String auctionId) {
+        sendRaw(String.format("%s %s", AuctionProtocol.CMD_DELETE_AUCTION, AuctionProtocol.sanitizeField(auctionId)));
     }
 
     public void approveAuction(String auctionId) {
@@ -647,10 +696,11 @@ public class AuctionClient {
 
     private AuctionDetail parseAuctionDetailLine(String line) {
         String payload = line.substring(AuctionProtocol.AUCTION_FULL_PREFIX.length());
-        String[] parts = payload.split("\\|", 17);
+        String[] parts = payload.split("\\|", -1);
         if (parts.length < 17) {
             throw new IllegalArgumentException("Invalid AUCTION_FULL");
         }
+        String specs = parts.length > 17 ? parts[17] : "";
         return new AuctionDetail(
                 parts[0],
                 parts[1],
@@ -668,7 +718,8 @@ public class AuctionClient {
                 "1".equals(parts[13]),
                 parts[14],
                 parts[15],
-                parts[16]);
+                parts[16],
+                specs);
     }
 
     private WalletTxDTO parseWalletTxLine(String line) {

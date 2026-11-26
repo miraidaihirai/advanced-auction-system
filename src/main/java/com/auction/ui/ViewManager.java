@@ -13,8 +13,10 @@ import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Rectangle;
 import network.AuctionDetail;
 import network.AuctionSummary;
 import network.UserProfile;
@@ -47,9 +49,16 @@ public class ViewManager {
         clientSession = session;
 
         viewLayer = new StackPane();
+        viewLayer.setMinSize(0, 0);
+        viewLayer.setAlignment(Pos.TOP_LEFT);
         viewLayer.setStyle("-fx-background-color: #0A0E17;");
+        Rectangle viewClip = new Rectangle();
+        viewClip.widthProperty().bind(viewLayer.widthProperty());
+        viewClip.heightProperty().bind(viewLayer.heightProperty());
+        viewLayer.setClip(viewClip);
 
         fxLayer = new Pane();
+        fxLayer.setMinSize(0, 0);
         fxLayer.setMouseTransparent(true);
         fxLayer.setPickOnBounds(false);
 
@@ -61,6 +70,7 @@ public class ViewManager {
         StackPane.setAlignment(toastLayer, Pos.TOP_RIGHT);
 
         shellRoot = new StackPane(viewLayer, fxLayer, toastLayer);
+        shellRoot.setMinSize(0, 0);
         shellRoot.setStyle("-fx-background-color: #0A0E17;");
 
         NotificationManager.attachToastContainer(toastLayer);
@@ -151,10 +161,15 @@ public class ViewManager {
      * Xóa cache các dashboard khi đăng xuất để tài khoản tiếp theo luôn nạp giao diện sạch mới.
      */
     public static void clearSessionViews() {
-        cache.remove("Home");
-        cache.remove("SellerDashboard");
-        cache.remove("AdminDashboard");
-        cache.remove("AuctionRoom");
+        for (String name : java.util.List.of("Home", "SellerDashboard", "AdminDashboard", "AuctionRoom")) {
+            ViewEntry entry = cache.remove(name);
+            if (entry != null && entry.controller instanceof SessionAware aware) {
+                try {
+                    aware.detachSession();
+                } catch (Exception ignored) {
+                }
+            }
+        }
     }
 
     public static void SwitchView(String fxmlName) {
@@ -177,6 +192,13 @@ public class ViewManager {
 
                 FXMLLoader loader = new FXMLLoader(resource);
                 Parent root = loader.load();
+                if (root instanceof Region region) {
+                    region.setMinSize(0, 0);
+                    region.prefWidthProperty().bind(viewLayer.widthProperty());
+                    region.prefHeightProperty().bind(viewLayer.heightProperty());
+                    region.maxWidthProperty().bind(viewLayer.widthProperty());
+                    region.maxHeightProperty().bind(viewLayer.heightProperty());
+                }
 
                 entry = new ViewEntry(root, loader.getController());
                 cache.put(fxmlName, entry);

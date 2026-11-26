@@ -1,6 +1,9 @@
 package com.auction.model;
 
+import com.auction.item.Art;
+import com.auction.item.Electronics;
 import com.auction.item.Item;
+import com.auction.item.Vehicle;
 import com.auction.observer.AuctionObserver;
 import com.auction.observer.AuctionSubject;
 
@@ -28,14 +31,14 @@ import com.auction.exceptions.InvalidBidException;
  * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid mới.
  * - Triển khai Serializable để hỗ trợ lưu trữ dữ liệu phiên ra file.
  * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost Update / Race Condition.
- * - Hỗ trợ quy trình kiểm duyệt Seller -> Admin (PENDING_APPROVAL -> RUNNING / REJECTED),
+ * - Hỗ trợ quy trình kiểm duyệt Seller -> Admin (OPEN -> RUNNING / CANCELED),
  *   Anti-Sniping và cấu hình Auto-Bidding.
  */
 public class Auction implements AuctionSubject, Serializable {
     private static final long serialVersionUID = 1L;
 
     public enum Status {
-        OPEN, PENDING_APPROVAL, RUNNING, FINISHED, PAID, CANCELED, REJECTED
+        OPEN, RUNNING, FINISHED, PAID, CANCELED
     }
 
     private static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
@@ -46,19 +49,21 @@ public class Auction implements AuctionSubject, Serializable {
     });
 
     private final String id;
-    private final String itemId;
+    private String itemId;
     private final String sellerId;
-    private final double startPrice;
+    private double startPrice;
     private double currentPrice;
-    private final double stepPrice;
+    private double stepPrice;
     private Status status;
     private String highestBidderId;
     private final List<BidTransaction> bidHistory;
     private long endTimeMillis;
 
     // Metadata cho BidX & quy trình Seller -> Admin -> Payout
+    private Item item;
     private String category = "COLLECTIBLE";
     private String description = "";
+    private String itemSpecs = "";
     private String imageKey = "";
     private long requestedDurationSeconds = 300;
     private String rejectionReason = "";
@@ -97,6 +102,7 @@ public class Auction implements AuctionSubject, Serializable {
 
     public Auction(String id, Item item, String sellerId, double startPrice, double stepPrice) {
         this(id, item != null ? item.getName() : "Unknown Item", sellerId, startPrice, stepPrice);
+        setItem(item);
         if (item != null && item.getImagePath() != null) {
             this.imageKey = item.getImagePath();
         }
@@ -116,8 +122,8 @@ public class Auction implements AuctionSubject, Serializable {
             long requestedDurationSeconds,
             String imageKey) {
         Auction auction = new Auction(id, itemName, sellerId, startPrice, stepPrice);
-        auction.status = Status.PENDING_APPROVAL;
-        auction.category = (category != null && !category.isBlank()) ? category.trim().toUpperCase() : "COLLECTIBLE";
+        auction.status = Status.OPEN;
+        auction.category = (category != null && !category.isBlank()) ? category.trim().toUpperCase() : "OTHER";
         auction.description = description != null ? description.trim() : "";
         auction.requestedDurationSeconds = Math.max(30, requestedDurationSeconds);
         auction.imageKey = imageKey != null ? imageKey.trim() : "";
@@ -153,8 +159,8 @@ public class Auction implements AuctionSubject, Serializable {
                 : Duration.ofSeconds(Math.max(30, requestedDurationSeconds));
         lock.lock();
         try {
-            if (status != Status.PENDING_APPROVAL && status != Status.OPEN) {
-                throw new IllegalStateException("Only PENDING_APPROVAL or OPEN auction can be approved");
+            if (status != Status.OPEN) {
+                throw new IllegalStateException("Only an OPEN auction can be approved");
             }
             this.rejectionReason = "";
             beginRunningLocked(effectiveDuration);
@@ -164,17 +170,54 @@ public class Auction implements AuctionSubject, Serializable {
     }
 
     /**
-     * Admin từ chối yêu cầu mở phòng của Seller kèm lý do.
+     * Admin từ chối yêu cầu mở phòng của Seller kèm lý do (chuyển sang CANCELED).
      */
     public void rejectRequest(String reason) {
         lock.lock();
         try {
-            if (status != Status.PENDING_APPROVAL) {
-                throw new IllegalStateException("Only PENDING_APPROVAL auction can be rejected");
+            if (status != Status.OPEN) {
+                throw new IllegalStateException("Only an OPEN auction can be rejected");
             }
-            this.status = Status.REJECTED;
+            this.status = Status.CANCELED;
             this.rejectionReason = (reason != null && !reason.isBlank()) ? reason.trim() : "Không đạt tiêu chuẩn kiểm duyệt";
-            System.out.printf("[Auction %s] Rejected by Admin. Reason: %s%n", id, rejectionReason);
+            System.out.printf("[Auction %s] Rejected/Canceled by Admin. Reason: %s%n", id, rejectionReason);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Cập nhật thông tin sản phẩm khi phiên đang ở trạng thái chờ duyệt (OPEN).
+     */
+    public void updatePendingDetails(
+            String itemName,
+            String category,
+            double startPrice,
+            double stepPrice,
+            long durationSeconds,
+            String imageKey,
+            String description,
+            String itemSpecs) {
+        lock.lock();
+        try {
+            if (status != Status.OPEN) {
+                throw new IllegalStateException("Chỉ có thể sửa sản phẩm khi đang chờ duyệt (OPEN)");
+            }
+            if (itemName == null || itemName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Tên sản phẩm không được để trống");
+            }
+            if (!Double.isFinite(startPrice) || startPrice <= 0 || !Double.isFinite(stepPrice) || stepPrice <= 0) {
+                throw new IllegalArgumentException("Giá khởi điểm và bước giá phải là số dương");
+            }
+            this.itemId = itemName.trim();
+            this.category = (category != null && !category.isBlank()) ? category.trim().toUpperCase() : "OTHER";
+            this.startPrice = startPrice;
+            this.currentPrice = startPrice;
+            this.stepPrice = stepPrice;
+            this.requestedDurationSeconds = Math.max(30, durationSeconds);
+            this.imageKey = imageKey != null ? imageKey.trim() : "";
+            this.description = description != null ? description.trim() : "";
+            this.itemSpecs = itemSpecs != null ? itemSpecs.trim() : "";
         } finally {
             lock.unlock();
         }
@@ -386,7 +429,12 @@ public class Auction implements AuctionSubject, Serializable {
     }
 
     public String getItemId() {
-        return itemId;
+        lock.lock();
+        try {
+            return itemId;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public String getSellerId() {
@@ -394,7 +442,12 @@ public class Auction implements AuctionSubject, Serializable {
     }
 
     public double getStartPrice() {
-        return startPrice;
+        lock.lock();
+        try {
+            return startPrice;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public double getCurrentPrice() {
@@ -407,7 +460,12 @@ public class Auction implements AuctionSubject, Serializable {
     }
 
     public double getStepPrice() {
-        return stepPrice;
+        lock.lock();
+        try {
+            return stepPrice;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public Status getStatus() {
@@ -462,6 +520,65 @@ public class Auction implements AuctionSubject, Serializable {
 
     public void setDescription(String description) {
         this.description = description != null ? description.trim() : "";
+    }
+
+    public Item getItem() {
+        return item;
+    }
+
+    public void setItem(Item item) {
+        this.item = item;
+        if (item != null && (itemSpecs == null || itemSpecs.isBlank())) {
+            this.itemSpecs = extractSpecsFromItem(item);
+        }
+    }
+
+    public String getItemSpecs() {
+        return itemSpecs != null ? itemSpecs : "";
+    }
+
+    public void setItemSpecs(String itemSpecs) {
+        this.itemSpecs = itemSpecs != null ? itemSpecs.trim() : "";
+    }
+
+    public static String extractSpecsFromItem(Item item) {
+        if (item instanceof Art art) {
+            return formatSpecPairs(
+                    "Tác giả", art.getArtist(),
+                    "Chất liệu", art.getMedium(),
+                    "Năm sáng tác", art.getYearCreated() > 0 ? String.valueOf(art.getYearCreated()) : "");
+        }
+        if (item instanceof Electronics elec) {
+            return formatSpecPairs(
+                    "Thương hiệu", elec.getBrand(),
+                    "Model", elec.getModel(),
+                    "Bảo hành", elec.getWarrantyPeriod() > 0 ? elec.getWarrantyPeriod() + " tháng" : "Chính hãng");
+        }
+        if (item instanceof Vehicle vehicle) {
+            return formatSpecPairs(
+                    "Hãng xe", vehicle.getMake(),
+                    "Dòng xe", vehicle.getModel(),
+                    "Năm sản xuất", vehicle.getYear() > 0 ? String.valueOf(vehicle.getYear()) : "");
+        }
+        return "";
+    }
+
+    private static String formatSpecPairs(String k1, String v1, String k2, String v2, String k3, String v3) {
+        StringBuilder sb = new StringBuilder();
+        appendSpec(sb, k1, v1);
+        appendSpec(sb, k2, v2);
+        appendSpec(sb, k3, v3);
+        return sb.toString();
+    }
+
+    private static void appendSpec(StringBuilder sb, String key, String val) {
+        if (val == null || val.isBlank()) {
+            return;
+        }
+        if (sb.length() > 0) {
+            sb.append(";;");
+        }
+        sb.append(key).append(": ").append(val.replace(";;", ", ").replace("|", "/").trim());
     }
 
     public String getImageKey() {
@@ -615,6 +732,12 @@ public class Auction implements AuctionSubject, Serializable {
         }
         if (this.description == null) {
             this.description = "";
+        }
+        if (this.itemSpecs == null) {
+            this.itemSpecs = "";
+        }
+        if (this.itemSpecs.isBlank() && this.item != null) {
+            this.itemSpecs = extractSpecsFromItem(this.item);
         }
         if (this.imageKey == null) {
             this.imageKey = "";

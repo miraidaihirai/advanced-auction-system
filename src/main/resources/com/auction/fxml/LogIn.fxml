@@ -4,6 +4,7 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.HBox?>
@@ -16,27 +17,22 @@
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.auction.ui.LogInController"
            stylesheets="@../css/bidx-theme.css"
+           minWidth="0" minHeight="0"
            styleClass="auth-root">
 
     <!-- Animated ambient neon orbs -->
     <Pane fx:id="ambientPane" mouseTransparent="true"/>
 
-    <!-- Floating Light/Dark Theme Switcher -->
-    <Button fx:id="btnThemeToggle" text="Light" onAction="#handleToggleTheme"
-            styleClass="theme-toggle-btn" StackPane.alignment="TOP_RIGHT">
-        <StackPane.margin>
-            <Insets top="20" right="26"/>
-        </StackPane.margin>
-    </Button>
+    <!-- Scroll-safe Responsive Split Cinema Promo + Glass Login Card -->
+    <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER" minWidth="0" minHeight="0" styleClass="bidx-scroll">
+        <StackPane alignment="CENTER" minWidth="0" minHeight="0">
+            <HBox alignment="CENTER" spacing="30" maxWidth="1120" minWidth="0" style="-fx-padding: 18 28 18 28;">
 
-    <!-- Split Cinema Promo + Glass Login Card -->
-    <HBox alignment="CENTER" spacing="44" maxWidth="1180" style="-fx-padding: 28 40 28 40;">
+                <!-- Left 60 FPS Motion-Graphics Promo Showcase -->
+                <StackPane fx:id="promoHost" prefWidth="490" prefHeight="555" minWidth="350" minHeight="420" maxWidth="540" maxHeight="610" HBox.hgrow="SOMETIMES"/>
 
-        <!-- Left 60 FPS Motion-Graphics Promo Showcase -->
-        <StackPane fx:id="promoHost" prefWidth="560" prefHeight="640" minWidth="500" maxWidth="560"/>
-
-        <!-- Right Glassmorphism Login Card -->
-        <VBox fx:id="loginCard" spacing="16" prefWidth="444" minWidth="420" maxWidth="454" styleClass="auth-card">
+                <!-- Right Glassmorphism Login Card -->
+                <VBox fx:id="loginCard" spacing="13" prefWidth="428" minWidth="370" maxWidth="448" styleClass="auth-card" style="-fx-padding: 26 30 24 30;">
             <HBox spacing="12" alignment="CENTER_LEFT">
                 <StackPane fx:id="logoWrap" style="-fx-background-color: #0D1322; -fx-background-radius: 14; -fx-border-color: rgba(255,158,68,0.55); -fx-border-radius: 14; -fx-padding: 3;">
                     <ImageView fx:id="imgLogo" fitWidth="46" fitHeight="46" preserveRatio="true"/>
@@ -94,8 +90,18 @@
                 <Label text="Chưa có tài khoản BidX?" styleClass="text-muted" style="-fx-font-size: 12.5px;"/>
                 <Button text="Đăng ký ngay →" onAction="#SwitchToRegister" styleClass="btn-link-subtle"/>
             </HBox>
-        </VBox>
+                </VBox>
 
-    </HBox>
+            </HBox>
+        </StackPane>
+    </ScrollPane>
+
+    <!-- Floating Light/Dark Theme Switcher (Always clickable above ScrollPane) -->
+    <Button fx:id="btnThemeToggle" text="Light" onAction="#handleToggleTheme"
+            styleClass="theme-toggle-btn" StackPane.alignment="TOP_RIGHT">
+        <StackPane.margin>
+            <Insets top="16" right="22"/>
+        </StackPane.margin>
+    </Button>
 
 </StackPane>

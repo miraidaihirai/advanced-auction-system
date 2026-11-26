@@ -93,6 +93,12 @@ public class AuctionNotificationListener implements AuctionClient.AuctionEventLi
             String aucId = message.substring("SUCCESS REQUEST_AUCTION ".length()).trim();
             NotificationManager.showSuccess("Đã gửi yêu cầu mở phòng " + aucId
                     + "!\nVui lòng chờ Admin kiểm duyệt.");
+        } else if (message.startsWith("SUCCESS UPDATE_AUCTION ")) {
+            String aucId = message.substring("SUCCESS UPDATE_AUCTION ".length()).trim();
+            NotificationManager.showSuccess("Đã cập nhật thông tin sản phẩm " + aucId + " thành công!");
+        } else if (message.startsWith("SUCCESS DELETE_AUCTION ")) {
+            String aucId = message.substring("SUCCESS DELETE_AUCTION ".length()).trim();
+            NotificationManager.showInfo("Đã xóa phiên/sản phẩm " + aucId + " khỏi hệ thống.");
         } else if (message.startsWith("SUCCESS APPROVE_AUCTION ")) {
             String aucId = message.substring("SUCCESS APPROVE_AUCTION ".length()).trim();
             NotificationManager.showPayout("ĐÃ DUYỆT & MỞ PHÒNG!",
@@ -126,8 +132,8 @@ public class AuctionNotificationListener implements AuctionClient.AuctionEventLi
             requestProfileAndCatalogRefresh();
         } else if (message.startsWith("ERROR ") && !message.startsWith("ERROR BID ")) {
             String reason = message.substring("ERROR ".length()).trim();
-            if (reason.contains("Số dư ví") || reason.toLowerCase(Locale.ROOT).contains("withdraw")
-                    || reason.toLowerCase(Locale.ROOT).contains("top-up")) {
+            ClientSession session = ViewManager.getClientSession();
+            if (session != null && session.getCurrentUser() != null) {
                 NotificationManager.showError(reason);
             }
         }

@@ -163,8 +163,8 @@ Seeded live catalog spans **22 auctions across 5 categories**:
 ## Key Features
 
 - **Strict 3-Role Workflow (UI + Server Enforced)**:
-  - **Seller**: submits room requests (`PENDING_APPROVAL`), uploads or selects studio photos, cannot place bids.
-  - **Admin**: approves (`APPROVE_AUCTION` → `RUNNING`) or rejects (`REJECT_AUCTION` with reason), supervises live rooms, audits wallets & cashflow.
+  - **Seller**: submits room requests (`OPEN`, awaiting Admin review), uploads or selects studio photos, cannot place bids.
+  - **Admin**: approves (`APPROVE_AUCTION` → `RUNNING`) or rejects/cancels (`REJECT_AUCTION` → `CANCELED` with reason), supervises live rooms, audits wallets & cashflow.
   - **Bidder**: browses approved listings, places bids with dynamic scaled quick-bid chips, configures Auto-Bid, pays won auctions.
 - **Automatic Settlement & Fintech Wallet Hub**:
   - When a live auction finishes with a winner, the winning amount transfers automatically from Bidder to Seller wallet (idempotent, never double-credited on `PAY`).
@@ -322,7 +322,7 @@ sequenceDiagram
     participant B as Bidder (Xuân Thắng / Huy Hưng)
 
     S->>SV: REQUEST_AUCTION (item, price, step, image)
-    SV-->>S: SUCCESS REQUEST_AUCTION (PENDING_APPROVAL)
+    SV-->>S: SUCCESS REQUEST_AUCTION (status = OPEN)
     SV-->>A: NOTIFY CATALOG_REFRESH
 
     A->>SV: APPROVE_AUCTION (auctionId)

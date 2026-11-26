@@ -4,9 +4,12 @@ echo ==================================================
 echo   DANG KHOI DONG BIDX AUCTION SOCKET SERVER
 echo ==================================================
 
-if not exist "target\classes\network\AuctionServer.class" (
-    echo [1/2] Dang bien dich ma nguon qua Maven...
-    call mvn compile
+echo [1/2] Dang bien dich ma nguon moi nhat qua Maven...
+call mvn -q compile
+if errorlevel 1 (
+    echo [LOI] Bien dich that bai! Kiem tra lai ma nguon hoac Maven.
+    pause
+    exit /b 1
 )
 
 echo [2/2] Dang chay BidX Server tai cong 8888...

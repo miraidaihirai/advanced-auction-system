@@ -133,12 +133,10 @@ public final class FormatUtils {
         }
         return switch (status.toUpperCase(Locale.ROOT)) {
             case "RUNNING", "ACTIVE" -> "ĐANG DIỄN RA";
-            case "PENDING_APPROVAL" -> "CHỜ ADMIN DUYỆT";
+            case "OPEN" -> "CHỜ ADMIN DUYỆT";
             case "FINISHED" -> "ĐÃ KẾT THÚC";
             case "PAID" -> "HOÀN TẤT & ĐÃ NHẬN TIỀN";
-            case "REJECTED" -> "BỊ TỪ CHỐI";
-            case "CANCELED" -> "ĐÃ HỦY";
-            case "OPEN" -> "CHỜ MỞ";
+            case "CANCELED" -> "ĐÃ HỦY / TỪ CHỐI";
             default -> status;
         };
     }
@@ -149,10 +147,10 @@ public final class FormatUtils {
         }
         return switch (status.toUpperCase(Locale.ROOT)) {
             case "RUNNING", "ACTIVE" -> "badge-live";
-            case "PENDING_APPROVAL" -> "badge-pending";
+            case "OPEN" -> "badge-pending";
             case "FINISHED" -> "badge-finished";
             case "PAID" -> "badge-paid";
-            case "REJECTED", "CANCELED" -> "badge-rejected";
+            case "CANCELED" -> "badge-rejected";
             default -> "badge-muted";
         };
     }

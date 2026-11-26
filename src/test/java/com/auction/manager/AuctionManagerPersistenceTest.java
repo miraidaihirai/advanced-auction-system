@@ -84,7 +84,7 @@ public class AuctionManagerPersistenceTest {
         // File phải được tạo ngay lập tức do autoSave = true
         assertTrue(testStorageFile.exists());
 
-        Bidder bidder = new Bidder("AUTO-BIDDER", "Auto Bidder", "password123");
+        Bidder bidder = new Bidder("AUTO-BIDDER", "Auto Bidder", "password123", 1_000_000_000);
         manager.registerUser(bidder);
 
         Auction auction = new Auction("AUTO-AUC", "Tesla Model 3", seller.getId(), 800_000_000, 10_000_000);

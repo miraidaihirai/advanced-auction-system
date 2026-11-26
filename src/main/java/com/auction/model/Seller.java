@@ -35,8 +35,7 @@ public class Seller extends User implements AuctionObserver {
                 getName(),
                 auction.getItemId(),
                 bid.getAmount(),
-                bid.getBidderId()
-        );
+                bid.getBidderId());
     }
 
     @Override
@@ -46,7 +45,6 @@ public class Seller extends User implements AuctionObserver {
                 getName(),
                 auction.getId(),
                 auction.getCurrentPrice(),
-                auction.getHighestBidderId()
-        );
+                auction.getHighestBidderId());
     }
 }

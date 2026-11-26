@@ -23,6 +23,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
@@ -99,6 +100,18 @@ public class SellerDashboardController implements SessionAware {
     @FXML
     private TextField txtStepPrice;
     @FXML
+    private Label lblSpec1;
+    @FXML
+    private Label lblSpec2;
+    @FXML
+    private Label lblSpec3;
+    @FXML
+    private TextField txtSpec1;
+    @FXML
+    private TextField txtSpec2;
+    @FXML
+    private TextField txtSpec3;
+    @FXML
     private TextArea txtDescription;
     @FXML
     private Label lblFormError;
@@ -106,6 +119,10 @@ public class SellerDashboardController implements SessionAware {
     private Button btnSubmitRequest;
     @FXML
     private ImageView imgFormPreview;
+    @FXML
+    private Label lblImageCount;
+    @FXML
+    private FlowPane formImageStrip;
     @FXML
     private ComboBox<String> cbImagePreset;
 
@@ -130,12 +147,18 @@ public class SellerDashboardController implements SessionAware {
     private VBox payoutLedgerContainer;
     private BidXWalletPanel walletPanel;
 
+    private static final int MAX_UPLOAD_IMAGES = 6;
+    private static final String DEFAULT_IMAGE_KEY = "item_watch_classic";
+
     private ClientSession clientSession;
     private AuctionClient.AuctionEventListener listener;
     private final List<AuctionDetail> myAuctions = new ArrayList<>();
     private String myRoomsFilter = "ALL";
-    private String selectedImageKey = "item_watch_classic";
+    private final List<String> selectedImageKeys = new ArrayList<>();
+    private int activePreviewIndex = 0;
+    private boolean usingDefaultPreset = true;
     private double lastWalletBalance = -1;
+    private String editingAuctionId = null;
 
     private final Map<String, String> categoryMap = new LinkedHashMap<>();
     private final Map<String, Long> durationMap = new LinkedHashMap<>();
@@ -180,6 +203,8 @@ public class SellerDashboardController implements SessionAware {
         categoryMap.put("Khác (Trang sức, Rượu, Túi, Sưu tầm)", "OTHER");
         cbCategory.getItems().addAll(categoryMap.keySet());
         cbCategory.getSelectionModel().selectFirst();
+        cbCategory.setOnAction(e -> updateSpecFieldLabels());
+        updateSpecFieldLabels();
 
         durationMap.put("1 phút (Demo nhanh)", 60L);
         durationMap.put("3 phút", 180L);
@@ -195,18 +220,106 @@ public class SellerDashboardController implements SessionAware {
             cbImagePreset.getItems().add(entry.getValue());
         }
         cbImagePreset.getSelectionModel().selectFirst();
-        cbImagePreset.setOnAction(e -> {
-            String label = cbImagePreset.getValue();
-            if (label != null && presetLabelToKey.containsKey(label)) {
-                selectedImageKey = presetLabelToKey.get(label);
-                updateFormPreview();
-            }
-        });
+        selectedImageKeys.clear();
+        selectedImageKeys.add(DEFAULT_IMAGE_KEY);
+        activePreviewIndex = 0;
+        usingDefaultPreset = true;
         updateFormPreview();
     }
 
+    private void updateSpecFieldLabels() {
+        if (lblSpec1 == null || cbCategory == null) {
+            return;
+        }
+        String cat = categoryMap.getOrDefault(cbCategory.getValue(), "OTHER");
+        switch (cat) {
+            case "ART" -> {
+                lblSpec1.setText("Tác giả / Nghệ nhân");
+                txtSpec1.setPromptText("VD: Họa sĩ / Nghệ nhân...");
+                lblSpec2.setText("Chất liệu");
+                txtSpec2.setPromptText("VD: Đồng đúc dát vàng 24K");
+                lblSpec3.setText("Năm sáng tác");
+                txtSpec3.setPromptText("VD: 1998");
+            }
+            case "ELECTRONICS" -> {
+                lblSpec1.setText("Thương hiệu");
+                txtSpec1.setPromptText("VD: Leica, Apple, Dell...");
+                lblSpec2.setText("Model / Phiên bản");
+                txtSpec2.setPromptText("VD: M3 Summicron 50mm");
+                lblSpec3.setText("Bảo hành (tháng)");
+                txtSpec3.setPromptText("VD: 24");
+            }
+            case "VEHICLES" -> {
+                lblSpec1.setText("Hãng xe");
+                txtSpec1.setPromptText("VD: Ferrari, Rolls-Royce...");
+                lblSpec2.setText("Dòng xe");
+                txtSpec2.setPromptText("VD: SF90 Stradale");
+                lblSpec3.setText("Năm sản xuất");
+                txtSpec3.setPromptText("VD: 2024");
+            }
+            default -> {
+                lblSpec1.setText("Thương hiệu / Xuất xứ");
+                txtSpec1.setPromptText("VD: Rolex, Hermès, Ý...");
+                lblSpec2.setText("Chất liệu / Phiên bản");
+                txtSpec2.setPromptText("VD: Vàng 18K / Da cá sấu");
+                lblSpec3.setText("Năm sản xuất");
+                txtSpec3.setPromptText("VD: 2023");
+            }
+        }
+    }
+
     private void updateFormPreview() {
-        ProductImageService.loadIntoImageView(imgFormPreview, "PREVIEW", txtItemName.getText(), selectedImageKey, 296, 185, 12);
+        if (selectedImageKeys.isEmpty()) {
+            selectedImageKeys.add(DEFAULT_IMAGE_KEY);
+            usingDefaultPreset = true;
+        }
+        if (activePreviewIndex < 0 || activePreviewIndex >= selectedImageKeys.size()) {
+            activePreviewIndex = 0;
+        }
+        String previewKey = selectedImageKeys.get(activePreviewIndex);
+        ProductImageService.loadIntoImageView(imgFormPreview, "PREVIEW", txtItemName.getText(), previewKey, 256, 152,
+                12);
+
+        if (lblImageCount != null) {
+            lblImageCount.setText(selectedImageKeys.size() + "/" + MAX_UPLOAD_IMAGES + " ảnh");
+        }
+        if (formImageStrip != null) {
+            formImageStrip.getChildren().clear();
+            for (int i = 0; i < selectedImageKeys.size(); i++) {
+                final int idx = i;
+                String key = selectedImageKeys.get(i);
+                ImageView thumb = new ImageView();
+                ProductImageService.loadIntoImageView(thumb, "PREVIEW_" + i, txtItemName.getText(), key, 52, 36, 6);
+
+                StackPane wrap = new StackPane(thumb);
+                wrap.getStyleClass().add("thumb-frame");
+                if (i == activePreviewIndex) {
+                    wrap.getStyleClass().add("thumb-frame-active");
+                }
+                wrap.setOnMouseClicked(e -> {
+                    activePreviewIndex = idx;
+                    updateFormPreview();
+                });
+
+                if (selectedImageKeys.size() > 1) {
+                    Button btnRemove = new Button("×");
+                    btnRemove.setStyle("-fx-background-color: rgba(244,63,94,0.92); -fx-text-fill: white;"
+                            + " -fx-font-size: 9px; -fx-font-weight: bold; -fx-background-radius: 9;"
+                            + " -fx-padding: 0 4 0 4; -fx-cursor: hand;");
+                    StackPane.setAlignment(btnRemove, Pos.TOP_RIGHT);
+                    btnRemove.setOnAction(ev -> {
+                        ev.consume();
+                        selectedImageKeys.remove(idx);
+                        if (activePreviewIndex >= selectedImageKeys.size()) {
+                            activePreviewIndex = Math.max(0, selectedImageKeys.size() - 1);
+                        }
+                        updateFormPreview();
+                    });
+                    wrap.getChildren().add(btnRemove);
+                }
+                formImageStrip.getChildren().add(wrap);
+            }
+        }
     }
 
     @Override
@@ -280,6 +393,14 @@ public class SellerDashboardController implements SessionAware {
                         showMyRoomsTab();
                         requestSync();
                     });
+                } else if (rawMessage.startsWith("SUCCESS UPDATE_AUCTION ")) {
+                    Platform.runLater(() -> {
+                        handleResetForm();
+                        showMyRoomsTab();
+                        requestSync();
+                    });
+                } else if (rawMessage.startsWith("SUCCESS DELETE_AUCTION ")) {
+                    Platform.runLater(() -> requestSync());
                 } else if (rawMessage.startsWith("ERROR ")) {
                     String err = rawMessage.substring("ERROR ".length());
                     Platform.runLater(() -> {
@@ -350,7 +471,8 @@ public class SellerDashboardController implements SessionAware {
     private void renderRoomsInto(VBox target, List<AuctionDetail> list) {
         target.getChildren().clear();
         if (list.isEmpty()) {
-            Label empty = new Label("Chưa có phòng đấu giá nào trong mục này. Nhấn '+ Gửi yêu cầu mở phòng' để tạo sản phẩm đầu tiên!");
+            Label empty = new Label(
+                    "Chưa có phòng đấu giá nào trong mục này. Nhấn '+ Gửi yêu cầu mở phòng' để tạo sản phẩm đầu tiên!");
             empty.setStyle("-fx-text-fill: #64748B; -fx-font-size: 13px; -fx-padding: 20 0 20 0;");
             target.getChildren().add(empty);
             return;
@@ -389,12 +511,15 @@ public class SellerDashboardController implements SessionAware {
             metaText = "⏳ Đang chờ Admin xét duyệt • Giá khởi điểm: " + FormatUtils.formatVnd(d.startPrice())
                     + " • Thời lượng đề xuất: " + FormatUtils.formatDurationLabel(d.requestedDurationSec());
         } else if (d.isRejected()) {
-            metaText = "✕ Lý do Admin từ chối: " + (d.rejectionReason().isBlank() ? "Không đạt yêu cầu" : d.rejectionReason());
+            metaText = "✕ Lý do Admin từ chối: "
+                    + (d.rejectionReason().isBlank() ? "Không đạt yêu cầu" : d.rejectionReason());
         } else if (d.isRunning()) {
             metaText = "● Đang diễn ra • Giá hiện tại: " + FormatUtils.formatVnd(d.currentPrice())
-                    + " • " + d.bidCount() + " lượt đặt • Còn: " + FormatUtils.formatCountdownCompact(d.getRemainingSeconds());
+                    + " • " + d.bidCount() + " lượt đặt • Còn: "
+                    + FormatUtils.formatCountdownCompact(d.getRemainingSeconds());
         } else if (d.hasWinner()) {
-            metaText = "💰 Đã bán thành công cho " + d.highestBidderId() + " • Đã nhận +" + FormatUtils.formatVnd(d.currentPrice()) + " về ví Seller!";
+            metaText = "💰 Đã bán thành công cho " + d.highestBidderId() + " • Đã nhận +"
+                    + FormatUtils.formatVnd(d.currentPrice()) + " về ví Seller!";
         } else {
             metaText = "Phiên đã kết thúc mà chưa có lượt đặt giá.";
         }
@@ -418,6 +543,22 @@ public class SellerDashboardController implements SessionAware {
             btnWatch.getStyleClass().add("btn-ghost");
             btnWatch.setOnAction(e -> ViewManager.openAuctionRoom(d));
             rightCol.getChildren().add(btnWatch);
+        } else if (d.isPendingApproval() || d.isRejected()) {
+            HBox crudBtns = new HBox(8);
+            crudBtns.setAlignment(Pos.CENTER_RIGHT);
+            if (d.isPendingApproval()) {
+                Button btnEdit = new Button("Sửa");
+                btnEdit.getStyleClass().add("btn-ghost");
+                btnEdit.setStyle("-fx-padding: 6 12 6 12; -fx-font-size: 12px;");
+                btnEdit.setOnAction(e -> startEditingAuction(d));
+                crudBtns.getChildren().add(btnEdit);
+            }
+            Button btnDelete = new Button("Xóa");
+            btnDelete.getStyleClass().add("btn-crimson-outline");
+            btnDelete.setStyle("-fx-padding: 6 12 6 12; -fx-font-size: 12px;");
+            btnDelete.setOnAction(e -> handleDeleteAuction(d));
+            crudBtns.getChildren().add(btnDelete);
+            rightCol.getChildren().add(crudBtns);
         }
 
         row.getChildren().addAll(thumb, info, rightCol);
@@ -431,7 +572,8 @@ public class SellerDashboardController implements SessionAware {
         }
         payoutLedgerContainer.getChildren().clear();
         if (transactions == null || transactions.isEmpty()) {
-            Label empty = new Label("Chưa có giao dịch ví nào. Khi phiên kết thúc có người thắng, nạp tiền hoặc rút về ngân hàng, lịch sử sẽ hiển thị tại đây.");
+            Label empty = new Label(
+                    "Chưa có giao dịch ví nào. Khi phiên kết thúc có người thắng, nạp tiền hoặc rút về ngân hàng, lịch sử sẽ hiển thị tại đây.");
             empty.setStyle("-fx-text-fill: #64748B; -fx-font-size: 13px; -fx-padding: 20 0 0 0;");
             payoutLedgerContainer.getChildren().add(empty);
             return;
@@ -463,7 +605,8 @@ public class SellerDashboardController implements SessionAware {
                     : "Doanh thu phiên: " + tx.itemName() + " (" + tx.auctionId() + ")";
             String subText = (isWithdraw || isTopUp)
                     ? "Kênh: " + tx.counterpartyId() + " • " + FormatUtils.formatTimestampShort(tx.timestamp())
-                    : "Người mua thắng cuộc: " + tx.counterpartyId() + " • " + FormatUtils.formatTimestampShort(tx.timestamp());
+                    : "Người mua thắng cuộc: " + tx.counterpartyId() + " • "
+                            + FormatUtils.formatTimestampShort(tx.timestamp());
             Label title = new Label(titleText);
             title.getStyleClass().add("text-primary");
             title.setStyle("-fx-font-weight: bold; -fx-font-size: 13.5px;");
@@ -490,15 +633,55 @@ public class SellerDashboardController implements SessionAware {
     @FXML
     public void handleUploadImage() {
         FileChooser fc = new FileChooser();
-        fc.setTitle("Chọn ảnh sản phẩm đấu giá");
+        fc.setTitle("Chọn nhiều ảnh sản phẩm đấu giá (tối đa " + MAX_UPLOAD_IMAGES + " ảnh)");
         fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Hình ảnh", "*.png", "*.jpg", "*.jpeg", "*.webp"));
         Window w = txtItemName.getScene() != null ? txtItemName.getScene().getWindow() : null;
-        File chosen = fc.showOpenDialog(w);
-        if (chosen != null) {
-            String key = "SELLER_IMG_" + System.currentTimeMillis();
-            selectedImageKey = ProductImageService.saveProductImage(key, chosen);
+        List<File> chosenList = fc.showOpenMultipleDialog(w);
+        if (chosenList != null && !chosenList.isEmpty()) {
+            if (usingDefaultPreset) {
+                selectedImageKeys.clear();
+                usingDefaultPreset = false;
+            }
+            int added = 0;
+            for (File chosen : chosenList) {
+                if (selectedImageKeys.size() >= MAX_UPLOAD_IMAGES) {
+                    NotificationManager.showInfo("Chỉ hỗ trợ tối đa " + MAX_UPLOAD_IMAGES + " ảnh cho mỗi sản phẩm.");
+                    break;
+                }
+                String key = "SELLER_IMG_" + System.currentTimeMillis() + "_" + added;
+                String savedPath = ProductImageService.saveProductImage(key, chosen);
+                if (savedPath != null && !savedPath.isBlank() && !selectedImageKeys.contains(savedPath)) {
+                    selectedImageKeys.add(savedPath);
+                    added++;
+                }
+            }
+            activePreviewIndex = Math.max(0, selectedImageKeys.size() - 1);
             updateFormPreview();
+            SoundEffects.playReactionTap();
         }
+    }
+
+    @FXML
+    public void handleAddPresetImage() {
+        String label = cbImagePreset != null ? cbImagePreset.getValue() : null;
+        if (label == null || !presetLabelToKey.containsKey(label)) {
+            return;
+        }
+        String presetKey = presetLabelToKey.get(label);
+        if (selectedImageKeys.contains(presetKey)) {
+            activePreviewIndex = selectedImageKeys.indexOf(presetKey);
+            updateFormPreview();
+            return;
+        }
+        if (selectedImageKeys.size() >= MAX_UPLOAD_IMAGES) {
+            NotificationManager.showInfo("Đã đạt tối đa " + MAX_UPLOAD_IMAGES + " ảnh cho sản phẩm.");
+            return;
+        }
+        usingDefaultPreset = false;
+        selectedImageKeys.add(presetKey);
+        activePreviewIndex = selectedImageKeys.size() - 1;
+        updateFormPreview();
+        SoundEffects.playReactionTap();
     }
 
     @FXML
@@ -509,7 +692,8 @@ public class SellerDashboardController implements SessionAware {
             return;
         }
         String name = txtItemName.getText() != null ? txtItemName.getText().trim() : "";
-        String startStr = txtStartPrice.getText() != null ? txtStartPrice.getText().trim().replaceAll("[,._\\s]", "") : "";
+        String startStr = txtStartPrice.getText() != null ? txtStartPrice.getText().trim().replaceAll("[,._\\s]", "")
+                : "";
         String stepStr = txtStepPrice.getText() != null ? txtStepPrice.getText().trim().replaceAll("[,._\\s]", "") : "";
         String desc = txtDescription.getText() != null ? txtDescription.getText().trim() : "";
 
@@ -534,36 +718,183 @@ public class SellerDashboardController implements SessionAware {
 
         String category = categoryMap.getOrDefault(cbCategory.getValue(), "COLLECTIBLE");
         long durationSec = durationMap.getOrDefault(cbDuration.getValue(), 300L);
+        String s1 = txtSpec1 != null && txtSpec1.getText() != null ? txtSpec1.getText().trim() : "";
+        String s2 = txtSpec2 != null && txtSpec2.getText() != null ? txtSpec2.getText().trim() : "";
+        String s3 = txtSpec3 != null && txtSpec3.getText() != null ? txtSpec3.getText().trim() : "";
+        int specYear = parsePositiveIntOrDefault(s3, "ELECTRONICS".equals(category) ? 24 : 2024);
 
         // Áp dụng Factory Method Pattern để khởi tạo đúng đối tượng OOP theo danh mục
         ItemFactory factory = switch (category) {
-            case "ART" -> new ArtFactory(name, (int) (System.currentTimeMillis() % 100000), (int) Math.min(startPrice, Integer.MAX_VALUE), 1, "BidX Artisan", "Classic", 2024);
-            case "VEHICLES" -> new VehicleFactory(name, (int) (System.currentTimeMillis() % 100000), (int) Math.min(startPrice, Integer.MAX_VALUE), 1, "Luxury", name, 2024);
-            default -> new ElectronicsFactory(name, (int) (System.currentTimeMillis() % 100000), (int) Math.min(startPrice, Integer.MAX_VALUE), 1, "BidX Studio", name, 24);
+            case "ART" -> new ArtFactory(name, (int) (System.currentTimeMillis() % 100000),
+                    (int) Math.min(startPrice, Integer.MAX_VALUE), 1,
+                    s1.isEmpty() ? "Nghệ nhân BidX" : s1,
+                    s2.isEmpty() ? "Thủ công cao cấp" : s2,
+                    specYear);
+            case "VEHICLES" -> new VehicleFactory(name, (int) (System.currentTimeMillis() % 100000),
+                    (int) Math.min(startPrice, Integer.MAX_VALUE), 1,
+                    s1.isEmpty() ? "Luxury" : s1,
+                    s2.isEmpty() ? name : s2,
+                    specYear);
+            default -> new ElectronicsFactory(name, (int) (System.currentTimeMillis() % 100000),
+                    (int) Math.min(startPrice, Integer.MAX_VALUE), 1,
+                    s1.isEmpty() ? "BidX Studio" : s1,
+                    s2.isEmpty() ? name : s2,
+                    specYear);
         };
-        factory.createItem();
+        com.auction.item.Item createdItem = factory.createItem();
+        String itemSpecs = buildUserItemSpecs(category, s1, s2, s3, createdItem);
 
-        clientSession.getClient().requestAuction(
-                name, category, startPrice, stepPrice, durationSec, selectedImageKey, desc);
+        String combinedImageKeys = ProductImageService.joinImageKeys(selectedImageKeys);
+        if (editingAuctionId != null) {
+            clientSession.getClient().updateAuction(
+                    editingAuctionId, name, category, startPrice, stepPrice, durationSec, combinedImageKeys, desc, itemSpecs);
+        } else {
+            clientSession.getClient().requestAuction(
+                    name, category, startPrice, stepPrice, durationSec, combinedImageKeys, desc, itemSpecs);
+        }
+    }
+
+    private void startEditingAuction(AuctionDetail d) {
+        if (d == null) {
+            return;
+        }
+        editingAuctionId = d.auctionId();
+        txtItemName.setText(d.itemName());
+        txtStartPrice.setText(String.format(java.util.Locale.US, "%.0f", d.startPrice()));
+        txtStepPrice.setText(String.format(java.util.Locale.US, "%.0f", d.stepPrice()));
+        txtDescription.setText(d.description());
+        lblFormError.setText("");
+
+        for (Map.Entry<String, String> entry : categoryMap.entrySet()) {
+            if (entry.getValue().equalsIgnoreCase(d.category())) {
+                cbCategory.getSelectionModel().select(entry.getKey());
+                break;
+            }
+        }
+        for (Map.Entry<String, Long> entry : durationMap.entrySet()) {
+            if (entry.getValue() == d.requestedDurationSec()) {
+                cbDuration.getSelectionModel().select(entry.getKey());
+                break;
+            }
+        }
+        updateSpecFieldLabels();
+
+        if (txtSpec1 != null) txtSpec1.clear();
+        if (txtSpec2 != null) txtSpec2.clear();
+        if (txtSpec3 != null) txtSpec3.clear();
+        if (d.itemSpecs() != null && !d.itemSpecs().isBlank()) {
+            String[] specParts = d.itemSpecs().split(";;");
+            TextField[] specFields = {txtSpec1, txtSpec2, txtSpec3};
+            for (int i = 0; i < Math.min(specParts.length, specFields.length); i++) {
+                String part = specParts[i].trim();
+                int colon = part.indexOf(':');
+                String val = colon >= 0 ? part.substring(colon + 1).trim() : part;
+                if (specFields[i] != null) {
+                    specFields[i].setText(val.replace(" tháng", ""));
+                }
+            }
+        }
+
+        List<String> parsedImgs = ProductImageService.parseImageKeys(d.imageKey());
+        selectedImageKeys.clear();
+        if (!parsedImgs.isEmpty()) {
+            selectedImageKeys.addAll(parsedImgs);
+            usingDefaultPreset = false;
+        } else {
+            selectedImageKeys.add(DEFAULT_IMAGE_KEY);
+            usingDefaultPreset = true;
+        }
+        activePreviewIndex = 0;
+        updateFormPreview();
+
+        btnSubmitRequest.setText("LƯU THAY ĐỔI SẢN PHẨM");
+        switchTab(tabCreate, navCreateRequest, "Chỉnh sửa sản phẩm " + d.auctionId());
+    }
+
+    private void handleDeleteAuction(AuctionDetail d) {
+        if (d == null || clientSession == null || !clientSession.isConnected()) {
+            return;
+        }
+        javafx.scene.control.Alert confirm = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Xác nhận xóa sản phẩm");
+        confirm.setHeaderText("Xóa sản phẩm " + d.itemName() + " (" + d.auctionId() + ")?");
+        confirm.setContentText("Thao tác này sẽ xóa vĩnh viễn yêu cầu / sản phẩm khỏi hệ thống.");
+        if (confirm.showAndWait().orElse(javafx.scene.control.ButtonType.CANCEL) == javafx.scene.control.ButtonType.OK) {
+            clientSession.getClient().deleteAuction(d.auctionId());
+        }
+    }
+
+    private int parsePositiveIntOrDefault(String raw, int fallback) {
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+        try {
+            int val = Integer.parseInt(raw.replaceAll("[^0-9]", ""));
+            return val > 0 ? val : fallback;
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    private String buildUserItemSpecs(
+            String category, String s1, String s2, String s3, com.auction.item.Item createdItem) {
+        if ("ART".equals(category) || "VEHICLES".equals(category) || "ELECTRONICS".equals(category)) {
+            if (s1.isEmpty() && s2.isEmpty() && s3.isEmpty()) {
+                return "";
+            }
+            return com.auction.model.Auction.extractSpecsFromItem(createdItem);
+        }
+        List<String> pairs = new ArrayList<>();
+        if (!s1.isEmpty()) {
+            pairs.add("Thương hiệu: " + s1);
+        }
+        if (!s2.isEmpty()) {
+            pairs.add("Chất liệu: " + s2);
+        }
+        if (!s3.isEmpty()) {
+            pairs.add("Năm sản xuất: " + s3);
+        }
+        return String.join(";;", pairs);
     }
 
     @FXML
     public void handleResetForm() {
+        editingAuctionId = null;
+        if (btnSubmitRequest != null) {
+            btnSubmitRequest.setText("GỬI YÊU CẦU CHO ADMIN DUYỆT");
+        }
         txtItemName.clear();
         txtStartPrice.clear();
         txtStepPrice.clear();
+        if (txtSpec1 != null) {
+            txtSpec1.clear();
+        }
+        if (txtSpec2 != null) {
+            txtSpec2.clear();
+        }
+        if (txtSpec3 != null) {
+            txtSpec3.clear();
+        }
         txtDescription.clear();
         lblFormError.setText("");
+        selectedImageKeys.clear();
+        selectedImageKeys.add(DEFAULT_IMAGE_KEY);
+        activePreviewIndex = 0;
+        usingDefaultPreset = true;
+        if (cbImagePreset != null && !cbImagePreset.getItems().isEmpty()) {
+            cbImagePreset.getSelectionModel().selectFirst();
+        }
+        updateFormPreview();
     }
 
     private void switchTab(ScrollPane activeTab, Button activeNav, String title) {
-        ScrollPane[] tabs = {tabOverview, tabCreate, tabMyRooms, tabPayouts};
+        ScrollPane[] tabs = { tabOverview, tabCreate, tabMyRooms, tabPayouts };
         for (ScrollPane sp : tabs) {
             boolean show = (sp == activeTab);
             sp.setVisible(show);
             sp.setManaged(show);
         }
-        Button[] navs = {navOverview, navCreateRequest, navMyRooms, navPayouts};
+        Button[] navs = { navOverview, navCreateRequest, navMyRooms, navPayouts };
         for (Button b : navs) {
             b.getStyleClass().remove("nav-btn-active-seller");
         }
@@ -582,6 +913,9 @@ public class SellerDashboardController implements SessionAware {
 
     @FXML
     public void showCreateTab() {
+        if (editingAuctionId != null) {
+            handleResetForm();
+        }
         switchTab(tabCreate, navCreateRequest, "Gửi yêu cầu mở phòng đấu giá");
     }
 
@@ -627,7 +961,7 @@ public class SellerDashboardController implements SessionAware {
 
     private void setMyFilter(String filter, Button activeBtn) {
         myRoomsFilter = filter;
-        Button[] pills = {filterMyAll, filterMyPending, filterMyLive, filterMySold, filterMyRejected};
+        Button[] pills = { filterMyAll, filterMyPending, filterMyLive, filterMySold, filterMyRejected };
         for (Button p : pills) {
             p.getStyleClass().remove("filter-pill-active");
         }
@@ -673,8 +1007,16 @@ public class SellerDashboardController implements SessionAware {
         BidXAnimations.popScale(btnRefresh, 1.18);
     }
 
+    @Override
+    public void detachSession() {
+        if (this.clientSession != null && this.clientSession.getClient() != null && listener != null) {
+            this.clientSession.getClient().removeListener(listener);
+        }
+    }
+
     @FXML
     public void handleLogout() {
+        detachSession();
         if (clientSession != null && clientSession.isConnected()) {
             clientSession.disconnect();
         }

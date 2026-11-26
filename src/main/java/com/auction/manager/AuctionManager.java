@@ -15,6 +15,7 @@ import com.auction.storage.FileStorageService;
 import com.auction.storage.TransactionStorageService;
 import com.auction.exceptions.AuthenticationException;
 import com.auction.exceptions.AuctionClosedException;
+import com.auction.exceptions.InvalidBidException;
 
 import java.io.File;
 import java.io.IOException;
@@ -185,7 +186,7 @@ public class AuctionManager {
     }
 
     /**
-     * Seller gửi yêu cầu mở phòng đấu giá mới (trạng thái PENDING_APPROVAL chờ Admin duyệt).
+     * Seller gửi yêu cầu mở phòng đấu giá mới (trạng thái OPEN chờ Admin duyệt).
      */
     public Auction submitAuctionRequest(
             String sellerId,
@@ -196,6 +197,21 @@ public class AuctionManager {
             double stepPrice,
             long durationSeconds,
             String imageKey) {
+        return submitAuctionRequest(
+                sellerId, itemName, category, description,
+                startPrice, stepPrice, durationSeconds, imageKey, "");
+    }
+
+    public Auction submitAuctionRequest(
+            String sellerId,
+            String itemName,
+            String category,
+            String description,
+            double startPrice,
+            double stepPrice,
+            long durationSeconds,
+            String imageKey,
+            String itemSpecs) {
         User user = userMap.get(sellerId);
         if (!(user instanceof Seller)) {
             throw new AuthenticationException("Only Sellers can submit auction room requests");
@@ -225,6 +241,9 @@ public class AuctionManager {
                 description,
                 Math.max(30, durationSeconds),
                 imageKey);
+        if (itemSpecs != null && !itemSpecs.isBlank()) {
+            pending.setItemSpecs(itemSpecs);
+        }
         addAuction(pending);
         return pending;
     }
@@ -270,10 +289,73 @@ public class AuctionManager {
         return auction;
     }
 
+    /**
+     * Sửa thông tin sản phẩm / phiên đấu giá khi phiên đang chờ duyệt (OPEN).
+     */
+    public Auction updateAuctionRequest(
+            String requesterId,
+            String auctionId,
+            String itemName,
+            String category,
+            double startPrice,
+            double stepPrice,
+            long durationSeconds,
+            String imageKey,
+            String description,
+            String itemSpecs) {
+        User user = userMap.get(requesterId);
+        if (!(user instanceof Seller) && !(user instanceof Admin)) {
+            throw new AuthenticationException("Only Sellers or Admins can update auction items");
+        }
+        Auction auction = auctionMap.get(auctionId);
+        if (auction == null) {
+            throw new AuctionClosedException("Auction not found: " + auctionId);
+        }
+        if (user instanceof Seller && !requesterId.equals(auction.getSellerId())) {
+            throw new AuthenticationException("You can only edit your own auction items");
+        }
+        auction.updatePendingDetails(
+                itemName, category, startPrice, stepPrice, durationSeconds, imageKey, description, itemSpecs);
+        if (autoSave) {
+            saveState();
+        }
+        return auction;
+    }
+
+    /**
+     * Xóa sản phẩm / phiên đấu giá (Seller chỉ xóa được phiên OPEN/CANCELED của mình; Admin xóa được phiên không có bid đang chạy).
+     */
+    public boolean deleteAuction(String requesterId, String auctionId) {
+        User user = userMap.get(requesterId);
+        if (!(user instanceof Seller) && !(user instanceof Admin)) {
+            throw new AuthenticationException("Only Sellers or Admins can delete auction items");
+        }
+        Auction auction = auctionMap.get(auctionId);
+        if (auction == null) {
+            throw new AuctionClosedException("Auction not found: " + auctionId);
+        }
+        if (user instanceof Seller) {
+            if (!requesterId.equals(auction.getSellerId())) {
+                throw new AuthenticationException("You can only delete your own auction items");
+            }
+            if (auction.getStatus() != Auction.Status.OPEN && auction.getStatus() != Auction.Status.CANCELED) {
+                throw new IllegalStateException("Seller chỉ có thể xóa sản phẩm đang chờ duyệt hoặc đã hủy");
+            }
+        } else if (auction.getStatus() == Auction.Status.RUNNING && !auction.getBidHistory().isEmpty()) {
+            throw new IllegalStateException("Không thể xóa phiên đang diễn ra đã có người đặt giá");
+        }
+        auction.cancelTimer();
+        boolean removed = auctionMap.remove(auctionId) != null;
+        if (removed && autoSave) {
+            saveState();
+        }
+        return removed;
+    }
+
     public List<Auction> getPendingApprovalAuctions() {
         List<Auction> pending = new ArrayList<>();
         for (Auction a : auctionMap.values()) {
-            if (a.getStatus() == Auction.Status.PENDING_APPROVAL) {
+            if (a.getStatus() == Auction.Status.OPEN) {
                 pending.add(a);
             }
         }
@@ -345,7 +427,14 @@ public class AuctionManager {
                 : "Ngân hàng liên kết";
         double updatedBalance;
         synchronized (user) {
-            if (user.getBalance() < amount) {
+            double reserved = getReservedBalanceForBidder(userId, null);
+            double available = Math.max(0.0, user.getBalance() - reserved);
+            if (available < amount) {
+                if (reserved > 0) {
+                    throw new IllegalArgumentException(String.format(
+                            "Số dư ví không đủ để rút %,.0f đ (đang tạm giữ %,.0f đ cho phiên đang dẫn đầu)",
+                            amount, reserved));
+                }
                 throw new IllegalArgumentException("Số dư ví không đủ để rút " + String.format("%,.0f", amount) + " đ");
             }
             user.deductBalance(amount);
@@ -469,6 +558,33 @@ public class AuctionManager {
         }
     }
 
+    /**
+     * Tính tổng số tiền đang tạm khóa của Bidder trên các phiên mà Bidder đang dẫn đầu
+     * (RUNNING hoặc FINISHED nhưng chưa quyết toán), loại trừ phiên excludeAuctionId nếu đang nâng giá chính phiên đó.
+     */
+    public double getReservedBalanceForBidder(String bidderId, String excludeAuctionId) {
+        if (bidderId == null || bidderId.isBlank()) {
+            return 0.0;
+        }
+        double reserved = 0.0;
+        for (Auction a : auctionMap.values()) {
+            if (a == null) {
+                continue;
+            }
+            if (excludeAuctionId != null && excludeAuctionId.equals(a.getId())) {
+                continue;
+            }
+            if (!bidderId.equals(a.getHighestBidderId())) {
+                continue;
+            }
+            Auction.Status st = a.getStatus();
+            if (st == Auction.Status.RUNNING || (st == Auction.Status.FINISHED && !a.isPayoutSettled())) {
+                reserved += a.getCurrentPrice();
+            }
+        }
+        return reserved;
+    }
+
     public boolean placeBid(String auctionId, String bidderId, String password, double amount) {
         User user = userMap.get(bidderId);
         if (!(user instanceof Bidder) || password == null || !user.getPassword().equals(password)) {
@@ -478,6 +594,19 @@ public class AuctionManager {
         Auction auction = auctionMap.get(auctionId);
         if (auction == null) {
             throw new AuctionClosedException("Auction not found: " + auctionId);
+        }
+
+        double reserved = getReservedBalanceForBidder(bidderId, auctionId);
+        double available = Math.max(0.0, user.getBalance() - reserved);
+        if (available < amount) {
+            if (reserved > 0) {
+                throw new InvalidBidException(String.format(
+                        "Số dư ví không đủ (hiện có %,.0f đ, đang tạm giữ %,.0f đ ở phiên khác) để đặt giá %,.0f đ. Vui lòng nạp thêm tiền!",
+                        user.getBalance(), reserved, amount));
+            }
+            throw new InvalidBidException(String.format(
+                    "Số dư ví không đủ (hiện có %,.0f đ) để đặt giá %,.0f đ. Vui lòng nạp thêm tiền!",
+                    user.getBalance(), amount));
         }
 
         String transactionId = "TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
@@ -508,6 +637,13 @@ public class AuctionManager {
         }
         if (auction.getStatus() != Auction.Status.RUNNING) {
             throw new AuctionClosedException("Auction is not RUNNING");
+        }
+        double reserved = getReservedBalanceForBidder(bidderId, auctionId);
+        double available = Math.max(0.0, user.getBalance() - reserved);
+        if (available < maxBid) {
+            throw new InvalidBidException(String.format(
+                    "Số dư ví không đủ (khả dụng %,.0f đ) để đặt trần Auto-Bid %,.0f đ!",
+                    available, maxBid));
         }
         double minStep = Math.max(auction.getStepPrice(), increment);
         if (maxBid < auction.getCurrentPrice() + auction.getStepPrice() && !bidderId.equals(auction.getHighestBidderId())) {
@@ -562,6 +698,11 @@ public class AuctionManager {
                         ? auction.getStartPrice()
                         : auction.getCurrentPrice() + Math.max(auction.getStepPrice(), candidate.getIncrement());
                 double bidAmount = Math.min(candidate.getMaxBid(), Math.max(minNext, desired));
+                User candidateUser = userMap.get(candidate.getBidderId());
+                double candidateReserved = getReservedBalanceForBidder(candidate.getBidderId(), auction.getId());
+                if (candidateUser == null || (candidateUser.getBalance() - candidateReserved) < bidAmount) {
+                    continue;
+                }
                 String txId = "AUTO-TX-" + System.currentTimeMillis() + "-" + txCounter.incrementAndGet();
                 try {
                     auction.placeBid(new BidTransaction(txId, auction.getId(), candidate.getBidderId(), bidAmount));

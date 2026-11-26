@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -201,8 +202,12 @@ public final class ProductImageService {
         }
         Image image = getImage(id, name, directPathOrKey, width, height);
         imageView.setImage(image);
-        imageView.setFitWidth(width);
-        imageView.setFitHeight(height);
+        if (!imageView.fitWidthProperty().isBound()) {
+            imageView.setFitWidth(width);
+        }
+        if (!imageView.fitHeightProperty().isBound()) {
+            imageView.setFitHeight(height);
+        }
         imageView.setPreserveRatio(false);
         imageView.setSmooth(true);
 
@@ -217,36 +222,77 @@ public final class ProductImageService {
             imageView.setViewport(null);
         }
 
-        Rectangle clip = new Rectangle(width, height);
-        clip.setArcWidth(cornerRadius);
-        clip.setArcHeight(cornerRadius);
-        imageView.setClip(clip);
+        if (!imageView.fitWidthProperty().isBound() && !imageView.fitHeightProperty().isBound()) {
+            Rectangle clip = new Rectangle(width, height);
+            clip.setArcWidth(cornerRadius);
+            clip.setArcHeight(cornerRadius);
+            imageView.setClip(clip);
+        }
     }
 
     public static void loadIntoImageView(ImageView imageView, String id, String name, double width, double height) {
         loadIntoImageView(imageView, id, name, null, width, height, 14);
     }
 
+    public static final String MULTI_IMAGE_DELIMITER = ";";
+
+    public static List<String> parseImageKeys(String rawImageKey) {
+        List<String> result = new ArrayList<>();
+        if (rawImageKey == null || rawImageKey.isBlank()) {
+            return result;
+        }
+        for (String part : rawImageKey.split(MULTI_IMAGE_DELIMITER)) {
+            String trimmed = part != null ? part.trim() : "";
+            if (!trimmed.isEmpty() && !result.contains(trimmed)) {
+                result.add(trimmed);
+            }
+        }
+        return result;
+    }
+
+    public static String getPrimaryImageKey(String rawImageKey) {
+        List<String> keys = parseImageKeys(rawImageKey);
+        return keys.isEmpty() ? "" : keys.get(0);
+    }
+
+    public static String joinImageKeys(List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            return "";
+        }
+        List<String> clean = new ArrayList<>();
+        for (String k : keys) {
+            if (k != null && !k.isBlank()) {
+                String sanitized = k.trim().replace(MULTI_IMAGE_DELIMITER, "");
+                if (!sanitized.isEmpty() && !clean.contains(sanitized)) {
+                    clean.add(sanitized);
+                }
+            }
+        }
+        return String.join(MULTI_IMAGE_DELIMITER, clean);
+    }
+
     /**
-     * Chỉ trả về duy nhất ảnh thật của chính sản phẩm đó (tuyệt đối không gắn ảnh sản phẩm khác).
+     * Trả về danh sách ảnh thật của chính sản phẩm đó (hỗ trợ nhiều ảnh Seller tải lên phân tách bằng ';').
      */
     public static List<String> getGalleryKeysFor(String primaryKey, String itemName) {
-        String main = (primaryKey != null && !primaryKey.isBlank())
-                ? primaryKey
-                : resolveResourceKey(primaryKey, itemName);
-        return List.of(main);
+        List<String> parsed = parseImageKeys(primaryKey);
+        if (!parsed.isEmpty()) {
+            return parsed;
+        }
+        return List.of(resolveResourceKey(primaryKey, itemName));
     }
 
     public static Image getImage(String id, String name, String directPathOrKey, double width, double height) {
-        // 1. Kiểm tra nếu directPathOrKey là key ảnh studio đóng gói sẵn
-        if (directPathOrKey != null && !directPathOrKey.isBlank()) {
-            if (STUDIO_PRESETS.containsKey(directPathOrKey) || "bidx_logo".equals(directPathOrKey)) {
-                Image bundled = getCachedBundled(directPathOrKey, width, height);
+        String primaryKey = getPrimaryImageKey(directPathOrKey);
+        // 1. Kiểm tra nếu primaryKey là key ảnh studio đóng gói sẵn hoặc file ảnh upload
+        if (!primaryKey.isBlank()) {
+            if (STUDIO_PRESETS.containsKey(primaryKey) || "bidx_logo".equals(primaryKey)) {
+                Image bundled = getCachedBundled(primaryKey, width, height);
                 if (bundled != null) {
                     return bundled;
                 }
             }
-            File directFile = new File(directPathOrKey);
+            File directFile = new File(primaryKey);
             if (directFile.exists()) {
                 return new Image(directFile.toURI().toString(), width * 1.5, height * 1.5, false, true);
             }
@@ -273,7 +319,7 @@ public final class ProductImageService {
         }
 
         // 3. Ánh xạ thông minh sang bộ ảnh studio thật đóng gói trong resources
-        String resourceKey = resolveResourceKey(directPathOrKey, name);
+        String resourceKey = resolveResourceKey(primaryKey, name);
         Image studio = getCachedBundled(resourceKey, width, height);
         if (studio != null) {
             return studio;

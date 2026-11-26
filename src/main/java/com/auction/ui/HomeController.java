@@ -24,6 +24,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -77,7 +78,7 @@ public class HomeController implements SessionAware {
     @FXML
     private Label lblNotifCount;
     @FXML
-    private HBox filterBar;
+    private FlowPane filterBar;
     @FXML
     private Button pillAll;
     @FXML
@@ -100,7 +101,7 @@ public class HomeController implements SessionAware {
     @FXML
     private ScrollPane leaderboardScroll;
     @FXML
-    private StackPane tickerViewport;
+    private Pane tickerViewport;
     @FXML
     private Label lblTickerText;
     @FXML
@@ -230,8 +231,9 @@ public class HomeController implements SessionAware {
                                     d.auctionId(), d.itemName(), d.sellerId(), d.sellerName(), d.category(),
                                     d.startPrice(), newPrice, d.stepPrice(), bidderId, d.status(),
                                     d.endTimeMillis(), d.requestedDurationSec(), d.bidCount() + 1,
-                                    d.payoutSettled(), d.imageKey(), d.rejectionReason(), d.description());
+                                    d.payoutSettled(), d.imageKey(), d.rejectionReason(), d.description(), d.itemSpecs());
                             allAuctions.set(i, updated);
+                            clientSession.updateAuctionCache(allAuctions);
                             for (ProductCardController c : activeCardControllers) {
                                 if (c.getAuctionId().equals(auctionId)) {
                                     c.flashNewPrice(newPrice, updated.bidCount());
@@ -352,7 +354,7 @@ public class HomeController implements SessionAware {
             if (imgHeroSpotlight != null) {
                 ProductImageService.loadIntoImageView(
                         imgHeroSpotlight, spotlightAuction.auctionId(), spotlightAuction.itemName(),
-                        spotlightAuction.imageKey(), 172, 104, 11);
+                        spotlightAuction.imageKey(), 156, 96, 11);
             }
             btnHeroAction.setDisable(false);
         } else {
@@ -366,7 +368,7 @@ public class HomeController implements SessionAware {
     }
 
     private void updateLiveTicker(List<AuctionDetail> liveList) {
-        if (lblTickerText == null) {
+        if (lblTickerText == null || tickerViewport == null) {
             return;
         }
         StringBuilder sb = new StringBuilder();
@@ -378,15 +380,23 @@ public class HomeController implements SessionAware {
         if (sb.length() == 0) {
             sb.append("BidX Live • Sàn đấu giá tài sản cao cấp thời gian thực • Anti-Sniping +30s");
         }
+        lblTickerText.setManaged(false);
         lblTickerText.setText(sb.toString());
+        lblTickerText.applyCss();
+        double textW = Math.max(600, lblTickerText.prefWidth(-1));
+        double textH = Math.max(18, lblTickerText.prefHeight(-1));
+        double viewportH = tickerViewport.getHeight() > 0 ? tickerViewport.getHeight() : 22.0;
+        lblTickerText.resizeRelocate(0, Math.max(0, (viewportH - textH) / 2.0), textW, textH);
 
         if (tickerTransition != null) {
             tickerTransition.stop();
         }
-        lblTickerText.setTranslateX(140);
-        tickerTransition = new TranslateTransition(Duration.seconds(24), lblTickerText);
-        tickerTransition.setFromX(220);
-        tickerTransition.setToX(-Math.max(820, sb.length() * 6.4));
+        double startX = tickerViewport.getWidth() > 100 ? tickerViewport.getWidth() * 0.45 : 220.0;
+        double durationSec = Math.max(18.0, (startX + textW) / 78.0);
+        lblTickerText.setTranslateX(startX);
+        tickerTransition = new TranslateTransition(Duration.seconds(durationSec), lblTickerText);
+        tickerTransition.setFromX(startX);
+        tickerTransition.setToX(-textW - 40);
         tickerTransition.setCycleCount(Timeline.INDEFINITE);
         tickerTransition.setInterpolator(Interpolator.LINEAR);
         tickerTransition.play();
@@ -482,7 +492,7 @@ public class HomeController implements SessionAware {
 
         int idx = 0;
         for (AuctionDetail d : allAuctions) {
-            // Bidder chỉ thấy các phiên đã được Admin duyệt (KHÔNG thấy PENDING_APPROVAL hay REJECTED)
+            // Bidder chỉ thấy các phiên đã được Admin duyệt (KHÔNG thấy phiên OPEN chờ duyệt hay CANCELED)
             if (d.isPendingApproval() || d.isRejected()) {
                 continue;
             }
@@ -850,11 +860,19 @@ public class HomeController implements SessionAware {
         event.consume();
     }
 
-    @FXML
-    public void SwitchToLogin() throws IOException {
+    @Override
+    public void detachSession() {
         if (countdownTicker != null) {
             countdownTicker.stop();
         }
+        if (this.clientSession != null && this.clientSession.getClient() != null && eventListener != null) {
+            this.clientSession.getClient().removeListener(eventListener);
+        }
+    }
+
+    @FXML
+    public void SwitchToLogin() throws IOException {
+        detachSession();
         if (clientSession != null && clientSession.isConnected()) {
             clientSession.disconnect();
         }

@@ -147,6 +147,12 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 case AuctionProtocol.CMD_REQUEST_AUCTION:
                     handleRequestAuction(line);
                     break;
+                case AuctionProtocol.CMD_UPDATE_AUCTION:
+                    handleUpdateAuction(line);
+                    break;
+                case AuctionProtocol.CMD_DELETE_AUCTION:
+                    handleDeleteAuction(parts);
+                    break;
                 case AuctionProtocol.CMD_APPROVE_AUCTION:
                     handleApproveAuction(parts);
                     break;
@@ -550,10 +556,11 @@ public class ClientHandler implements Runnable, AuctionObserver {
             long durationSec = Long.parseLong(fields[4].trim());
             String imageKey = fields.length > 5 ? fields[5].trim() : "";
             String description = fields.length > 6 ? fields[6].trim() : "";
+            String itemSpecs = fields.length > 7 ? fields[7].trim() : "";
 
             Auction created = AuctionManager.getInstance().submitAuctionRequest(
                     currentUser.getId(), itemName, category, description,
-                    startPrice, stepPrice, durationSec, imageKey);
+                    startPrice, stepPrice, durationSec, imageKey, itemSpecs);
 
             sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_REQUEST_AUCTION, created.getId()));
             if (server != null) {
@@ -561,6 +568,69 @@ public class ClientHandler implements Runnable, AuctionObserver {
             }
         } catch (NumberFormatException e) {
             sendMessage(AuctionProtocol.formatError("Invalid numeric field in auction request"));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleUpdateAuction(String rawLine) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        int firstSpace = rawLine.indexOf(' ');
+        if (firstSpace < 0 || firstSpace >= rawLine.length() - 1) {
+            sendMessage(AuctionProtocol.formatError(
+                    "Usage: UPDATE_AUCTION <auctionId>|<itemName>|<category>|<startPrice>|<stepPrice>|<durationSec>|<imageKey>|<description>|<itemSpecs>"));
+            return;
+        }
+        String payload = rawLine.substring(firstSpace + 1).trim();
+        String[] fields = payload.split("\\|", -1);
+        if (fields.length < 6) {
+            sendMessage(AuctionProtocol.formatError("Invalid update auction payload"));
+            return;
+        }
+        try {
+            String auctionId = fields[0].trim();
+            String itemName = fields[1].trim();
+            String category = fields[2].trim();
+            double startPrice = Double.parseDouble(fields[3].trim().replace(',', '.'));
+            double stepPrice = Double.parseDouble(fields[4].trim().replace(',', '.'));
+            long durationSec = Long.parseLong(fields[5].trim());
+            String imageKey = fields.length > 6 ? fields[6].trim() : "";
+            String description = fields.length > 7 ? fields[7].trim() : "";
+            String itemSpecs = fields.length > 8 ? fields[8].trim() : "";
+
+            Auction updated = AuctionManager.getInstance().updateAuctionRequest(
+                    currentUser.getId(), auctionId, itemName, category,
+                    startPrice, stepPrice, durationSec, imageKey, description, itemSpecs);
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_UPDATE_AUCTION, updated.getId()));
+            if (server != null) {
+                server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
+            }
+        } catch (NumberFormatException e) {
+            sendMessage(AuctionProtocol.formatError("Invalid numeric field in update auction"));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleDeleteAuction(String[] parts) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: DELETE_AUCTION <auctionId>"));
+            return;
+        }
+        String auctionId = parts[1].trim();
+        try {
+            AuctionManager.getInstance().deleteAuction(currentUser.getId(), auctionId);
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_DELETE_AUCTION, auctionId));
+            if (server != null) {
+                server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
+            }
         } catch (Exception e) {
             sendMessage(AuctionProtocol.formatError(e.getMessage()));
         }

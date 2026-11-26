@@ -271,7 +271,13 @@ public class AdminDashboardController implements SessionAware {
             catBadge.getStyleClass().add("badge-muted");
             Label idLabel = new Label(d.auctionId());
             idLabel.setStyle("-fx-text-fill: #64748B; -fx-font-size: 11.5px; -fx-font-weight: bold;");
+            List<String> itemImages = ProductImageService.parseImageKeys(d.imageKey());
             tags.getChildren().addAll(pendingBadge, catBadge, idLabel);
+            if (itemImages.size() > 1) {
+                Label photoCountBadge = new Label("📷 " + itemImages.size() + " ảnh");
+                photoCountBadge.getStyleClass().add("badge-live");
+                tags.getChildren().add(photoCountBadge);
+            }
 
             Label title = new Label(d.itemName());
             title.getStyleClass().add("text-primary");
@@ -291,6 +297,23 @@ public class AdminDashboardController implements SessionAware {
             desc.setWrapText(true);
 
             info.getChildren().addAll(tags, title, sellerLine, desc);
+            if (d.itemSpecs() != null && !d.itemSpecs().isBlank()) {
+                Label specsLbl = new Label("• " + d.itemSpecs().replace(";;", "   •   "));
+                specsLbl.getStyleClass().add("text-secondary");
+                specsLbl.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold;");
+                specsLbl.setWrapText(true);
+                info.getChildren().add(specsLbl);
+            }
+            if (itemImages.size() > 1) {
+                HBox extraThumbs = new HBox(6);
+                extraThumbs.setAlignment(Pos.CENTER_LEFT);
+                for (int i = 0; i < Math.min(5, itemImages.size()); i++) {
+                    ImageView mini = new ImageView();
+                    ProductImageService.loadIntoImageView(mini, d.auctionId(), d.itemName(), itemImages.get(i), 52, 34, 6);
+                    extraThumbs.getChildren().add(mini);
+                }
+                info.getChildren().add(extraThumbs);
+            }
 
             VBox actions = new VBox(8);
             actions.setAlignment(Pos.CENTER_RIGHT);
@@ -388,6 +411,24 @@ public class AdminDashboardController implements SessionAware {
                     }
                 });
                 actions.getChildren().add(btnClose);
+            } else {
+                Button btnDel = new Button("Xóa");
+                btnDel.getStyleClass().add("btn-crimson-outline");
+                btnDel.setStyle("-fx-padding: 8 12 8 12; -fx-font-size: 12px;");
+                btnDel.setOnAction(e -> {
+                    if (clientSession != null && clientSession.isConnected()) {
+                        javafx.scene.control.Alert confirm = new javafx.scene.control.Alert(
+                                javafx.scene.control.Alert.AlertType.CONFIRMATION);
+                        confirm.setTitle("Xác nhận xóa phiên đấu giá");
+                        confirm.setHeaderText("Xóa phiên " + d.itemName() + " (" + d.auctionId() + ")?");
+                        confirm.setContentText("Thao tác này sẽ xóa vĩnh viễn phiên khỏi danh sách hệ thống.");
+                        if (confirm.showAndWait().orElse(javafx.scene.control.ButtonType.CANCEL)
+                                == javafx.scene.control.ButtonType.OK) {
+                            clientSession.getClient().deleteAuction(d.auctionId());
+                        }
+                    }
+                });
+                actions.getChildren().add(btnDel);
             }
 
             row.getChildren().addAll(thumb, info, actions);
@@ -618,8 +659,16 @@ public class AdminDashboardController implements SessionAware {
         BidXAnimations.popScale(btnRefresh, 1.18);
     }
 
+    @Override
+    public void detachSession() {
+        if (this.clientSession != null && this.clientSession.getClient() != null && listener != null) {
+            this.clientSession.getClient().removeListener(listener);
+        }
+    }
+
     @FXML
     public void handleLogout() {
+        detachSession();
         if (clientSession != null && clientSession.isConnected()) {
             clientSession.disconnect();
         }

@@ -11,6 +11,7 @@
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.Region?>
@@ -22,47 +23,46 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.auction.ui.AuctionRoomController"
             stylesheets="@../css/bidx-theme.css"
+            minWidth="0" minHeight="0"
             styleClass="app-shell">
 
     <!-- Top Room Header -->
     <top>
-        <HBox alignment="CENTER_LEFT" spacing="16" styleClass="topbar">
-            <Button fx:id="btnBack" text="Quay lại" onAction="#handleBackToHome" styleClass="btn-ghost"/>
-            <VBox spacing="2">
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <Label fx:id="lblRoomTitle" text="BidX Live Auction Room" styleClass="room-header-title"/>
-                    <Label fx:id="lblAuctionId" text="AUC-001" styleClass="badge-muted"/>
+        <HBox alignment="CENTER_LEFT" spacing="12" minWidth="0" styleClass="topbar">
+            <Button fx:id="btnBack" text="Quay lại" minWidth="-Infinity" onAction="#handleBackToHome" styleClass="btn-ghost"/>
+            <VBox spacing="2" minWidth="0" HBox.hgrow="ALWAYS">
+                <HBox spacing="10" alignment="CENTER_LEFT" minWidth="0">
+                    <Label fx:id="lblRoomTitle" text="BidX Live Auction Room" minWidth="0" styleClass="room-header-title"/>
+                    <Label fx:id="lblAuctionId" text="AUC-001" minWidth="-Infinity" styleClass="badge-muted"/>
                 </HBox>
                 <Label text="Cập nhật giá thời gian thực qua Socket Observer • Bảo vệ Anti-Sniping +30s"
-                       styleClass="text-subtle" style="-fx-font-size: 11.5px;"/>
+                       minWidth="0" styleClass="text-subtle" style="-fx-font-size: 11.5px;"/>
             </VBox>
 
-            <HBox HBox.hgrow="ALWAYS"/>
-
-            <Button fx:id="btnThemeToggle" text="Light" onAction="#handleToggleTheme" styleClass="theme-toggle-btn"/>
-            <Label fx:id="lblAntiSnipingBadge" text="⚡ ANTI-SNIPING BẬT" styleClass="badge-pending"/>
-            <Label fx:id="lblLiveBadge" text="● ĐANG DIỄN RA" styleClass="badge-live"/>
-            <HBox spacing="8" alignment="CENTER" styleClass="wallet-pill">
+            <Button fx:id="btnThemeToggle" text="Light" minWidth="-Infinity" onAction="#handleToggleTheme" styleClass="theme-toggle-btn"/>
+            <Label fx:id="lblAntiSnipingBadge" text="⚡ ANTI-SNIPING BẬT" minWidth="-Infinity" styleClass="badge-pending"/>
+            <Label fx:id="lblLiveBadge" text="● ĐANG DIỄN RA" minWidth="-Infinity" styleClass="badge-live"/>
+            <HBox spacing="8" alignment="CENTER" minWidth="-Infinity" styleClass="wallet-pill">
                 <StackPane fx:id="walletPillIcon"/>
                 <Label fx:id="lblRoomWallet" text="0 đ" styleClass="text-accent-gold" style="-fx-font-weight: bold; -fx-font-size: 12.5px;"/>
             </HBox>
         </HBox>
     </top>
 
-    <!-- Main 2-Column Split (Matching Right Monitor Reference + Realtime Price Curve) -->
+    <!-- Main 2-Column Split (Responsive for 1280x720 / 1024x640 / 1920x1080) -->
     <center>
-        <HBox spacing="22" style="-fx-padding: 20 24 22 24;">
+        <HBox spacing="18" minWidth="0" minHeight="0" style="-fx-padding: 16 18 18 18;">
 
             <!-- Left Column: Hero Photo Gallery + Item Info + Verified Seller + Realtime LineChart -->
-            <ScrollPane fitToWidth="true" HBox.hgrow="ALWAYS" styleClass="bidx-scroll">
-                <VBox spacing="18" style="-fx-padding: 0 6 12 0;">
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="0" HBox.hgrow="ALWAYS" styleClass="bidx-scroll">
+                <VBox spacing="16" minWidth="0" style="-fx-padding: 0 6 12 0;">
 
                     <!-- Product Showcase Card -->
-                    <VBox spacing="14" styleClass="surface-panel">
+                    <VBox spacing="14" minWidth="0" styleClass="surface-panel">
                         <!-- Main Studio Showcase Image + Floating Neon Reaction Layer -->
-                        <StackPane alignment="CENTER" prefHeight="310" maxHeight="320"
+                        <StackPane fx:id="showcaseWrap" alignment="CENTER" minWidth="0" prefHeight="286" maxHeight="296"
                                    style="-fx-background-color: #0B101D; -fx-background-radius: 14;">
-                            <ImageView fx:id="imgShowcase" fitWidth="790" fitHeight="310" preserveRatio="false"/>
+                            <ImageView fx:id="imgShowcase" managed="false" fitWidth="560" fitHeight="286" preserveRatio="false"/>
                             <Pane fx:id="reactionFxLayer" mouseTransparent="true"/>
                             <Label fx:id="lblCategoryTag" text="ĐỒ ĐIỆN TỬ" styleClass="badge-pending"
                                    StackPane.alignment="TOP_LEFT">
@@ -90,14 +90,15 @@
                         </StackPane>
 
                         <!-- Interactive Gallery Thumbnails -->
-                        <HBox fx:id="thumbnailGallery" spacing="10" alignment="CENTER_LEFT"/>
+                        <FlowPane fx:id="thumbnailGallery" hgap="10" vgap="8" alignment="CENTER_LEFT" minWidth="0"/>
 
-                        <!-- Item Title & Description -->
-                        <VBox spacing="6">
+                        <!-- Item Title, Description & Structured Specs -->
+                        <VBox spacing="8">
                             <Label fx:id="lblItemName" text="Tên vật phẩm đấu giá"
                                    styleClass="item-hero-title" wrapText="true"/>
                             <Label fx:id="lblDescription" text="Mô tả chi tiết sản phẩm đấu giá cao cấp..."
                                    styleClass="text-muted" style="-fx-font-size: 13.5px; -fx-line-spacing: 3px;" wrapText="true"/>
+                            <FlowPane fx:id="itemSpecsPane" hgap="8" vgap="8" alignment="CENTER_LEFT" minWidth="0"/>
                         </VBox>
 
                         <!-- Verified Seller & Price Rules Strip -->
@@ -167,38 +168,40 @@
                 </VBox>
             </ScrollPane>
 
-            <!-- Right Column: Crimson Timer + Current Price + Bid Feed + Role-Aware Controls -->
-            <VBox spacing="14" prefWidth="404" minWidth="386" maxWidth="424">
+            <!-- Right Column: Crimson Timer + Current Price + Bid Feed + Role-Aware Controls (Scroll-safe on compact screens) -->
+            <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER"
+                        prefWidth="372" minWidth="332" maxWidth="404" styleClass="bidx-scroll">
+                <VBox spacing="12" minWidth="0" style="-fx-padding: 0 4 4 0;">
 
-                <!-- 1. Glowing Crimson Countdown Box -->
-                <VBox fx:id="timerCardBox" alignment="CENTER" spacing="4" styleClass="room-timer-box">
-                    <Label fx:id="lblTimerCaption" text="THỜI GIAN CÒN LẠI" styleClass="room-timer-title"/>
-                    <Label fx:id="lblCountdownTimer" text="00:04:32" styleClass="room-timer-digits"/>
-                </VBox>
-
-                <!-- 2. Current Price & Live Feed Card -->
-                <VBox spacing="12" VBox.vgrow="ALWAYS" styleClass="surface-panel">
-                    <VBox spacing="3">
-                        <Label text="Giá hiện tại" styleClass="text-muted" style="-fx-font-size: 12px; -fx-font-weight: bold;"/>
-                        <Label fx:id="lblCurrentPrice" text="15,500,000 đ" styleClass="room-price-big"/>
-                        <HBox spacing="8" alignment="CENTER_LEFT">
-                            <Label fx:id="lblHighestBidder" text="Dẫn đầu: Chưa có"
-                                   styleClass="text-accent-gold" style="-fx-font-size: 12.5px; -fx-font-weight: bold;"/>
-                            <HBox HBox.hgrow="ALWAYS"/>
-                            <Label fx:id="lblStepInfo" text="Bước +500,000 đ"
-                                   styleClass="text-muted" style="-fx-font-size: 11.5px;"/>
-                        </HBox>
+                    <!-- 1. Glowing Crimson Countdown Box -->
+                    <VBox fx:id="timerCardBox" alignment="CENTER" spacing="4" styleClass="room-timer-box">
+                        <Label fx:id="lblTimerCaption" text="THỜI GIAN CÒN LẠI" styleClass="room-timer-title"/>
+                        <Label fx:id="lblCountdownTimer" text="00:04:32" styleClass="room-timer-digits"/>
                     </VBox>
 
-                    <!-- Live Bid History List -->
-                    <VBox spacing="6" VBox.vgrow="ALWAYS">
-                        <HBox alignment="CENTER_LEFT">
-                            <Label text="Lịch sử đặt giá" styleClass="text-secondary" style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
-                            <HBox HBox.hgrow="ALWAYS"/>
-                            <Label fx:id="lblTotalBidBadge" text="0 lượt" styleClass="text-subtle" style="-fx-font-size: 11.5px;"/>
-                        </HBox>
-                        <ListView fx:id="lvBidHistory" VBox.vgrow="ALWAYS" prefHeight="155" styleClass="bidx-list"/>
-                    </VBox>
+                    <!-- 2. Current Price & Live Feed Card -->
+                    <VBox spacing="11" VBox.vgrow="ALWAYS" styleClass="surface-panel">
+                        <VBox spacing="3">
+                            <Label text="Giá hiện tại" styleClass="text-muted" style="-fx-font-size: 12px; -fx-font-weight: bold;"/>
+                            <Label fx:id="lblCurrentPrice" text="15,500,000 đ" styleClass="room-price-big"/>
+                            <HBox spacing="8" alignment="CENTER_LEFT">
+                                <Label fx:id="lblHighestBidder" text="Dẫn đầu: Chưa có"
+                                       styleClass="text-accent-gold" style="-fx-font-size: 12.5px; -fx-font-weight: bold;"/>
+                                <HBox HBox.hgrow="ALWAYS"/>
+                                <Label fx:id="lblStepInfo" text="Bước +500,000 đ"
+                                       styleClass="text-muted" style="-fx-font-size: 11.5px;"/>
+                            </HBox>
+                        </VBox>
+
+                        <!-- Live Bid History List -->
+                        <VBox spacing="6" VBox.vgrow="ALWAYS">
+                            <HBox alignment="CENTER_LEFT">
+                                <Label text="Lịch sử đặt giá" styleClass="text-secondary" style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
+                                <HBox HBox.hgrow="ALWAYS"/>
+                                <Label fx:id="lblTotalBidBadge" text="0 lượt" styleClass="text-subtle" style="-fx-font-size: 11.5px;"/>
+                            </HBox>
+                            <ListView fx:id="lvBidHistory" VBox.vgrow="ALWAYS" minHeight="66" prefHeight="110" styleClass="bidx-list"/>
+                        </VBox>
 
                     <!-- A. BIDDER CONTROLS (SMART SCALED BID CHIPS — NO TINY +500K/+1M) -->
                     <VBox fx:id="bidderControlsBox" spacing="10">
@@ -209,10 +212,12 @@
                             <Button fx:id="btnQuick4" text="+20M" onAction="#handleQuickBid4" HBox.hgrow="ALWAYS" maxWidth="Infinity" styleClass="btn-quick-chip"/>
                         </HBox>
 
-                        <HBox spacing="8" alignment="CENTER_LEFT">
+                        <HBox spacing="7" alignment="CENTER_LEFT">
                             <TextField fx:id="txtBidAmount" promptText="Nhập mức giá đặt (VNĐ)..."
                                        HBox.hgrow="ALWAYS" styleClass="bidx-input" onAction="#handlePlaceBid"/>
-                            <Label text="VNĐ" styleClass="text-muted" style="-fx-font-weight: bold; -fx-font-size: 12px;"/>
+                            <Label text="VNĐ" minWidth="-Infinity" styleClass="text-muted" style="-fx-font-weight: bold; -fx-font-size: 11.5px;"/>
+                            <Button text="↺" minWidth="-Infinity" onAction="#handleResetBidAmount" styleClass="btn-ghost"
+                                    style="-fx-padding: 7 10 7 10; -fx-font-size: 12px;"/>
                         </HBox>
 
                         <Button fx:id="btnPlaceBid" text="ĐẶT GIÁ NGAY" onAction="#handlePlaceBid"
@@ -287,9 +292,10 @@
 
                     <Label fx:id="lblStatusMessage" text="Sẵn sàng tham gia phiên đấu giá BidX"
                            wrapText="true" style="-fx-text-fill: #94A3B8; -fx-font-size: 12px; -fx-font-weight: bold;"/>
-                </VBox>
+                    </VBox>
 
-            </VBox>
+                </VBox>
+            </ScrollPane>
 
         </HBox>
     </center>

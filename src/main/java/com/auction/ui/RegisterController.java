@@ -257,7 +257,7 @@ public class RegisterController implements SessionAware {
             BidXAnimations.shake(registerCard);
             return;
         }
-        if (!confirm.isEmpty() && !password.equals(confirm)) {
+        if (txtConfirmPassword != null && !password.equals(confirm)) {
             errorRegister.setText("Mật khẩu xác nhận chưa trùng khớp.");
             BidXAnimations.shake(txtConfirmPassword);
             return;

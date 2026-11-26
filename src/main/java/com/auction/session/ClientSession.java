@@ -58,12 +58,14 @@ public class ClientSession {
         boolean endpointChanged = !this.host.equals(newHost) || this.port != newPort;
         if (endpointChanged) {
             stopHeartbeat();
-            if (auctionClient.isConnected()) {
-                auctionClient.disconnect();
+            AuctionClient oldClient = this.auctionClient;
+            if (oldClient.isConnected()) {
+                oldClient.disconnect();
             }
             this.host = newHost;
             this.port = newPort;
             this.auctionClient = new AuctionClient(newHost, newPort);
+            oldClient.copyListenersTo(this.auctionClient);
         }
         connect();
     }

@@ -38,6 +38,8 @@ public final class AuctionProtocol {
     public static final String CMD_PROFILE = "PROFILE";
     public static final String CMD_LIST_FULL = "LIST_FULL";
     public static final String CMD_REQUEST_AUCTION = "REQUEST_AUCTION";
+    public static final String CMD_UPDATE_AUCTION = "UPDATE_AUCTION";
+    public static final String CMD_DELETE_AUCTION = "DELETE_AUCTION";
     public static final String CMD_APPROVE_AUCTION = "APPROVE_AUCTION";
     public static final String CMD_REJECT_AUCTION = "REJECT_AUCTION";
     public static final String CMD_AUTOBID = "AUTOBID";
@@ -116,7 +118,7 @@ public final class AuctionProtocol {
         String winner = a.getHighestBidderId() != null ? a.getHighestBidderId() : "NONE";
         String safeSellerName = (sellerName != null && !sellerName.isBlank()) ? sellerName : a.getSellerId();
         return String.format(Locale.US,
-                "%s%s|%s|%s|%s|%s|%.2f|%.2f|%.2f|%s|%s|%d|%d|%d|%s|%s|%s|%s",
+                "%s%s|%s|%s|%s|%s|%.2f|%.2f|%.2f|%s|%s|%d|%d|%d|%s|%s|%s|%s|%s",
                 AUCTION_FULL_PREFIX,
                 sanitizeField(a.getId()),
                 sanitizeField(a.getItemId()),
@@ -134,7 +136,8 @@ public final class AuctionProtocol {
                 a.isPayoutSettled() ? "1" : "0",
                 sanitizeField(a.getImageKey()),
                 sanitizeField(a.getRejectionReason()),
-                sanitizeField(a.getDescription()));
+                sanitizeField(a.getDescription()),
+                sanitizeField(a.getItemSpecs()));
     }
 
     public static String formatWalletTransaction(WalletTransaction tx) {

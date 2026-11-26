@@ -83,7 +83,7 @@ public class BidXWalletPanel extends HBox {
         this.onDeposit = onDeposit;
         this.onWithdraw = onWithdraw;
 
-        setSpacing(20);
+        setSpacing(16);
         setAlignment(Pos.TOP_LEFT);
 
         VBox leftCol = buildLeftVaultColumn();
@@ -96,9 +96,9 @@ public class BidXWalletPanel extends HBox {
 
     private VBox buildLeftVaultColumn() {
         VBox col = new VBox(14);
-        col.setPrefWidth(368);
-        col.setMinWidth(346);
-        col.setMaxWidth(390);
+        col.setPrefWidth(332);
+        col.setMinWidth(292);
+        col.setMaxWidth(368);
 
         // Metallic Platinum Vault Card
         VBox card = new VBox(16);
@@ -106,14 +106,17 @@ public class BidXWalletPanel extends HBox {
 
         HBox topRow = new HBox(10);
         topRow.setAlignment(Pos.CENTER_LEFT);
-        StackPane bankIconWrap = new StackPane(SvgIcons.create(SvgIcons.WALLET, 16, sellerStyle ? "#34D399" : "#FBBF24"));
+        StackPane bankIconWrap = new StackPane(
+                SvgIcons.create(SvgIcons.WALLET, 16, sellerStyle ? "#34D399" : "#FBBF24"));
         bankIconWrap.setMinSize(32, 32);
         bankIconWrap.setStyle("-fx-background-color: rgba(255,255,255,0.10); -fx-background-radius: 10;");
         Label brandTag = new Label(sellerStyle ? "BIDX SELLER VAULT" : "BIDX PLATINUM WALLET");
-        brandTag.setStyle("-fx-text-fill: #E2E8F0; -fx-font-weight: bold; -fx-font-size: 11.5px; -fx-letter-spacing: 0.8px;");
+        brandTag.setStyle(
+                "-fx-text-fill: #E2E8F0; -fx-font-weight: bold; -fx-font-size: 11.5px; -fx-letter-spacing: 0.8px;");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Label instantBadge = new Label("● 24/7 INSTANT");
+        Label instantBadge = new Label("● 24/7");
+        instantBadge.setMinWidth(Region.USE_PREF_SIZE);
         instantBadge.setStyle("-fx-background-color: rgba(16,185,129,0.22); -fx-text-fill: #6EE7B7;"
                 + " -fx-font-size: 10px; -fx-font-weight: bold; -fx-background-radius: 14; -fx-padding: 3 9 3 9;");
         topRow.getChildren().addAll(bankIconWrap, brandTag, spacer, instantBadge);
@@ -121,7 +124,7 @@ public class BidXWalletPanel extends HBox {
         VBox balBox = new VBox(4);
         Label balCaption = new Label(sellerStyle ? "DOANH THU KHẢ DỤNG TRONG TÚI" : "SỐ DƯ KHẢ DỤNG");
         balCaption.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 10.5px; -fx-font-weight: bold;");
-        lblCardBalance.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 30px; -fx-font-weight: bold;");
+        lblCardBalance.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 26px; -fx-font-weight: bold;");
         balBox.getChildren().addAll(balCaption, lblCardBalance);
 
         HBox bottomRow = new HBox(12);
@@ -235,17 +238,30 @@ public class BidXWalletPanel extends HBox {
             bankFlow.getChildren().add(chip);
         }
 
+        HBox amtHeader = new HBox(6);
+        amtHeader.setAlignment(Pos.CENTER_LEFT);
         Label lblAmt = new Label("Số tiền muốn nạp (VNĐ)");
         lblAmt.getStyleClass().add("field-label");
+        Region amtSpacer = new Region();
+        HBox.setHgrow(amtSpacer, Priority.ALWAYS);
+        Button btnResetDep = new Button("Đặt lại");
+        btnResetDep.getStyleClass().add("btn-link-subtle");
+        btnResetDep.setStyle("-fx-font-size: 11px; -fx-padding: 0;");
+        btnResetDep.setOnAction(e -> {
+            txtDepositAmount.clear();
+            lblDepositError.setVisible(false);
+            lblDepositError.setManaged(false);
+            SoundEffects.playReactionTap();
+        });
+        amtHeader.getChildren().addAll(lblAmt, amtSpacer, btnResetDep);
 
-        txtDepositAmount.setPromptText("Nhập số tiền, VD: 50000000");
-        txtDepositAmount.setText("50000000");
+        txtDepositAmount.setPromptText("Nhập số tiền hoặc bấm cộng nhanh (+15M x2 = 30M)...");
         txtDepositAmount.getStyleClass().add("bidx-input");
         txtDepositAmount.textProperty().addListener((obs, o, n) -> refreshDepositPreview());
 
-        HBox quickRow = new HBox(8);
-        long[] presets = {10_000_000L, 25_000_000L, 50_000_000L, 100_000_000L, 200_000_000L};
-        String[] labels = {"+10M", "+25M", "+50M", "+100M", "+200M"};
+        HBox quickRow = new HBox(7);
+        long[] presets = {10_000_000L, 15_000_000L, 25_000_000L, 50_000_000L, 100_000_000L};
+        String[] labels = {"+10M", "+15M", "+25M", "+50M", "+100M"};
         for (int i = 0; i < presets.length; i++) {
             long val = presets[i];
             Button btn = new Button(labels[i]);
@@ -253,9 +269,14 @@ public class BidXWalletPanel extends HBox {
             HBox.setHgrow(btn, Priority.ALWAYS);
             btn.getStyleClass().add("btn-quick-chip");
             btn.setOnAction(e -> {
-                txtDepositAmount.setText(String.valueOf(val));
+                double parsed = parseAmount(txtDepositAmount.getText());
+                long current = parsed > 0 ? (long) Math.floor(parsed) : 0L;
+                txtDepositAmount.setText(String.valueOf(current + val));
                 lblDepositError.setText("");
+                lblDepositError.setVisible(false);
+                lblDepositError.setManaged(false);
                 BidXAnimations.popScale(btn, 1.07);
+                BidXAnimations.popScale(txtDepositAmount, 1.03);
                 SoundEffects.playReactionTap();
             });
             quickRow.getChildren().add(btn);
@@ -283,7 +304,7 @@ public class BidXWalletPanel extends HBox {
 
         depositPane.getChildren().addAll(
                 lblBank, bankFlow,
-                lblAmt, txtDepositAmount, quickRow,
+                amtHeader, txtDepositAmount, quickRow,
                 previewBox, lblDepositError, btnConfirmDeposit);
         selectDepositBank(DEPOSIT_BANKS[0]);
     }
@@ -338,35 +359,66 @@ public class BidXWalletPanel extends HBox {
 
         bankFields.getChildren().addAll(accBox, holderBox);
 
+        HBox amtHeader = new HBox(6);
+        amtHeader.setAlignment(Pos.CENTER_LEFT);
         Label lblAmt = new Label("Số tiền muốn rút (VNĐ)");
         lblAmt.getStyleClass().add("field-label");
+        Region amtSpacer = new Region();
+        HBox.setHgrow(amtSpacer, Priority.ALWAYS);
+        Button btnResetWdr = new Button("Đặt lại");
+        btnResetWdr.getStyleClass().add("btn-link-subtle");
+        btnResetWdr.setStyle("-fx-font-size: 11px; -fx-padding: 0;");
+        btnResetWdr.setOnAction(e -> {
+            txtWithdrawAmount.clear();
+            lblWithdrawError.setVisible(false);
+            lblWithdrawError.setManaged(false);
+            SoundEffects.playReactionTap();
+        });
+        amtHeader.getChildren().addAll(lblAmt, amtSpacer, btnResetWdr);
 
-        txtWithdrawAmount.setPromptText("Nhập số tiền cần rút về ngân hàng...");
+        txtWithdrawAmount.setPromptText("Nhập số tiền hoặc bấm cộng nhanh (+15M x2 = 30M)...");
         txtWithdrawAmount.getStyleClass().add("bidx-input");
         txtWithdrawAmount.textProperty().addListener((obs, o, n) -> refreshWithdrawPreview());
 
-        HBox ratioRow = new HBox(8);
-        double[] ratios = {0.25, 0.50, 0.75, 1.0};
-        String[] ratioLabels = {"25% ví", "50% ví", "75% ví", "Rút tất cả (MAX)"};
-        for (int i = 0; i < ratios.length; i++) {
-            double r = ratios[i];
-            Button btn = new Button(ratioLabels[i]);
+        HBox quickWithdrawRow = new HBox(7);
+        long[] withdrawPresets = {10_000_000L, 15_000_000L, 25_000_000L, 50_000_000L};
+        String[] withdrawLabels = {"+10M", "+15M", "+25M", "+50M"};
+        for (int i = 0; i < withdrawPresets.length; i++) {
+            long val = withdrawPresets[i];
+            Button btn = new Button(withdrawLabels[i]);
             btn.setMaxWidth(Double.MAX_VALUE);
             HBox.setHgrow(btn, Priority.ALWAYS);
             btn.getStyleClass().add("btn-quick-chip");
             btn.setOnAction(e -> {
-                long computed = (long) Math.floor(currentBalance * r);
-                if (r < 1.0 && computed > 100_000) {
-                    computed = (computed / 100_000L) * 100_000L;
+                double parsed = parseAmount(txtWithdrawAmount.getText());
+                long current = parsed > 0 ? (long) Math.floor(parsed) : 0L;
+                long next = current + val;
+                if (currentBalance > 0 && next > (long) Math.floor(currentBalance)) {
+                    next = (long) Math.floor(currentBalance);
                 }
-                txtWithdrawAmount.setText(computed > 0 ? String.valueOf(computed) : "");
+                txtWithdrawAmount.setText(String.valueOf(next));
                 lblWithdrawError.setVisible(false);
                 lblWithdrawError.setManaged(false);
                 BidXAnimations.popScale(btn, 1.07);
+                BidXAnimations.popScale(txtWithdrawAmount, 1.03);
                 SoundEffects.playReactionTap();
             });
-            ratioRow.getChildren().add(btn);
+            quickWithdrawRow.getChildren().add(btn);
         }
+        Button btnMax = new Button("Rút hết");
+        btnMax.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(btnMax, Priority.ALWAYS);
+        btnMax.getStyleClass().add("btn-quick-chip");
+        btnMax.setOnAction(e -> {
+            long maxBal = (long) Math.floor(currentBalance);
+            txtWithdrawAmount.setText(maxBal > 0 ? String.valueOf(maxBal) : "");
+            lblWithdrawError.setVisible(false);
+            lblWithdrawError.setManaged(false);
+            BidXAnimations.popScale(btnMax, 1.07);
+            BidXAnimations.popScale(txtWithdrawAmount, 1.03);
+            SoundEffects.playReactionTap();
+        });
+        quickWithdrawRow.getChildren().add(btnMax);
 
         VBox previewBox = new VBox(4);
         previewBox.getStyleClass().add("wallet-preview-bar-withdraw");
@@ -392,7 +444,7 @@ public class BidXWalletPanel extends HBox {
         withdrawPane.getChildren().addAll(
                 lblBank, bankFlow,
                 bankFields,
-                lblAmt, txtWithdrawAmount, ratioRow,
+                amtHeader, txtWithdrawAmount, quickWithdrawRow,
                 previewBox, lblWithdrawError, btnConfirmWithdraw);
         selectWithdrawBank(WITHDRAW_BANKS[0]);
     }
@@ -477,7 +529,8 @@ public class BidXWalletPanel extends HBox {
                         + "  •  Còn lại: " + FormatUtils.formatVnd(currentBalance - amt));
             }
         } else {
-            lblWithdrawPreview.setText("Khả dụng để rút: " + FormatUtils.formatVnd(currentBalance) + "  •  Phí rút: 0 đ");
+            lblWithdrawPreview
+                    .setText("Khả dụng để rút: " + FormatUtils.formatVnd(currentBalance) + "  •  Phí rút: 0 đ");
         }
     }
 
@@ -493,6 +546,7 @@ public class BidXWalletPanel extends HBox {
         if (onDeposit != null) {
             onDeposit.accept(amt, selectedDepositBank);
         }
+        txtDepositAmount.clear();
     }
 
     private void handleWithdrawSubmit() {

@@ -26,12 +26,14 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.TextFlow;
 import javafx.stage.Popup;
 import javafx.util.Duration;
@@ -64,11 +66,13 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     private Label lblRoomWallet;
 
     @FXML
+    private StackPane showcaseWrap;
+    @FXML
     private ImageView imgShowcase;
     @FXML
     private Pane reactionFxLayer;
     @FXML
-    private HBox thumbnailGallery;
+    private FlowPane thumbnailGallery;
     @FXML
     private ListView<String> lvRoomChat;
     @FXML
@@ -84,6 +88,8 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     private Label lblItemName;
     @FXML
     private Label lblDescription;
+    @FXML
+    private FlowPane itemSpecsPane;
     @FXML
     private Label lblSellerAvatar;
     @FXML
@@ -202,6 +208,18 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         sellerLockIcon.getChildren().setAll(SvgIcons.create(SvgIcons.STORE, 16, "#34D399"));
         adminLockIcon.getChildren().setAll(SvgIcons.create(SvgIcons.SHIELD, 16, "#38BDF8"));
 
+        if (showcaseWrap != null && imgShowcase != null) {
+            imgShowcase.setManaged(false);
+            imgShowcase.fitWidthProperty().bind(showcaseWrap.widthProperty());
+            imgShowcase.fitHeightProperty().bind(showcaseWrap.heightProperty());
+            Rectangle showcaseClip = new Rectangle();
+            showcaseClip.widthProperty().bind(showcaseWrap.widthProperty());
+            showcaseClip.heightProperty().bind(showcaseWrap.heightProperty());
+            showcaseClip.setArcWidth(14);
+            showcaseClip.setArcHeight(14);
+            showcaseWrap.setClip(showcaseClip);
+        }
+
         setupChatCellFactory();
         if (btnEmojiPicker != null) {
             btnEmojiPicker.setGraphic(BidXEmojiPicker.createEmojiView("😀", 20));
@@ -301,6 +319,16 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     }
 
     @Override
+    public void detachSession() {
+        if (countdownTimeline != null) {
+            countdownTimeline.stop();
+        }
+        if (this.clientSession != null && this.clientSession.getClient() != null) {
+            this.clientSession.getClient().removeListener(this);
+        }
+    }
+
+    @Override
     public void setClientSession(ClientSession session) {
         if (this.clientSession != null && this.clientSession.getClient() != null) {
             this.clientSession.getClient().removeListener(this);
@@ -309,6 +337,9 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         if (this.clientSession != null && this.clientSession.getClient() != null) {
             this.clientSession.getClient().addListener(this);
             updateWalletBadge(session.getCurrentUser());
+        }
+        if (countdownTimeline != null) {
+            countdownTimeline.play();
         }
     }
 
@@ -358,6 +389,7 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
             lblDescription.setText(detail.description() != null && !detail.description().isBlank()
                     ? detail.description()
                     : "Sản phẩm đấu giá chính hãng đã qua kiểm định bởi Admin BidX.");
+            renderItemSpecs(detail.itemSpecs());
 
             String sellerDisplay = detail.sellerName() + " (" + detail.sellerId() + ")";
             lblSeller.setText(sellerDisplay);
@@ -399,10 +431,87 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         }
     }
 
+    private void renderItemSpecs(String rawSpecs) {
+        if (itemSpecsPane == null) {
+            return;
+        }
+        itemSpecsPane.getChildren().clear();
+        if (rawSpecs == null || rawSpecs.isBlank()) {
+            itemSpecsPane.setVisible(false);
+            itemSpecsPane.setManaged(false);
+            return;
+        }
+        for (String entry : rawSpecs.split(";;")) {
+            String trimmed = entry != null ? entry.trim() : "";
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            int colon = trimmed.indexOf(':');
+            HBox chip = new HBox(5);
+            chip.setAlignment(Pos.CENTER_LEFT);
+            chip.getStyleClass().add("sub-surface");
+            chip.setStyle("-fx-padding: 6 11 6 11; -fx-background-radius: 10; -fx-border-radius: 10;");
+            if (colon > 0 && colon < trimmed.length() - 1) {
+                Label keyLbl = new Label(trimmed.substring(0, colon + 1));
+                keyLbl.getStyleClass().add("text-subtle");
+                keyLbl.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold;");
+                Label valLbl = new Label(trimmed.substring(colon + 1).trim());
+                valLbl.getStyleClass().add("text-primary");
+                valLbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+                chip.getChildren().addAll(keyLbl, valLbl);
+            } else {
+                Label lbl = new Label(trimmed);
+                lbl.getStyleClass().add("text-primary");
+                lbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+                chip.getChildren().add(lbl);
+            }
+            itemSpecsPane.getChildren().add(chip);
+        }
+        boolean hasChips = !itemSpecsPane.getChildren().isEmpty();
+        itemSpecsPane.setVisible(hasChips);
+        itemSpecsPane.setManaged(hasChips);
+    }
+
     private void buildThumbnailGallery(String primaryKey, String name) {
         thumbnailGallery.getChildren().clear();
-        String resolvedKey = (primaryKey != null && !primaryKey.isBlank())
-                ? primaryKey
+        List<String> multiKeys = ProductImageService.parseImageKeys(primaryKey);
+
+        if (multiKeys.size() > 1) {
+            // Sản phẩm có nhiều ảnh thật do Seller tải lên -> hiển thị đầy đủ từng ảnh riêng biệt
+            for (int i = 0; i < multiKeys.size(); i++) {
+                final String imgKey = multiKeys.get(i);
+                ImageView thumb = new ImageView();
+                ProductImageService.loadIntoImageView(thumb, currentAuctionId, name, imgKey, 108, 66, 8);
+
+                Label idxTag = new Label("Ảnh " + (i + 1));
+                idxTag.setStyle("-fx-background-color: rgba(8,12,24,0.78); -fx-text-fill: #F8FAFC;"
+                        + " -fx-font-size: 9.5px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 1 6 1 6;");
+                StackPane.setAlignment(idxTag, Pos.BOTTOM_LEFT);
+                StackPane.setMargin(idxTag, new javafx.geometry.Insets(0, 0, 4, 4));
+
+                StackPane frame = new StackPane(thumb, idxTag);
+                frame.getStyleClass().add("thumb-frame");
+                if (i == 0) {
+                    frame.getStyleClass().add("thumb-frame-active");
+                }
+                frame.setOnMouseClicked(e -> {
+                    for (var child : thumbnailGallery.getChildren()) {
+                        child.getStyleClass().remove("thumb-frame-active");
+                    }
+                    frame.getStyleClass().add("thumb-frame-active");
+                    ProductImageService.loadIntoImageView(imgShowcase, currentAuctionId, name, imgKey, 790, 310, 14);
+                    FadeTransition ft = new FadeTransition(Duration.millis(200), imgShowcase);
+                    ft.setFromValue(0.45);
+                    ft.setToValue(1.0);
+                    ft.play();
+                });
+                thumbnailGallery.getChildren().add(frame);
+            }
+            return;
+        }
+
+        String resolvedKey = (!multiKeys.isEmpty())
+                ? multiKeys.get(0)
                 : ProductImageService.resolveResourceKey(primaryKey, name);
         List<ProductImageService.GalleryAngle> angles = ProductImageService.GALLERY_ANGLES;
         for (int i = 0; i < angles.size(); i++) {
@@ -456,7 +565,7 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         }
         boolean hasLeader = highestBidderId != null && !highestBidderId.isBlank() && !"NONE".equalsIgnoreCase(highestBidderId);
         lblHighestBidder.setText(hasLeader ? "★ Dẫn đầu: " + highestBidderId : "Chưa có lượt đặt giá");
-        lblStepInfo.setText("Bước tối thiểu: +" + FormatUtils.formatVnd(stepPrice));
+        lblStepInfo.setText("Bước: +" + FormatUtils.formatVnd(stepPrice));
     }
 
     private void setDefaultBidInputs() {
@@ -623,9 +732,38 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
     }
 
     private void applyIncrement(double delta) {
-        double next = currentPrice + Math.max(delta, stepPrice);
+        double add = Math.max(delta, stepPrice);
+        double typed = parseTypedBidAmount();
+        double base = (typed >= currentPrice) ? typed : currentPrice;
+        double next = base + add;
         txtBidAmount.setText(String.format(Locale.US, "%.0f", next));
+        BidXAnimations.popScale(txtBidAmount, 1.04);
+        SoundEffects.playReactionTap();
+        setStatus("Đã cộng " + formatShortIncrement(add) + " → " + FormatUtils.formatVnd(next), "#FF9E44");
+    }
+
+    private double parseTypedBidAmount() {
+        if (txtBidAmount == null || txtBidAmount.getText() == null) {
+            return -1;
+        }
+        String raw = txtBidAmount.getText().trim().replaceAll("[,._\\s]", "");
+        if (raw.isEmpty()) {
+            return -1;
+        }
+        try {
+            double v = Double.parseDouble(raw);
+            return Double.isFinite(v) ? v : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    @FXML
+    public void handleResetBidAmount() {
+        setDefaultBidInputs();
         BidXAnimations.popScale(txtBidAmount, 1.03);
+        SoundEffects.playReactionTap();
+        setStatus("Đã đặt lại về mức giá hợp lệ tối thiểu.", "#94A3B8");
     }
 
     @FXML
@@ -647,6 +785,14 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         }
         try {
             double amount = Double.parseDouble(raw);
+            if (me != null && me.balance() < amount) {
+                String msg = "Số dư ví không đủ (" + FormatUtils.formatVnd(me.balance())
+                        + ") để đặt " + FormatUtils.formatVnd(amount) + ". Vui lòng nạp thêm tiền!";
+                setStatus(msg, "#F43F5E");
+                NotificationManager.showError(msg);
+                BidXAnimations.shake(txtBidAmount);
+                return;
+            }
             clientSession.getClient().placeBid(currentAuctionId, amount);
             setStatus("Đang gửi lệnh đặt giá " + FormatUtils.formatVnd(amount) + "...", "#38BDF8");
         } catch (NumberFormatException e) {
@@ -675,6 +821,15 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         try {
             double maxBid = Double.parseDouble(txtAutoMaxBid.getText().trim().replaceAll("[,._\\s]", ""));
             double inc = Double.parseDouble(txtAutoIncrement.getText().trim().replaceAll("[,._\\s]", ""));
+            UserProfile me = clientSession.getCurrentUser();
+            if (me != null && me.balance() < maxBid) {
+                String msg = "Số dư ví không đủ (" + FormatUtils.formatVnd(me.balance())
+                        + ") cho mức trần Auto-Bid " + FormatUtils.formatVnd(maxBid) + "!";
+                setStatus(msg, "#F43F5E");
+                NotificationManager.showError(msg);
+                BidXAnimations.shake(txtAutoMaxBid);
+                return;
+            }
             clientSession.getClient().configureAutoBid(currentAuctionId, maxBid, inc);
             setStatus("Đã gửi cấu hình Auto-Bid tối đa " + FormatUtils.formatVnd(maxBid), "#10B981");
         } catch (Exception e) {
