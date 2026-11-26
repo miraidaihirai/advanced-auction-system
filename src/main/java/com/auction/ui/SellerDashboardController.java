@@ -394,7 +394,9 @@ public class SellerDashboardController implements SessionAware {
             metaText = "● Đang diễn ra • Giá hiện tại: " + FormatUtils.formatVnd(d.currentPrice())
                     + " • " + d.bidCount() + " lượt đặt • Còn: " + FormatUtils.formatCountdownCompact(d.getRemainingSeconds());
         } else if (d.hasWinner()) {
-            metaText = "💰 Đã bán thành công cho " + d.highestBidderId() + " • Đã nhận +" + FormatUtils.formatVnd(d.currentPrice()) + " về ví Seller!";
+            metaText = d.payoutSettled()
+                    ? "💰 Đã bán thành công cho " + d.highestBidderId() + " • Đã nhận +" + FormatUtils.formatVnd(d.currentPrice()) + " về ví Seller!"
+                    : "⏳ Chờ người thắng " + d.highestBidderId() + " nạp đủ ví và thanh toán " + FormatUtils.formatVnd(d.currentPrice()) + " (chưa giao hàng).";
         } else {
             metaText = "Phiên đã kết thúc mà chưa có lượt đặt giá.";
         }

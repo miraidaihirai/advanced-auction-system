@@ -42,7 +42,7 @@ public class AuctionNotificationListener implements AuctionClient.AuctionEventLi
         NotificationManager.showPayout(
                 "CHÚC MỪNG BẠN ĐÃ THẮNG PHIÊN!",
                 itemId + " (" + auctionId + ")\nGiá chốt: " + FormatUtils.formatVnd(finalPrice)
-                        + " • Tiền đã quyết toán cho Seller.");
+                        + " • Vui lòng kiểm tra ví và hoàn tất xác nhận thanh toán.");
         requestProfileAndCatalogRefresh();
     }
 
@@ -54,9 +54,9 @@ public class AuctionNotificationListener implements AuctionClient.AuctionEventLi
                     "Phiên " + itemId + " (" + auctionId + ") đã đóng mà chưa có lượt đặt giá.");
         } else {
             NotificationManager.showPayout(
-                    "TIỀN ĐÃ CHẢY VỀ VÍ SELLER!",
-                    "+" + FormatUtils.formatVnd(finalPrice) + " từ " + itemId
-                            + "\nNgười thắng: " + winnerId);
+                    "PHIÊN ĐẤU GIÁ ĐÃ CHỐT NGƯỜI THẮNG!",
+                    itemId + " (" + auctionId + ")\nGiá chốt: " + FormatUtils.formatVnd(finalPrice)
+                            + " • Người thắng: " + winnerId);
         }
         requestProfileAndCatalogRefresh();
     }
@@ -126,9 +126,12 @@ public class AuctionNotificationListener implements AuctionClient.AuctionEventLi
             requestProfileAndCatalogRefresh();
         } else if (message.startsWith("ERROR ") && !message.startsWith("ERROR BID ")) {
             String reason = message.substring("ERROR ".length()).trim();
-            if (reason.contains("Số dư ví") || reason.toLowerCase(Locale.ROOT).contains("withdraw")
+            if (reason.contains("Số dư ví")
+                    || reason.contains("Thanh toán thất bại")
+                    || reason.toLowerCase(Locale.ROOT).contains("withdraw")
                     || reason.toLowerCase(Locale.ROOT).contains("top-up")) {
                 NotificationManager.showError(reason);
+                requestProfileAndCatalogRefresh();
             }
         }
     }

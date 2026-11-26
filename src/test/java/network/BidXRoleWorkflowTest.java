@@ -1,6 +1,7 @@
 package network;
 
 import com.auction.exceptions.AuthenticationException;
+import com.auction.exceptions.InsufficientBalanceException;
 import com.auction.manager.AuctionManager;
 import com.auction.model.Admin;
 import com.auction.model.Auction;
@@ -434,5 +435,221 @@ class BidXRoleWorkflowTest {
         assertEquals(1, session.getRecentNotifications().size());
         assertTrue(session.getRecentNotifications().get(0).contains("Huy Hưng"));
         assertFalse(session.getRecentNotifications().get(0).contains("Xuân Thắng"));
+    }
+
+    @Test
+    @DisplayName("Chặn thanh toán khi giá thắng cao hơn số dư ví (ném InsufficientBalanceException, không trừ về 0); nạp bù xong mới cho PAY")
+    void paymentWhenBidExceedsBalance_shouldRejectWithoutZeroingWalletAndAllowPayAfterTopUp() throws Exception {
+        Bidder bidder = new Bidder("B-INSUF", "Bidder Ít Tiền", "password123", 50_000_000);
+        Seller seller = new Seller("S-INSUF", "Seller Xe Sang", "password123", 0);
+        Admin admin = new Admin("ADM-INSUF", "Admin", "password123");
+        manager.registerUser(bidder);
+        manager.registerUser(seller);
+        manager.registerUser(admin);
+
+        Auction auction = new Auction("AUC-INSUF-1", "Porsche 911", seller.getId(), 100_000_000, 5_000_000);
+        auction.startAuction(Duration.ofMinutes(5));
+        manager.addAuction(auction);
+
+        AuctionClient bidderClient = new AuctionClient("localhost", port);
+        AuctionClient adminClient = new AuctionClient("localhost", port);
+
+        CountDownLatch bidOkLatch = new CountDownLatch(1);
+        CountDownLatch closeOkLatch = new CountDownLatch(1);
+        CountDownLatch payErrorLatch = new CountDownLatch(1);
+        CountDownLatch topUpOkLatch = new CountDownLatch(1);
+        CountDownLatch payOkLatch = new CountDownLatch(1);
+
+        bidderClient.addListener(new AuctionClient.AuctionEventListener() {
+            @Override
+            public void onBidUpdate(String a, double p, String b, String i) {
+            }
+
+            @Override
+            public void onMessageReceived(String raw) {
+                if (raw.startsWith("SUCCESS BID ")) {
+                    bidOkLatch.countDown();
+                } else if (raw.startsWith("ERROR ") && raw.contains("Số dư ví không đủ")) {
+                    payErrorLatch.countDown();
+                } else if (raw.startsWith("SUCCESS TOPUP ")) {
+                    topUpOkLatch.countDown();
+                } else if (raw.startsWith("SUCCESS PAY ")) {
+                    payOkLatch.countDown();
+                }
+            }
+        });
+
+        adminClient.addListener(new AuctionClient.AuctionEventListener() {
+            @Override
+            public void onBidUpdate(String a, double p, String b, String i) {
+            }
+
+            @Override
+            public void onMessageReceived(String raw) {
+                if (raw.startsWith("SUCCESS CLOSE ")) {
+                    closeOkLatch.countDown();
+                }
+            }
+        });
+
+        try {
+            bidderClient.connect();
+            adminClient.connect();
+            bidderClient.login(bidder.getId(), "password123");
+            adminClient.login(admin.getId(), "password123");
+            Thread.sleep(150);
+
+            // 1. Bidder có 50M nhưng đặt giá 120M (đặt giá không giới hạn)
+            bidderClient.placeBid("AUC-INSUF-1", 120_000_000);
+            assertTrue(bidOkLatch.await(3, TimeUnit.SECONDS));
+
+            // 2. Admin chốt phiên -> Phiên FINISHED nhưng KHÔNG ĐƯỢC trừ ví về 0 và KHÔNG ĐƯỢC chuyển tiền cho Seller
+            adminClient.closeAuction("AUC-INSUF-1");
+            assertTrue(closeOkLatch.await(3, TimeUnit.SECONDS));
+
+            assertEquals(Auction.Status.FINISHED, auction.getStatus());
+            assertFalse(auction.isPayoutSettled(), "Không được quyết toán khi người thắng không đủ tiền");
+            assertEquals(50_000_000.0, bidder.getBalance(), 0.01, "Ví Bidder phải giữ nguyên 50M, không được trừ về 0");
+            assertEquals(0.0, seller.getBalance(), 0.01, "Seller chưa được nhận tiền khi Bidder chưa thanh toán đủ");
+
+            // 3. Gọi markAuctionPaid trực tiếp phải ném InsufficientBalanceException
+            assertThrows(InsufficientBalanceException.class, () -> manager.markAuctionPaid("AUC-INSUF-1"));
+            assertEquals(Auction.Status.FINISHED, auction.getStatus(), "Trạng thái phải giữ nguyên FINISHED, không được chuyển PAID");
+
+            // 4. Gửi lệnh PAY qua Socket khi thiếu tiền -> bị từ chối (lần 1/3), giữ nguyên trạng thái & số dư
+            bidderClient.payAuction("AUC-INSUF-1");
+            assertTrue(payErrorLatch.await(3, TimeUnit.SECONDS), "Server phải trả lỗi không đủ số dư khi PAY");
+            assertEquals(Auction.Status.FINISHED, auction.getStatus());
+            assertEquals(50_000_000.0, bidder.getBalance(), 0.01);
+
+            // 5. Bidder nạp thêm 70M (tổng 120M) rồi gửi lại PAY -> thành công & chuyển sang PAID
+            bidderClient.topUpWallet(70_000_000, "Vietcombank");
+            assertTrue(topUpOkLatch.await(3, TimeUnit.SECONDS));
+            assertEquals(120_000_000.0, bidder.getBalance(), 0.01);
+
+            bidderClient.payAuction("AUC-INSUF-1");
+            assertTrue(payOkLatch.await(3, TimeUnit.SECONDS), "Sau khi nạp đủ tiền, PAY phải thành công");
+            Thread.sleep(100);
+            assertEquals(Auction.Status.PAID, auction.getStatus());
+            assertTrue(auction.isPayoutSettled());
+            assertEquals(0.0, bidder.getBalance(), 0.01);
+            assertEquals(120_000_000.0, seller.getBalance(), 0.01);
+        } finally {
+            bidderClient.disconnect();
+            adminClient.disconnect();
+        }
+    }
+
+    @Test
+    @DisplayName("PAY thất bại quá 3 lần (>3 lần) -> thu hồi vật phẩm, xóa dữ liệu phiên cũ và đưa về PENDING_APPROVAL chờ Admin duyệt lại")
+    void paymentFailsMoreThanThreeTimes_shouldReclaimItemAndResetToPendingApproval() throws Exception {
+        Bidder bidder = new Bidder("B-RECLAIM", "Bidder Không Đủ Tiền", "password123", 10_000_000);
+        Seller seller = new Seller("S-RECLAIM", "Seller Đồng Hồ", "password123", 0);
+        Admin admin = new Admin("ADM-RECLAIM", "Admin", "password123");
+        manager.registerUser(bidder);
+        manager.registerUser(seller);
+        manager.registerUser(admin);
+
+        Auction auction = new Auction("AUC-RECLAIM-1", "Patek Philippe 5711", seller.getId(), 100_000_000, 5_000_000);
+        auction.startAuction(Duration.ofMinutes(5));
+        manager.addAuction(auction);
+
+        AuctionClient bidderClient = new AuctionClient("localhost", port);
+        AuctionClient adminClient = new AuctionClient("localhost", port);
+
+        CountDownLatch bidOkLatch = new CountDownLatch(1);
+        CountDownLatch closeOkLatch = new CountDownLatch(1);
+        CountDownLatch threeFailLatch = new CountDownLatch(3);
+        CountDownLatch reclaimedErrorLatch = new CountDownLatch(1);
+        CountDownLatch catalogRefreshLatch = new CountDownLatch(1);
+        CountDownLatch reapproveLatch = new CountDownLatch(1);
+
+        bidderClient.addListener(new AuctionClient.AuctionEventListener() {
+            @Override
+            public void onBidUpdate(String a, double p, String b, String i) {
+            }
+
+            @Override
+            public void onMessageReceived(String raw) {
+                if (raw.startsWith("SUCCESS BID ")) {
+                    bidOkLatch.countDown();
+                } else if (raw.startsWith("ERROR ") && raw.contains("Lần thất bại")) {
+                    threeFailLatch.countDown();
+                } else if (raw.startsWith("ERROR ") && raw.contains("Thanh toán thất bại quá 3 lần")) {
+                    reclaimedErrorLatch.countDown();
+                }
+            }
+        });
+
+        adminClient.addListener(new AuctionClient.AuctionEventListener() {
+            @Override
+            public void onBidUpdate(String a, double p, String b, String i) {
+            }
+
+            @Override
+            public void onCatalogRefresh() {
+                catalogRefreshLatch.countDown();
+            }
+
+            @Override
+            public void onMessageReceived(String raw) {
+                if (raw.startsWith("SUCCESS CLOSE ")) {
+                    closeOkLatch.countDown();
+                } else if (raw.startsWith("SUCCESS APPROVE_AUCTION ")) {
+                    reapproveLatch.countDown();
+                }
+            }
+        });
+
+        try {
+            bidderClient.connect();
+            adminClient.connect();
+            bidderClient.login(bidder.getId(), "password123");
+            adminClient.login(admin.getId(), "password123");
+            Thread.sleep(150);
+
+            // Đặt giá 150M vượt xa số dư 10M + lưu chat cũ
+            bidderClient.placeBid("AUC-RECLAIM-1", 150_000_000);
+            assertTrue(bidOkLatch.await(3, TimeUnit.SECONDS));
+            manager.recordChatMessage("AUC-RECLAIM-1", bidder.getId(), bidder.getName(), "BIDDER", "Tôi muốn mua");
+            assertFalse(auction.getChatHistory().isEmpty());
+
+            // Chốt phiên -> FINISHED nhưng chưa quyết toán
+            adminClient.closeAuction("AUC-RECLAIM-1");
+            assertTrue(closeOkLatch.await(3, TimeUnit.SECONDS));
+            assertEquals(Auction.Status.FINISHED, auction.getStatus());
+
+            // Lần 1, 2, 3 thất bại -> vẫn giữ FINISHED để Bidder có cơ hội nạp thêm tiền
+            for (int i = 1; i <= 3; i++) {
+                bidderClient.payAuction("AUC-RECLAIM-1");
+            }
+            assertTrue(threeFailLatch.await(3, TimeUnit.SECONDS), "3 lần đầu phải báo lỗi đếm số lần thất bại");
+            assertEquals(3, auction.getFailedPayAttempts());
+            assertEquals(Auction.Status.FINISHED, auction.getStatus());
+            assertEquals(10_000_000.0, bidder.getBalance(), 0.01);
+
+            // Lần thứ 4 (> 3 lần) -> Thu hồi vật phẩm, xóa thông tin phiên cũ, đưa về PENDING_APPROVAL
+            bidderClient.payAuction("AUC-RECLAIM-1");
+            assertTrue(reclaimedErrorLatch.await(3, TimeUnit.SECONDS), "Quá 3 lần phải thu hồi vật phẩm");
+            assertTrue(catalogRefreshLatch.await(3, TimeUnit.SECONDS), "Server phải broadcast refresh danh sách");
+
+            assertEquals(Auction.Status.PENDING_APPROVAL, auction.getStatus());
+            assertEquals(100_000_000.0, auction.getCurrentPrice(), 0.01, "Giá phải reset về giá khởi điểm");
+            assertNull(auction.getHighestBidderId(), "Người thắng phiên cũ phải bị xóa");
+            assertTrue(auction.getBidHistory().isEmpty(), "Lịch sử đặt giá phiên cũ phải bị xóa");
+            assertTrue(auction.getChatHistory().isEmpty(), "Lịch sử chat phiên cũ phải bị xóa");
+            assertFalse(auction.isPayoutSettled());
+            assertEquals(0, auction.getFailedPayAttempts());
+            assertEquals(10_000_000.0, bidder.getBalance(), 0.01);
+            assertEquals(0.0, seller.getBalance(), 0.01);
+
+            // Admin duyệt lại vật phẩm để mở sàn phiên mới
+            adminClient.approveAuction("AUC-RECLAIM-1");
+            assertTrue(reapproveLatch.await(3, TimeUnit.SECONDS), "Admin phải duyệt lại được vật phẩm đã thu hồi");
+            assertEquals(Auction.Status.RUNNING, auction.getStatus());
+        } finally {
+            bidderClient.disconnect();
+            adminClient.disconnect();
+        }
     }
 }

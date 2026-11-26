@@ -56,4 +56,21 @@ class ExceptionsTest {
                 )
         );
     }
+
+    @Test
+    void insufficientBalanceException_shouldStoreMessage() {
+        InsufficientBalanceException exception =
+                new InsufficientBalanceException("Insufficient wallet balance");
+
+        assertAll(
+                () -> assertEquals(
+                        "Insufficient wallet balance",
+                        exception.getMessage()
+                ),
+                () -> assertInstanceOf(
+                        RuntimeException.class,
+                        exception
+                )
+        );
+    }
 }

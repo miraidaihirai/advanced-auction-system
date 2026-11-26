@@ -496,15 +496,24 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
         setVisibleManaged(winnerPayBox, isBidder && !running && iAmWinner);
         setVisibleManaged(endedNoticeBox, isBidder && !running && !iAmWinner);
 
+        boolean settled = "PAID".equalsIgnoreCase(currentStatus)
+                || (currentDetail != null && currentDetail.payoutSettled());
+
         if (isSeller) {
             if (running) {
                 lblSellerPayoutInfo.setText(hasWinner
                         ? "Doanh thu dự kiến về ví Seller: +" + FormatUtils.formatVnd(currentPrice) + " (Người giữ giá: " + highestBidderId + ")"
                         : "Đang chờ Bidder đầu tiên đặt giá...");
             } else if (hasWinner) {
-                lblSellerPayoutInfo.setText("💰 TIỀN ĐÃ CHẢY VỀ VÍ SELLER: +" + FormatUtils.formatVnd(currentPrice)
-                        + " từ người thắng " + highestBidderId + "!");
-                lblSellerPayoutInfo.setStyle("-fx-text-fill: #34D399; -fx-font-weight: bold; -fx-font-size: 13.5px;");
+                if (settled) {
+                    lblSellerPayoutInfo.setText("💰 TIỀN ĐÃ CHẢY VỀ VÍ SELLER: +" + FormatUtils.formatVnd(currentPrice)
+                            + " từ người thắng " + highestBidderId + "!");
+                    lblSellerPayoutInfo.setStyle("-fx-text-fill: #34D399; -fx-font-weight: bold; -fx-font-size: 13.5px;");
+                } else {
+                    lblSellerPayoutInfo.setText("⏳ CHỜ THANH TOÁN: Người thắng " + highestBidderId
+                            + " chưa đủ số dư ví (" + FormatUtils.formatVnd(currentPrice) + "). Chưa giao hàng!");
+                    lblSellerPayoutInfo.setStyle("-fx-text-fill: #FBBF24; -fx-font-weight: bold; -fx-font-size: 13px;");
+                }
             } else {
                 lblSellerPayoutInfo.setText("Phiên đã đóng mà chưa có lượt đặt giá.");
             }
@@ -520,10 +529,16 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
                 lblWinnerSub.setText("Bạn đã sở hữu " + itemName + " với giá " + FormatUtils.formatVnd(currentPrice)
                         + ". Tiền đã được chuyển đầy đủ vào ví Seller.");
                 setVisibleManaged(btnConfirmPay, false);
+            } else if (!settled && me.balance() < currentPrice) {
+                lblWinnerTitle.setText("⚠ SỐ DƯ VÍ KHÔNG ĐỦ ĐỂ THANH TOÁN");
+                lblWinnerSub.setText("Giá chốt: " + FormatUtils.formatVnd(currentPrice)
+                        + " • Ví hiện có: " + FormatUtils.formatVnd(me.balance())
+                        + ". Vui lòng nạp thêm tiền vào ví trước khi xác nhận thanh toán!");
+                setVisibleManaged(btnConfirmPay, true);
             } else {
                 lblWinnerTitle.setText("CHÚC MỪNG! BẠN ĐÃ THẮNG PHIÊN NÀY");
                 lblWinnerSub.setText("Giá chốt: " + FormatUtils.formatVnd(currentPrice)
-                        + " • Tiền đã được quyết toán về ví Seller. Nhấn xác nhận hoàn tất hóa đơn.");
+                        + " • Nhấn xác nhận thanh toán & nhận bàn giao sản phẩm.");
                 setVisibleManaged(btnConfirmPay, true);
             }
         }
@@ -926,11 +941,52 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
             updatePriceDisplay(true);
             updateRoleControls();
             updateCountdownDisplay();
-            setStatus("Phiên đấu giá đã kết thúc! Tiền thắng cuộc đã chuyển về ví Seller.", "#FBBF24");
+            setStatus("Phiên đấu giá đã kết thúc!", "#FBBF24");
             if (clientSession != null && clientSession.isConnected()) {
                 clientSession.getClient().requestProfile();
+                clientSession.getClient().requestFullList();
             }
         });
+    }
+
+    @Override
+    public void onCatalogRefresh() {
+        if (clientSession != null && clientSession.isConnected() && !currentAuctionId.isEmpty()) {
+            clientSession.getClient().requestFullList();
+        }
+    }
+
+    @Override
+    public void onAuctionDetailsReceived(List<AuctionDetail> auctions) {
+        if (auctions == null || currentAuctionId.isEmpty()) {
+            return;
+        }
+        for (AuctionDetail d : auctions) {
+            if (currentAuctionId.equals(d.auctionId())) {
+                Platform.runLater(() -> {
+                    boolean reclaimed = d.isPendingApproval() && !"PENDING_APPROVAL".equalsIgnoreCase(this.currentStatus);
+                    this.currentDetail = d;
+                    this.currentStatus = d.status();
+                    if (reclaimed) {
+                        this.currentPrice = d.startPrice();
+                        this.highestBidderId = "NONE";
+                        priceSeries.getData().clear();
+                        priceSeries.getData().add(new XYChart.Data<>("Khởi điểm", d.startPrice()));
+                        lvBidHistory.getItems().clear();
+                        lblTotalBidBadge.setText("0 lượt");
+                        if (lvRoomChat != null) {
+                            lvRoomChat.getItems().clear();
+                        }
+                        updatePriceDisplay(false);
+                        updateCountdownDisplay();
+                        setStatus("Vật phẩm đã bị thu hồi về hàng chờ Admin duyệt lại do thanh toán thất bại quá 3 lần.", "#F43F5E");
+                    }
+                    updateStatusBadges();
+                    updateRoleControls();
+                });
+                break;
+            }
+        }
     }
 
     @Override
@@ -953,6 +1009,7 @@ public class AuctionRoomController implements SessionAware, AuctionClient.Auctio
                 clientSession.setCurrentUser(profile);
             }
             updateWalletBadge(profile);
+            updateRoleControls();
         });
     }
 

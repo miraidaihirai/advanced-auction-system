@@ -170,13 +170,13 @@ public class AuctionServer implements AuctionObserver {
 
     @Override
     public void onAuctionClosed(Auction auction) {
-        AuctionManager.getInstance().settleAuctionFunds(auction);
+        AuctionManager.getInstance().trySettleAuctionFunds(auction);
         notifyAuctionFinished(auction);
     }
 
     @Override
     public void onAuctionPaid(Auction auction) {
-        AuctionManager.getInstance().settleAuctionFunds(auction);
+        AuctionManager.getInstance().trySettleAuctionFunds(auction);
         notifyAuctionPaid(auction);
     }
 

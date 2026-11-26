@@ -38,6 +38,8 @@ public class Auction implements AuctionSubject, Serializable {
         OPEN, PENDING_APPROVAL, RUNNING, FINISHED, PAID, CANCELED, REJECTED
     }
 
+    public static final int MAX_FAILED_PAY_ATTEMPTS = 3;
+
     private static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
     private static final ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "auction-timeout");
@@ -63,6 +65,7 @@ public class Auction implements AuctionSubject, Serializable {
     private long requestedDurationSeconds = 300;
     private String rejectionReason = "";
     private boolean payoutSettled = false;
+    private int failedPayAttempts = 0;
 
     // Anti-Sniping (tự động gia hạn khi có bid ở giây cuối)
     private boolean antiSnipingEnabled = false;
@@ -182,6 +185,7 @@ public class Auction implements AuctionSubject, Serializable {
 
     private void beginRunningLocked(Duration duration) {
         this.status = Status.RUNNING;
+        this.failedPayAttempts = 0;
         this.endTimeMillis = System.currentTimeMillis() + duration.toMillis();
         if (duration.getSeconds() >= 60 && !this.antiSnipingEnabled) {
             this.antiSnipingEnabled = true;
@@ -509,6 +513,58 @@ public class Auction implements AuctionSubject, Serializable {
                 return true;
             }
             return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public int getFailedPayAttempts() {
+        lock.lock();
+        try {
+            return failedPayAttempts;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public int incrementFailedPayAttempts() {
+        lock.lock();
+        try {
+            failedPayAttempts++;
+            return failedPayAttempts;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Thu hồi vật phẩm sau khi người thắng thanh toán thất bại quá số lần quy định:
+     * xóa toàn bộ lịch sử/giá/người thắng của phiên cũ và đưa về PENDING_APPROVAL chờ Admin duyệt lại.
+     */
+    public void reclaimForReapproval() {
+        lock.lock();
+        try {
+            if (finishTask != null) {
+                finishTask.cancel(false);
+                finishTask = null;
+            }
+            this.currentPrice = this.startPrice;
+            this.highestBidderId = null;
+            this.bidHistory.clear();
+            this.endTimeMillis = 0L;
+            this.payoutSettled = false;
+            this.antiSnipingExtensionsCount = 0;
+            this.rejectionReason = "";
+            this.failedPayAttempts = 0;
+            if (this.autoBids != null) {
+                this.autoBids.clear();
+            }
+            if (this.chatHistory != null) {
+                this.chatHistory.clear();
+            }
+            this.status = Status.PENDING_APPROVAL;
+            System.out.printf("[Auction %s] Reclaimed item [%s] and reset to PENDING_APPROVAL for Admin re-approval%n",
+                    id, itemId);
         } finally {
             lock.unlock();
         }

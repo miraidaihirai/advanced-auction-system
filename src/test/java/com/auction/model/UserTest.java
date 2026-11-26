@@ -1,6 +1,7 @@
 
 package com.auction.model;
 
+import com.auction.exceptions.InsufficientBalanceException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -155,6 +156,19 @@ class UserTest {
         );
 
         assertEquals("password123", user.getPassword());
+    }
+
+    @Test
+    void deductBalance_whenInsufficient_shouldThrowExceptionAndKeepBalanceIntact() {
+        TestUser user = createUser();
+        user.setBalance(50_000_000.0);
+
+        assertThrows(
+                InsufficientBalanceException.class,
+                () -> user.deductBalance(120_000_000.0)
+        );
+
+        assertEquals(50_000_000.0, user.getBalance(), 0.01);
     }
 
     private TestUser createUser() {

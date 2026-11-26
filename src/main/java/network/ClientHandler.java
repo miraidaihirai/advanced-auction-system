@@ -2,6 +2,7 @@ package network;
 
 import com.auction.exceptions.AuctionClosedException;
 import com.auction.exceptions.AuthenticationException;
+import com.auction.exceptions.InsufficientBalanceException;
 import com.auction.exceptions.InvalidBidException;
 import com.auction.manager.AuctionManager;
 import com.auction.model.Auction;
@@ -404,7 +405,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
         try {
             auction.finishAuction();
-            AuctionManager.getInstance().settleAuctionFunds(auction);
+            AuctionManager.getInstance().trySettleAuctionFunds(auction);
             if (AuctionManager.getInstance().isAutoSave()) {
                 AuctionManager.getInstance().saveState();
             }
@@ -442,13 +443,15 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
 
         try {
-            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_PAY,
-                    String.format(Locale.US, "%s %.2f", auctionId, auction.getCurrentPrice())));
-            auction.markPaid();
-            AuctionManager.getInstance().settleAuctionFunds(auction);
-            if (AuctionManager.getInstance().isAutoSave()) {
-                AuctionManager.getInstance().saveState();
+            double finalPrice = auction.getCurrentPrice();
+            AuctionManager.getInstance().processAuctionPayment(auction, () ->
+                    sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_PAY,
+                            String.format(Locale.US, "%s %.2f", auctionId, finalPrice))));
+        } catch (InsufficientBalanceException e) {
+            if (auction.getStatus() == Auction.Status.PENDING_APPROVAL && server != null) {
+                server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
             }
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
         } catch (Exception e) {
             sendMessage(AuctionProtocol.formatError(e.getMessage()));
         }

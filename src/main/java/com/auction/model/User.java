@@ -1,5 +1,7 @@
 package com.auction.model;
 
+import com.auction.exceptions.InsufficientBalanceException;
+
 import java.io.Serializable;
 
 public abstract class User implements Serializable {
@@ -46,12 +48,12 @@ public abstract class User implements Serializable {
         if (!Double.isFinite(amount) || amount <= 0) {
             throw new IllegalArgumentException("Amount to deduct must be positive");
         }
-        if (this.balance >= amount) {
-            this.balance -= amount;
-            return true;
+        if (this.balance < amount) {
+            throw new InsufficientBalanceException(String.format(
+                    "Số dư ví không đủ (cần %,.0f đ, hiện có %,.0f đ)", amount, this.balance));
         }
-        this.balance = 0.0;
-        return false;
+        this.balance -= amount;
+        return true;
     }
 
     public String getRole() {

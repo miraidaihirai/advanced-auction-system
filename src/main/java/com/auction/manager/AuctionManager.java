@@ -15,6 +15,7 @@ import com.auction.storage.FileStorageService;
 import com.auction.storage.TransactionStorageService;
 import com.auction.exceptions.AuthenticationException;
 import com.auction.exceptions.AuctionClosedException;
+import com.auction.exceptions.InsufficientBalanceException;
 
 import java.io.File;
 import java.io.IOException;
@@ -112,7 +113,7 @@ public class AuctionManager {
         Auction auction = auctionMap.get(auctionId);
         if (auction != null) {
             auction.finishAuction();
-            settleAuctionFunds(auction);
+            trySettleAuctionFunds(auction);
             if (autoSave) {
                 saveState();
             }
@@ -124,31 +125,95 @@ public class AuctionManager {
     public boolean markAuctionPaid(String auctionId) {
         Auction auction = auctionMap.get(auctionId);
         if (auction != null) {
-            auction.markPaid();
-            settleAuctionFunds(auction);
-            if (autoSave) {
-                saveState();
-            }
-            return true;
+            return processAuctionPayment(auction, null);
         }
         return false;
     }
 
     /**
-     * Thanh toán tự động sau khi phiên đấu giá thành công: tiền chảy từ người thắng (Bidder)
+     * Xử lý thanh toán cho phiên FINISHED: kiểm tra ví & quyết toán trước khi đánh dấu PAID.
+     * Nếu thiếu số dư, tăng số lần thanh toán thất bại; nếu thất bại nhiều hơn 3 lần thì
+     * thu hồi vật phẩm, xóa thông tin phiên cũ và đưa về PENDING_APPROVAL chờ Admin duyệt lại.
+     */
+    public synchronized boolean processAuctionPayment(Auction auction, Runnable beforeMarkPaid) {
+        if (auction == null || auction.getStatus() != Auction.Status.FINISHED
+                || auction.getHighestBidderId() == null) {
+            throw new IllegalStateException("Only a finished auction with a winner can be marked PAID");
+        }
+        try {
+            settleAuctionFunds(auction);
+            if (beforeMarkPaid != null) {
+                beforeMarkPaid.run();
+            }
+            auction.markPaid();
+            if (autoSave) {
+                saveState();
+            }
+            return true;
+        } catch (InsufficientBalanceException e) {
+            int attempts = auction.incrementFailedPayAttempts();
+            if (attempts > Auction.MAX_FAILED_PAY_ATTEMPTS) {
+                auction.reclaimForReapproval();
+                if (autoSave) {
+                    saveState();
+                }
+                throw new InsufficientBalanceException(String.format(
+                        "Thanh toán thất bại quá %d lần (lần %d). Vật phẩm [%s] đã bị thu hồi, xóa thông tin phiên trước đó và chuyển về chờ Admin duyệt lại.",
+                        Auction.MAX_FAILED_PAY_ATTEMPTS, attempts, auction.getItemId()));
+            }
+            if (autoSave) {
+                saveState();
+            }
+            throw new InsufficientBalanceException(String.format(
+                    "%s (Lần thất bại %d/%d — nếu quá %d lần vật phẩm sẽ bị thu hồi về chờ Admin duyệt lại)",
+                    e.getMessage(), attempts, Auction.MAX_FAILED_PAY_ATTEMPTS, Auction.MAX_FAILED_PAY_ATTEMPTS));
+        }
+    }
+
+    /**
+     * Thử quyết toán tự động khi phiên vừa đóng: nếu Bidder đủ số dư thì chuyển tiền ngay,
+     * nếu thiếu số dư thì giữ nguyên ví Bidder (không trừ về 0) và chờ Bidder nạp thêm rồi PAY.
+     */
+    public synchronized boolean trySettleAuctionFunds(Auction auction) {
+        try {
+            return settleAuctionFunds(auction);
+        } catch (InsufficientBalanceException e) {
+            System.out.printf("[BidX Settlement] Chưa thể quyết toán phiên [%s]: %s%n",
+                    auction != null ? auction.getId() : "null", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Thanh toán sau khi phiên đấu giá kết thúc: tiền chảy từ người thắng (Bidder)
      * về trực tiếp ví người bán (Seller). Đảm bảo idempotent (không bao giờ cộng trùng).
+     * Ném InsufficientBalanceException nếu số dư ví của Bidder thấp hơn giá thắng cuộc.
      */
     public synchronized boolean settleAuctionFunds(Auction auction) {
-        if (auction == null || !auction.claimPayoutSettlement()) {
+        if (auction == null || auction.isPayoutSettled()) {
+            return false;
+        }
+        Auction.Status st = auction.getStatus();
+        String winnerId = auction.getHighestBidderId();
+        if ((st != Auction.Status.FINISHED && st != Auction.Status.PAID) || winnerId == null) {
             return false;
         }
 
         double finalAmount = auction.getCurrentPrice();
-        String winnerId = auction.getHighestBidderId();
         String sellerId = auction.getSellerId();
 
-        User winner = winnerId != null ? userMap.get(winnerId) : null;
+        User winner = userMap.get(winnerId);
         User seller = sellerId != null ? userMap.get(sellerId) : null;
+
+        if (winner != null && finalAmount > 0 && winner.getBalance() < finalAmount) {
+            throw new InsufficientBalanceException(String.format(
+                    "Số dư ví không đủ để thanh toán phiên %s (cần %,.0f đ, hiện có %,.0f đ)",
+                    auction.getId(), finalAmount, winner.getBalance()));
+        }
+
+        if (!auction.claimPayoutSettlement()) {
+            return false;
+        }
 
         if (winner != null && finalAmount > 0) {
             winner.deductBalance(finalAmount);
@@ -168,7 +233,7 @@ public class AuctionManager {
             walletTransactions.add(new WalletTransaction(
                     "WTX-" + System.currentTimeMillis() + "-" + walletTxCounter.incrementAndGet(),
                     seller.getId(),
-                    winnerId != null ? winnerId : "BIDDER",
+                    winnerId,
                     auction.getId(),
                     auction.getItemId(),
                     WalletTransaction.Type.PAYOUT_RECEIVED,
@@ -346,7 +411,7 @@ public class AuctionManager {
         double updatedBalance;
         synchronized (user) {
             if (user.getBalance() < amount) {
-                throw new IllegalArgumentException("Số dư ví không đủ để rút " + String.format("%,.0f", amount) + " đ");
+                throw new InsufficientBalanceException("Số dư ví không đủ để rút " + String.format("%,.0f", amount) + " đ");
             }
             user.deductBalance(amount);
             updatedBalance = user.getBalance();
