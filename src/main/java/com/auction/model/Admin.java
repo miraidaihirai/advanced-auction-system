@@ -7,9 +7,15 @@ import com.auction.observer.AuctionObserver;
  * Kế thừa User (LSP), implement AuctionObserver (ISP, OCP, DIP) để giám sát các phiên đấu giá.
  */
 public class Admin extends User implements AuctionObserver {
+    private static final long serialVersionUID = 1L;
 
     public Admin(String id, String name, String password) {
-        super(id, name, password);
+        super(id, name, password, 0.0);
+    }
+
+    @Override
+    public String getRole() {
+        return "ADMIN";
     }
 
     @Override

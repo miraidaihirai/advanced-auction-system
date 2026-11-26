@@ -5,64 +5,97 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.TextField?>
-<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<AnchorPane fx:id="LoginPane"
-            prefHeight="600.0" prefWidth="800.0"
-            stylesheets="@../css/styleLogIn.css"
-            styleClass="Login-pane"
-            xmlns="http://javafx.com/javafx/21" 
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.auction.ui.LogInController">
-  <children>
-      <VBox alignment="CENTER" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
-        <children>
-          <VBox alignment="CENTER_LEFT" prefWidth="400.0" maxWidth="400.0" spacing="18.0" styleClass="login-card">
-            <padding>
-              <Insets bottom="40.0" left="40.0" right="40.0" top="40.0"/>
-            </padding>
-            <children>
-              <!--Phần tiêu đề-->
-              <VBox spacing="6.0">
-                <children>
-                  <Label styleClass="title-label" text="Đăng nhập"/>
-                </children>
-                <VBox.margin>
-                  <Insets bottom="10.0"/>
-                </VBox.margin>
-              </VBox>
-                <!--Ô nhập username-->
-                <VBox spacing="6.0">
-                  <children>
-                    <Label styleClass="sub-label" text="Tài khoản"/>
-                    <TextField fx:id="usernameField" promptText="Nhập tài khoản..."/>
-                  </children>
+<StackPane fx:id="loginRoot"
+           xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.auction.ui.LogInController"
+           stylesheets="@../css/bidx-theme.css"
+           styleClass="auth-root">
+
+    <!-- Animated ambient neon orbs -->
+    <Pane fx:id="ambientPane" mouseTransparent="true"/>
+
+    <!-- Floating Light/Dark Theme Switcher -->
+    <Button fx:id="btnThemeToggle" text="Light" onAction="#handleToggleTheme"
+            styleClass="theme-toggle-btn" StackPane.alignment="TOP_RIGHT">
+        <StackPane.margin>
+            <Insets top="20" right="26"/>
+        </StackPane.margin>
+    </Button>
+
+    <!-- Split Cinema Promo + Glass Login Card -->
+    <HBox alignment="CENTER" spacing="44" maxWidth="1180" style="-fx-padding: 28 40 28 40;">
+
+        <!-- Left 60 FPS Motion-Graphics Promo Showcase -->
+        <StackPane fx:id="promoHost" prefWidth="560" prefHeight="640" minWidth="500" maxWidth="560"/>
+
+        <!-- Right Glassmorphism Login Card -->
+        <VBox fx:id="loginCard" spacing="16" prefWidth="444" minWidth="420" maxWidth="454" styleClass="auth-card">
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <StackPane fx:id="logoWrap" style="-fx-background-color: #0D1322; -fx-background-radius: 14; -fx-border-color: rgba(255,158,68,0.55); -fx-border-radius: 14; -fx-padding: 3;">
+                    <ImageView fx:id="imgLogo" fitWidth="46" fitHeight="46" preserveRatio="true"/>
+                </StackPane>
+                <VBox spacing="1">
+                    <HBox spacing="0" alignment="BASELINE_LEFT">
+                        <Label text="Bid" styleClass="auth-brand-inline"/>
+                        <Label text="X" style="-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #FF7B24;"/>
+                    </HBox>
+                    <Label text="Chào mừng trở lại sàn đấu giá" styleClass="auth-card-sub"/>
                 </VBox>
-                <!--Ô nhập password-->
-                <VBox spacing="6.0">
-                  <children>
-                    <Label styleClass="sub-label" text="Mật khẩu"/>
-                    <PasswordField fx:id="passwordField" promptText="Nhập mật khẩu...">
-                      <VBox.margin>
-                        <Insets bottom="10.0"/>
-                      </VBox.margin>
-                    </PasswordField>
-                  </children>
+            </HBox>
+
+            <VBox spacing="6">
+                <Label text="Mã tài khoản" styleClass="field-label"/>
+                <TextField fx:id="usernameField" promptText="VD: BIDDER-01, SELLER-01, ADMIN-01" styleClass="bidx-input" onAction="#SwitchToHome"/>
+            </VBox>
+
+            <VBox spacing="6">
+                <Label text="Mật khẩu" styleClass="field-label"/>
+                <PasswordField fx:id="passwordField" promptText="Nhập mật khẩu..." styleClass="bidx-input" onAction="#SwitchToHome"/>
+            </VBox>
+
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Máy chủ (Host)" styleClass="text-subtle" style="-fx-font-size: 11px; -fx-font-weight: bold;"/>
+                    <TextField fx:id="hostField" text="localhost" styleClass="bidx-input" style="-fx-padding: 8 10 8 10; -fx-font-size: 12px;"/>
                 </VBox>
-                <Label fx:id="errorLabel" styleClass="error-label" textFill="#e74c3c" />
-                <VBox alignment="CENTER" spacing="10.0">
-                  <children>
-                    <!--Nút submit-->
-                    <Button fx:id="LoginButton" maxWidth="Infinity" styleClass="button" text="Đăng nhập" onAction="#SwitchToHome"/>
-                    <!--Nút đăng ký tài khoản-->
-                    <Button fx:id="RegisterAccount" maxWidth="Infinity" styleClass="button" text="Đăng ký" onAction="#SwitchToRegister"/>
-                  </children>
+                <VBox spacing="4" prefWidth="94">
+                    <Label text="Cổng" styleClass="text-subtle" style="-fx-font-size: 11px; -fx-font-weight: bold;"/>
+                    <TextField fx:id="portField" text="8888" styleClass="bidx-input" style="-fx-padding: 8 10 8 10; -fx-font-size: 12px;"/>
                 </VBox>
-            </children>
-          </VBox>
-        </children>
-      </VBox>
-  </children>
-</AnchorPane>
+            </HBox>
+
+            <Label fx:id="errorLabel" text="" wrapText="true" styleClass="text-accent-crimson" style="-fx-font-size: 12.5px; -fx-font-weight: bold;"/>
+
+            <Button fx:id="btnLogin" text="ĐĂNG NHẬP NGAY" onAction="#SwitchToHome" maxWidth="Infinity" styleClass="btn-fire"/>
+
+            <!-- Quick 1-Click Team Account Login (4 team members + Admin) -->
+            <VBox spacing="7" style="-fx-padding: 4 0 0 0;">
+                <Label text="Vào nhanh tài khoản nhóm BidX (mật khẩu: password123):"
+                       styleClass="text-subtle" style="-fx-font-size: 11px;"/>
+                <HBox spacing="8">
+                    <Button text="Xuân Thắng (Bidder)" onAction="#handleQuickXuanThang" styleClass="demo-pill" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                    <Button text="Huy Hưng (Bidder)" onAction="#handleQuickHuyHung" styleClass="demo-pill" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                </HBox>
+                <HBox spacing="8">
+                    <Button text="Tuấn Đại (Seller)" onAction="#handleQuickTuanDai" styleClass="demo-pill, demo-pill-seller" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                    <Button text="Phạm Trường (Seller)" onAction="#handleQuickPhamTruong" styleClass="demo-pill, demo-pill-seller" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                    <Button text="Admin" onAction="#handleQuickAdmin" styleClass="demo-pill, demo-pill-admin" prefWidth="82"/>
+                </HBox>
+            </VBox>
+
+            <HBox alignment="CENTER" spacing="6" style="-fx-padding: 2 0 0 0;">
+                <Label text="Chưa có tài khoản BidX?" styleClass="text-muted" style="-fx-font-size: 12.5px;"/>
+                <Button text="Đăng ký ngay →" onAction="#SwitchToRegister" styleClass="btn-link-subtle"/>
+            </HBox>
+        </VBox>
+
+    </HBox>
+
+</StackPane>

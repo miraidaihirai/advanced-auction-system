@@ -11,9 +11,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
-import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -24,17 +25,17 @@ import com.auction.exceptions.InvalidBidException;
 
 /**
  * Đại diện cho một phiên đấu giá.
- * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid
- * mới.
+ * - Triển khai AuctionSubject (Observer Pattern) để phát thông báo khi có bid mới.
  * - Triển khai Serializable để hỗ trợ lưu trữ dữ liệu phiên ra file.
- * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost
- * Update / Race Condition.
+ * - Sử dụng ReentrantLock để kiểm soát đồng thời (Concurrency), tránh Lost Update / Race Condition.
+ * - Hỗ trợ quy trình kiểm duyệt Seller -> Admin (PENDING_APPROVAL -> RUNNING / REJECTED),
+ *   Anti-Sniping và cấu hình Auto-Bidding.
  */
 public class Auction implements AuctionSubject, Serializable {
     private static final long serialVersionUID = 1L;
 
     public enum Status {
-        OPEN, RUNNING, FINISHED, PAID, CANCELED
+        OPEN, PENDING_APPROVAL, RUNNING, FINISHED, PAID, CANCELED, REJECTED
     }
 
     private static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
@@ -55,12 +56,31 @@ public class Auction implements AuctionSubject, Serializable {
     private final List<BidTransaction> bidHistory;
     private long endTimeMillis;
 
+    // Metadata cho BidX & quy trình Seller -> Admin -> Payout
+    private String category = "COLLECTIBLE";
+    private String description = "";
+    private String imageKey = "";
+    private long requestedDurationSeconds = 300;
+    private String rejectionReason = "";
+    private boolean payoutSettled = false;
+
+    // Anti-Sniping (tự động gia hạn khi có bid ở giây cuối)
+    private boolean antiSnipingEnabled = false;
+    private long antiSnipingThresholdSeconds = 30;
+    private long antiSnipingExtensionSeconds = 30;
+    private int antiSnipingExtensionsCount = 0;
+
+    // Auto-Bidding configs theo bidderId
+    private Map<String, AutoBidConfig> autoBids = new ConcurrentHashMap<>();
+
+    // Lịch sử tin nhắn thảo luận trong phòng đấu giá (lưu bền vững qua đăng xuất / restart)
+    private List<ChatMessage> chatHistory = new ArrayList<>();
+
     // Concurrency control: ReentrantLock (fair lock đảm bảo FIFO cho các lượt bid)
     private transient ReentrantLock lock = new ReentrantLock(true);
     private transient ScheduledFuture<?> finishTask;
 
-    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt
-    // thông báo
+    // Observer list: CopyOnWriteArrayList bảo đảm thread-safe khi thêm/xóa/duyệt thông báo
     private transient List<AuctionObserver> observers = new CopyOnWriteArrayList<>();
 
     public Auction(String id, String itemId, String sellerId, double startPrice, double stepPrice) {
@@ -77,6 +97,31 @@ public class Auction implements AuctionSubject, Serializable {
 
     public Auction(String id, Item item, String sellerId, double startPrice, double stepPrice) {
         this(id, item != null ? item.getName() : "Unknown Item", sellerId, startPrice, stepPrice);
+        if (item != null && item.getImagePath() != null) {
+            this.imageKey = item.getImagePath();
+        }
+    }
+
+    /**
+     * Tạo yêu cầu mở phòng đấu giá từ Seller ở trạng thái chờ Admin phê duyệt.
+     */
+    public static Auction createPendingRequest(
+            String id,
+            String itemName,
+            String sellerId,
+            double startPrice,
+            double stepPrice,
+            String category,
+            String description,
+            long requestedDurationSeconds,
+            String imageKey) {
+        Auction auction = new Auction(id, itemName, sellerId, startPrice, stepPrice);
+        auction.status = Status.PENDING_APPROVAL;
+        auction.category = (category != null && !category.isBlank()) ? category.trim().toUpperCase() : "COLLECTIBLE";
+        auction.description = description != null ? description.trim() : "";
+        auction.requestedDurationSeconds = Math.max(30, requestedDurationSeconds);
+        auction.imageKey = imageKey != null ? imageKey.trim() : "";
+        return auction;
     }
 
     public void startAuction() {
@@ -93,13 +138,58 @@ public class Auction implements AuctionSubject, Serializable {
             if (status != Status.OPEN) {
                 throw new IllegalStateException("Only an OPEN auction can be started");
             }
-            this.status = Status.RUNNING;
-            this.endTimeMillis = System.currentTimeMillis() + duration.toMillis();
-            this.finishTask = TIMER.schedule(this::finishIfRunning, duration.toMillis(), TimeUnit.MILLISECONDS);
-            System.out.printf("[Auction %s] Started auction for item: %s%n", id, itemId);
+            beginRunningLocked(duration);
         } finally {
             lock.unlock();
         }
+    }
+
+    /**
+     * Admin phê duyệt yêu cầu mở phòng của Seller và kích hoạt chạy ngay.
+     */
+    public void approveAndStart(Duration duration) {
+        Duration effectiveDuration = (duration != null && !duration.isZero() && !duration.isNegative())
+                ? duration
+                : Duration.ofSeconds(Math.max(30, requestedDurationSeconds));
+        lock.lock();
+        try {
+            if (status != Status.PENDING_APPROVAL && status != Status.OPEN) {
+                throw new IllegalStateException("Only PENDING_APPROVAL or OPEN auction can be approved");
+            }
+            this.rejectionReason = "";
+            beginRunningLocked(effectiveDuration);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Admin từ chối yêu cầu mở phòng của Seller kèm lý do.
+     */
+    public void rejectRequest(String reason) {
+        lock.lock();
+        try {
+            if (status != Status.PENDING_APPROVAL) {
+                throw new IllegalStateException("Only PENDING_APPROVAL auction can be rejected");
+            }
+            this.status = Status.REJECTED;
+            this.rejectionReason = (reason != null && !reason.isBlank()) ? reason.trim() : "Không đạt tiêu chuẩn kiểm duyệt";
+            System.out.printf("[Auction %s] Rejected by Admin. Reason: %s%n", id, rejectionReason);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void beginRunningLocked(Duration duration) {
+        this.status = Status.RUNNING;
+        this.endTimeMillis = System.currentTimeMillis() + duration.toMillis();
+        if (duration.getSeconds() >= 60 && !this.antiSnipingEnabled) {
+            this.antiSnipingEnabled = true;
+            this.antiSnipingThresholdSeconds = 30;
+            this.antiSnipingExtensionSeconds = 30;
+        }
+        this.finishTask = TIMER.schedule(this::finishIfRunning, duration.toMillis(), TimeUnit.MILLISECONDS);
+        System.out.printf("[Auction %s] Started auction for item: %s%n", id, itemId);
     }
 
     public void closeAuction() {
@@ -232,6 +322,24 @@ public class Auction implements AuctionSubject, Serializable {
             System.out.printf("[Success] %s placed bid %.2f for auction [%s]%n",
                     bid.getBidderId(), bid.getAmount(), id);
 
+            // Anti-Sniping: nếu đặt giá trong X giây cuối -> tự động gia hạn thêm Y giây
+            if (antiSnipingEnabled && endTimeMillis > 0) {
+                long now = System.currentTimeMillis();
+                long remainingMs = endTimeMillis - now;
+                if (remainingMs > 0 && remainingMs <= antiSnipingThresholdSeconds * 1000L) {
+                    long extensionMs = antiSnipingExtensionSeconds * 1000L;
+                    endTimeMillis += extensionMs;
+                    antiSnipingExtensionsCount++;
+                    if (finishTask != null) {
+                        finishTask.cancel(false);
+                    }
+                    long newDelay = Math.max(100L, endTimeMillis - System.currentTimeMillis());
+                    finishTask = TIMER.schedule(this::finishIfRunning, newDelay, TimeUnit.MILLISECONDS);
+                    System.out.printf("[Anti-Sniping %s] Extended by %ds (count=%d)%n",
+                            id, antiSnipingExtensionSeconds, antiSnipingExtensionsCount);
+                }
+            }
+
             // Tự động bắn thông báo cho toàn bộ Observers
             notifyObservers(bid);
             return true;
@@ -330,7 +438,161 @@ public class Auction implements AuctionSubject, Serializable {
     }
 
     public long getEndTimeMillis() {
-        return endTimeMillis;
+        lock.lock();
+        try {
+            return endTimeMillis;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public String getCategory() {
+        return category != null ? category : "COLLECTIBLE";
+    }
+
+    public void setCategory(String category) {
+        if (category != null && !category.isBlank()) {
+            this.category = category.trim().toUpperCase();
+        }
+    }
+
+    public String getDescription() {
+        return description != null ? description : "";
+    }
+
+    public void setDescription(String description) {
+        this.description = description != null ? description.trim() : "";
+    }
+
+    public String getImageKey() {
+        return imageKey != null ? imageKey : "";
+    }
+
+    public void setImageKey(String imageKey) {
+        this.imageKey = imageKey != null ? imageKey.trim() : "";
+    }
+
+    public long getRequestedDurationSeconds() {
+        return requestedDurationSeconds > 0 ? requestedDurationSeconds : 300;
+    }
+
+    public void setRequestedDurationSeconds(long requestedDurationSeconds) {
+        if (requestedDurationSeconds > 0) {
+            this.requestedDurationSeconds = requestedDurationSeconds;
+        }
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason != null ? rejectionReason : "";
+    }
+
+    public boolean isPayoutSettled() {
+        lock.lock();
+        try {
+            return payoutSettled;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Đánh dấu đã chuyển tiền về ví Seller đúng một lần duy nhất (idempotent, thread-safe).
+     */
+    public boolean claimPayoutSettlement() {
+        lock.lock();
+        try {
+            if (payoutSettled) {
+                return false;
+            }
+            if ((status == Status.FINISHED || status == Status.PAID) && highestBidderId != null) {
+                payoutSettled = true;
+                return true;
+            }
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void setAntiSniping(boolean enabled, long thresholdSeconds, long extensionSeconds) {
+        lock.lock();
+        try {
+            this.antiSnipingEnabled = enabled;
+            if (thresholdSeconds > 0) {
+                this.antiSnipingThresholdSeconds = thresholdSeconds;
+            }
+            if (extensionSeconds > 0) {
+                this.antiSnipingExtensionSeconds = extensionSeconds;
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean isAntiSnipingEnabled() {
+        return antiSnipingEnabled;
+    }
+
+    public int getAntiSnipingExtensionsCount() {
+        lock.lock();
+        try {
+            return antiSnipingExtensionsCount;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void registerAutoBid(AutoBidConfig config) {
+        if (config == null) {
+            return;
+        }
+        if (autoBids == null) {
+            autoBids = new ConcurrentHashMap<>();
+        }
+        autoBids.put(config.getBidderId(), config);
+    }
+
+    public void cancelAutoBid(String bidderId) {
+        if (bidderId != null && autoBids != null) {
+            autoBids.remove(bidderId);
+        }
+    }
+
+    public Map<String, AutoBidConfig> getAutoBids() {
+        if (autoBids == null) {
+            autoBids = new ConcurrentHashMap<>();
+        }
+        return Collections.unmodifiableMap(autoBids);
+    }
+
+    public void addChatMessage(ChatMessage msg) {
+        if (msg == null) {
+            return;
+        }
+        lock.lock();
+        try {
+            if (chatHistory == null) {
+                chatHistory = new ArrayList<>();
+            }
+            chatHistory.add(msg);
+            if (chatHistory.size() > 200) {
+                chatHistory.remove(0);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public List<ChatMessage> getChatHistory() {
+        lock.lock();
+        try {
+            if (chatHistory == null) {
+                return Collections.emptyList();
+            }
+            return Collections.unmodifiableList(new ArrayList<>(chatHistory));
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -342,6 +604,24 @@ public class Auction implements AuctionSubject, Serializable {
         in.defaultReadObject();
         this.lock = new ReentrantLock(true);
         this.observers = new CopyOnWriteArrayList<>();
+        if (this.autoBids == null) {
+            this.autoBids = new ConcurrentHashMap<>();
+        }
+        if (this.chatHistory == null) {
+            this.chatHistory = new ArrayList<>();
+        }
+        if (this.category == null) {
+            this.category = "COLLECTIBLE";
+        }
+        if (this.description == null) {
+            this.description = "";
+        }
+        if (this.imageKey == null) {
+            this.imageKey = "";
+        }
+        if (this.rejectionReason == null) {
+            this.rejectionReason = "";
+        }
 
         if (this.status == Status.RUNNING) {
             long remaining = endTimeMillis - System.currentTimeMillis();

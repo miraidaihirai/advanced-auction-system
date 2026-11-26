@@ -40,7 +40,7 @@
 
 ---
 
-## 📅 TUẦN 9 & 10: Tích hợp Hệ thống, Socket Client-Server & CI/CD
+## 📅 TUẦN 9 & 10: Tích hợp Hệ thống, Socket Client-Server & CI/CD 
 - **Vũ Tuấn Đại (Leader):**
   - Xây dựng kiến trúc **Socket Multi-threaded Server** (phục vụ nhiều client cùng lúc).
   - Tích hợp **Observer Pattern qua Socket** để broadcast nhảy giá trực tiếp (realtime) tới các client.

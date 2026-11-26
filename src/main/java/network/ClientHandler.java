@@ -7,9 +7,11 @@ import com.auction.manager.AuctionManager;
 import com.auction.model.Auction;
 import com.auction.model.BidTransaction;
 import com.auction.model.Bidder;
+import com.auction.model.ChatMessage;
 import com.auction.model.Seller;
 import com.auction.model.Admin;
 import com.auction.model.User;
+import com.auction.model.WalletTransaction;
 import com.auction.observer.AuctionObserver;
 
 import java.io.BufferedReader;
@@ -135,6 +137,45 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     break;
                 case AuctionProtocol.CMD_HISTORY:
                     handleHistory(parts);
+                    break;
+                case AuctionProtocol.CMD_PROFILE:
+                    handleProfile();
+                    break;
+                case AuctionProtocol.CMD_LIST_FULL:
+                    handleListFull();
+                    break;
+                case AuctionProtocol.CMD_REQUEST_AUCTION:
+                    handleRequestAuction(line);
+                    break;
+                case AuctionProtocol.CMD_APPROVE_AUCTION:
+                    handleApproveAuction(parts);
+                    break;
+                case AuctionProtocol.CMD_REJECT_AUCTION:
+                    handleRejectAuction(line);
+                    break;
+                case AuctionProtocol.CMD_AUTOBID:
+                    handleAutoBid(parts);
+                    break;
+                case AuctionProtocol.CMD_AUTOBID_OFF:
+                    handleAutoBidOff(parts);
+                    break;
+                case AuctionProtocol.CMD_WALLET_HISTORY:
+                    handleWalletHistory();
+                    break;
+                case AuctionProtocol.CMD_TOPUP:
+                    handleTopUp(line);
+                    break;
+                case AuctionProtocol.CMD_WITHDRAW:
+                    handleWithdraw(line);
+                    break;
+                case AuctionProtocol.CMD_LIST_USERS:
+                    handleListUsers();
+                    break;
+                case AuctionProtocol.CMD_CHAT:
+                    handleChat(line);
+                    break;
+                case AuctionProtocol.CMD_CHAT_HISTORY:
+                    handleChatHistory(parts);
                     break;
                 case AuctionProtocol.CMD_QUIT:
                     sendMessage(AuctionProtocol.formatSuccess("BYE", "Goodbye!"));
@@ -363,6 +404,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
         try {
             auction.finishAuction();
+            AuctionManager.getInstance().settleAuctionFunds(auction);
             if (AuctionManager.getInstance().isAutoSave()) {
                 AuctionManager.getInstance().saveState();
             }
@@ -403,6 +445,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
             sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_PAY,
                     String.format(Locale.US, "%s %.2f", auctionId, auction.getCurrentPrice())));
             auction.markPaid();
+            AuctionManager.getInstance().settleAuctionFunds(auction);
             if (AuctionManager.getInstance().isAutoSave()) {
                 AuctionManager.getInstance().saveState();
             }
@@ -446,6 +489,338 @@ public class ClientHandler implements Runnable, AuctionObserver {
             sendMessage(AuctionProtocol.formatTransactionRecord(tx));
         }
         sendMessage(String.format("%s %s", AuctionProtocol.HISTORY_END, auctionId));
+    }
+
+    // -------------------------------------------------------------------------
+    // BidX Extended Handlers: Role Workflow, Wallet Settlement, Auto-Bidding
+    // -------------------------------------------------------------------------
+
+    private void handleProfile() {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        User fresh = AuctionManager.getInstance().getUser(currentUser.getId());
+        if (fresh != null) {
+            this.currentUser = fresh;
+        }
+        sendMessage(AuctionProtocol.formatProfileData(this.currentUser));
+    }
+
+    private void handleListFull() {
+        AuctionManager manager = AuctionManager.getInstance();
+        sendMessage(AuctionProtocol.AUCTIONS_FULL_BEGIN);
+        for (Auction a : manager.getAllAuctions()) {
+            User seller = manager.getUser(a.getSellerId());
+            String sellerName = seller != null ? seller.getName() : a.getSellerId();
+            sendMessage(AuctionProtocol.formatAuctionFull(a, sellerName));
+        }
+        sendMessage(AuctionProtocol.AUCTIONS_FULL_END);
+    }
+
+    private void handleRequestAuction(String rawLine) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (!(currentUser instanceof Seller)) {
+            sendMessage(AuctionProtocol.formatError("Only Sellers can submit auction room requests"));
+            return;
+        }
+
+        int firstSpace = rawLine.indexOf(' ');
+        if (firstSpace < 0 || firstSpace >= rawLine.length() - 1) {
+            sendMessage(AuctionProtocol.formatError(
+                    "Usage: REQUEST_AUCTION <itemName>|<category>|<startPrice>|<stepPrice>|<durationSec>|<imageKey>|<description>"));
+            return;
+        }
+
+        String payload = rawLine.substring(firstSpace + 1).trim();
+        String[] fields = payload.split("\\|", -1);
+        if (fields.length < 5) {
+            sendMessage(AuctionProtocol.formatError("Invalid auction request payload"));
+            return;
+        }
+
+        try {
+            String itemName = fields[0].trim();
+            String category = fields[1].trim();
+            double startPrice = Double.parseDouble(fields[2].trim().replace(',', '.'));
+            double stepPrice = Double.parseDouble(fields[3].trim().replace(',', '.'));
+            long durationSec = Long.parseLong(fields[4].trim());
+            String imageKey = fields.length > 5 ? fields[5].trim() : "";
+            String description = fields.length > 6 ? fields[6].trim() : "";
+
+            Auction created = AuctionManager.getInstance().submitAuctionRequest(
+                    currentUser.getId(), itemName, category, description,
+                    startPrice, stepPrice, durationSec, imageKey);
+
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_REQUEST_AUCTION, created.getId()));
+            if (server != null) {
+                server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
+            }
+        } catch (NumberFormatException e) {
+            sendMessage(AuctionProtocol.formatError("Invalid numeric field in auction request"));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleApproveAuction(String[] parts) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (!(currentUser instanceof Admin)) {
+            sendMessage(AuctionProtocol.formatError("Only Admins can approve auction requests"));
+            return;
+        }
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: APPROVE_AUCTION <auctionId> [durationSeconds]"));
+            return;
+        }
+        String auctionId = parts[1];
+        Long overrideDuration = null;
+        if (parts.length >= 3) {
+            try {
+                overrideDuration = Long.parseLong(parts[2]);
+            } catch (NumberFormatException e) {
+                sendMessage(AuctionProtocol.formatError("Invalid duration seconds: " + parts[2]));
+                return;
+            }
+        }
+
+        try {
+            AuctionManager.getInstance().approveAuctionRequest(currentUser.getId(), auctionId, overrideDuration);
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_APPROVE_AUCTION, auctionId));
+            if (server != null) {
+                server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
+            }
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleRejectAuction(String rawLine) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (!(currentUser instanceof Admin)) {
+            sendMessage(AuctionProtocol.formatError("Only Admins can reject auction requests"));
+            return;
+        }
+        int firstSpace = rawLine.indexOf(' ');
+        if (firstSpace < 0 || firstSpace >= rawLine.length() - 1) {
+            sendMessage(AuctionProtocol.formatError("Usage: REJECT_AUCTION <auctionId>|<reason>"));
+            return;
+        }
+        String payload = rawLine.substring(firstSpace + 1).trim();
+        String[] fields = payload.split("\\|", 2);
+        String auctionId = fields[0].trim();
+        String reason = fields.length > 1 ? fields[1].trim() : "Không đạt tiêu chuẩn kiểm duyệt";
+
+        try {
+            AuctionManager.getInstance().rejectAuctionRequest(currentUser.getId(), auctionId, reason);
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_REJECT_AUCTION, auctionId));
+            if (server != null) {
+                server.broadcastToAll(AuctionProtocol.NOTIFY_CATALOG_REFRESH);
+            }
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleAutoBid(String[] parts) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (!(currentUser instanceof Bidder)) {
+            sendMessage(AuctionProtocol.formatError("Only Bidders can configure Auto-Bid"));
+            return;
+        }
+        if (parts.length < 4) {
+            sendMessage(AuctionProtocol.formatError("Usage: AUTOBID <auctionId> <maxBid> <increment>"));
+            return;
+        }
+        String auctionId = parts[1];
+        try {
+            double maxBid = Double.parseDouble(parts[2].replace(',', '.'));
+            double increment = Double.parseDouble(parts[3].replace(',', '.'));
+            AuctionManager.getInstance().configureAutoBid(
+                    auctionId, currentUser.getId(), currentUser.getPassword(), maxBid, increment);
+            if (subscribedAuctions.add(auctionId)) {
+                Auction a = AuctionManager.getInstance().getAuction(auctionId);
+                if (a != null) {
+                    a.addObserver(this);
+                }
+            }
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_AUTOBID,
+                    String.format(Locale.US, "%s %.2f %.2f", auctionId, maxBid, increment)));
+        } catch (NumberFormatException e) {
+            sendMessage(AuctionProtocol.formatError("Invalid Auto-Bid number format"));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleAutoBidOff(String[] parts) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: AUTOBID_OFF <auctionId>"));
+            return;
+        }
+        String auctionId = parts[1];
+        AuctionManager.getInstance().cancelAutoBid(auctionId, currentUser.getId());
+        sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_AUTOBID_OFF, auctionId));
+    }
+
+    private void handleWalletHistory() {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        AuctionManager manager = AuctionManager.getInstance();
+        List<WalletTransaction> list = (currentUser instanceof Admin)
+                ? manager.getAllWalletTransactions()
+                : manager.getWalletTransactionsForUser(currentUser.getId());
+
+        sendMessage(AuctionProtocol.WALLET_BEGIN);
+        for (WalletTransaction tx : list) {
+            sendMessage(AuctionProtocol.formatWalletTransaction(tx));
+        }
+        sendMessage(AuctionProtocol.WALLET_END);
+    }
+
+    private void handleTopUp(String rawLine) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (currentUser instanceof Admin) {
+            sendMessage(AuctionProtocol.formatError("Admin account does not support personal wallet top-up"));
+            return;
+        }
+        String[] parts = rawLine.trim().split("\\s+", 3);
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: TOPUP <amount> [channel]"));
+            return;
+        }
+        try {
+            double amount = Double.parseDouble(parts[1].replace(',', '.'));
+            String channel = parts.length >= 3 ? parts[2].trim() : "BIDX-BANK";
+            double newBalance = AuctionManager.getInstance().topUpWallet(currentUser.getId(), amount, channel);
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_TOPUP,
+                    String.format(Locale.US, "%.2f", newBalance)));
+        } catch (NumberFormatException e) {
+            sendMessage(AuctionProtocol.formatError("Invalid top-up amount"));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleWithdraw(String rawLine) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (currentUser instanceof Admin) {
+            sendMessage(AuctionProtocol.formatError("Admin account does not support personal wallet withdraw"));
+            return;
+        }
+        String[] parts = rawLine.trim().split("\\s+", 3);
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: WITHDRAW <amount> [bankDestination]"));
+            return;
+        }
+        try {
+            double amount = Double.parseDouble(parts[1].replace(',', '.'));
+            String destination = parts.length >= 3 ? parts[2].trim() : "Ngân hàng liên kết";
+            double newBalance = AuctionManager.getInstance().withdrawWallet(currentUser.getId(), amount, destination);
+            sendMessage(AuctionProtocol.formatSuccess(AuctionProtocol.CMD_WITHDRAW,
+                    String.format(Locale.US, "%.2f", newBalance)));
+        } catch (NumberFormatException e) {
+            sendMessage(AuctionProtocol.formatError("Invalid withdraw amount"));
+        } catch (Exception e) {
+            sendMessage(AuctionProtocol.formatError(e.getMessage()));
+        }
+    }
+
+    private void handleListUsers() {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        if (!(currentUser instanceof Admin)) {
+            sendMessage(AuctionProtocol.formatError("Only Admins can view user registry"));
+            return;
+        }
+        sendMessage(AuctionProtocol.USERS_BEGIN);
+        for (User u : AuctionManager.getInstance().getAllUsers()) {
+            sendMessage(AuctionProtocol.formatUserRow(u));
+        }
+        sendMessage(AuctionProtocol.USERS_END);
+    }
+
+    private void handleChat(String rawLine) {
+        if (currentUser == null) {
+            sendMessage(AuctionProtocol.formatError("You must LOGIN first"));
+            return;
+        }
+        int spaceIdx = rawLine.indexOf(' ');
+        if (spaceIdx < 0 || spaceIdx >= rawLine.length() - 1) {
+            sendMessage(AuctionProtocol.formatError("Usage: CHAT <auctionId>|<message>"));
+            return;
+        }
+        String payload = rawLine.substring(spaceIdx + 1).trim();
+        String[] fields = payload.split("\\|", 2);
+        if (fields.length < 2 || fields[1].trim().isEmpty()) {
+            return;
+        }
+        String auctionId = fields[0].trim();
+        String message = fields[1].trim();
+        // Lưu tin nhắn thảo luận thực (không lưu hiệu ứng reaction bay tạm) để người vào sau / đổi tài khoản vẫn thấy
+        if (!message.startsWith("REACT:")) {
+            AuctionManager.getInstance().recordChatMessage(
+                    auctionId,
+                    currentUser.getId(),
+                    currentUser.getName(),
+                    currentUser.getRole(),
+                    message);
+        }
+        String packet = AuctionProtocol.formatChatNotification(
+                auctionId,
+                currentUser.getId(),
+                currentUser.getName(),
+                currentUser.getRole(),
+                message);
+        if (server != null) {
+            for (ClientHandler client : server.getActiveClients()) {
+                if (client.isSubscribed(auctionId) || client == this) {
+                    client.sendMessage(packet);
+                }
+            }
+        } else {
+            sendMessage(packet);
+        }
+    }
+
+    private void handleChatHistory(String[] parts) {
+        if (parts.length < 2) {
+            sendMessage(AuctionProtocol.formatError("Usage: CHAT_HISTORY <auctionId>"));
+            return;
+        }
+        String auctionId = parts[1].trim();
+        List<ChatMessage> history = AuctionManager.getInstance().getChatHistory(auctionId);
+        sendMessage(AuctionProtocol.CHAT_HISTORY_BEGIN + " " + auctionId);
+        for (ChatMessage msg : history) {
+            sendMessage(AuctionProtocol.formatChatHistoryRow(msg));
+        }
+        sendMessage(AuctionProtocol.CHAT_HISTORY_END);
     }
 
     /**
