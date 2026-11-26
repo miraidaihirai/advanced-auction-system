@@ -1,113 +1,178 @@
 package com.auction.ui;
 
-import java.util.HashSet;
-import java.util.Set;
+import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.ParallelTransition;
+import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
+import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
-// Cung cấp isFxApplicationThread() và runLater() đảm bảo code chạy trên
-// JavaFX Application Thread (thread duy nhất cập nhật UI)
-import javafx.scene.control.Alert;
-// Hộp thoại chuẩn của JavaFX
-import javafx.scene.control.DialogPane;
-// Root node của Alert, dùng để phân biệt cửa số chính với hộp thoại khi tìm Owner
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.Window;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Label;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.util.Duration;
 
-// Modality mức độ chặn của của sổ (NONE/WINDOW_MODAL/APPLICATION_MODAL)
-// Stage, cửa sổ lớp cao nhất
-// Window, cha của Stage, dùng để lấy các cửa sổ đang mở
-
+/**
+ * Hệ thống thông báo Toast nổi dạng Glassmorphism với hoạt ảnh trượt mượt mà cho BidX.
+ * Thay thế hộp thoại Alert mặc định cứng nhắc của hệ điều hành.
+ */
 public final class NotificationManager {
 
-  // Các Alert đang mở (chỉ truy cập trên JavaFX Application Thread)
-  private static final Set<String> openAlerts = new HashSet<>();
+    private static VBox toastContainer;
 
-  private NotificationManager() {}
+    private NotificationManager() {
+    }
 
-  public static void showSuccess(String message) {
-    showAlert(Alert.AlertType.INFORMATION, "Thành công", message);
-  }
+    public static void attachToastContainer(VBox container) {
+        toastContainer = container;
+    }
 
-  // Thông tin chung
-  public static void showInfo(String message) {
-    showAlert(Alert.AlertType.INFORMATION, "Thông báo", message);
-  }
+    public static void showSuccess(String message) {
+        showToast("Thành công", message, "#10B981", SvgIcons.CHECK, 4200);
+    }
 
-  // Cảnh báo (không đủ quyền, thao tác không hợp lệ)
-  public static void showWarning(String message) {
-    showAlert(Alert.AlertType.WARNING, "Cảnh báo", message);
-  }
+    public static void showPayout(String title, String message) {
+        showToast(title, message, "#FBBF24", SvgIcons.WALLET, 6200);
+        ViewManager.triggerCelebration();
+        SoundEffects.playWinFanfare();
+    }
 
-  // Mất kết nối, lỗi đặt giá
-  public static void showError(String message) {
-    showAlert(Alert.AlertType.ERROR, "Lỗi", message);
-  }
+    public static void showInfo(String message) {
+        showToast("Thông báo BidX", message, "#38BDF8", SvgIcons.BELL, 4500);
+    }
 
-  private static void showAlert(Alert.AlertType type, String title, String message) {
+    public static void showWarning(String message) {
+        showToast("Cảnh báo", message, "#F59E0B", SvgIcons.ZAP, 4800);
+    }
 
-    final String content =
-        (message == null || message.isBlank()) ? "Đã xảy ra sự kiện cần thông báo." : message;
+    public static void showError(String message) {
+        showToast("Không thành công", message, "#F43F5E", SvgIcons.CLOSE, 5200);
+    }
 
-    Runnable displayAlert =
-        () -> {
-          // Cùng nội dung đang hiển thị thì không mở thêm cái nữa
-          String key = title + "\n" + content;
-          if (!openAlerts.add(key)) {
-            return;
-            // Set.add() trả về false nếu phần tử đã tồn tại, nếu Alert cùng nội dung thì thoát
-            // ngay, không mở thêm cửa sổ
-          }
+    public static void showToast(String title, String message, String accentHex, String iconPath, long durationMs) {
+        String safeMsg = (message == null || message.isBlank()) ? "Đã xảy ra sự kiện mới." : message.trim();
+        if (ViewManager.getClientSession() != null) {
+            ViewManager.getClientSession().addNotificationLog(title + ": " + safeMsg.replace("\n", " • "));
+        }
 
-          try {
-            Alert alert = new Alert(type);
-            alert.setTitle(title);
-            alert.setHeaderText(null);
-            alert.setContentText(content);
-
-            // Không khóa cửa sổ chính: người dùng vẫn thao tác được khi còn thông báo
-            alert.initModality(Modality.NONE);
-
-            // Gắn vào cửa sổ chính để thông báo luôn nổi phía trên ứng dụng
-            Window owner = findMainWindow();
-            if (owner != null) {
-              alert.initOwner(owner);
+        Runnable render = () -> {
+            if (toastContainer == null) {
+                System.out.printf("[BidX Toast][%s] %s%n", title, safeMsg);
+                return;
             }
 
-            alert.setOnHidden(event -> openAlerts.remove(key));
-            alert.show();
-            // Không treo luồng gọi (như showAndWait()) để tránh lỗi "Nested event loop"
-          } catch (RuntimeException e) {
-            openAlerts.remove(key);
-            // Tạo alert thất bại thì xoá key để không giữ khoá ma, thứ sẽ chặn thông báo sau
-            throw e;
-          }
+            boolean dark = ThemeManager.isDarkMode();
+            VBox card = new VBox(0);
+            card.setMaxWidth(370);
+            card.setMinWidth(320);
+            card.setStyle(
+                    "-fx-background-color: " + (dark ? "rgba(17, 23, 38, 0.96);" : "rgba(255, 255, 255, 0.97);")
+                    + "-fx-background-radius: 14;"
+                    + "-fx-border-color: " + accentHex + (dark ? "66;" : "88;")
+                    + "-fx-border-width: 1.2;"
+                    + "-fx-border-radius: 14;"
+                    + "-fx-cursor: hand;");
+            card.setEffect(new DropShadow(24, dark ? Color.rgb(0, 0, 0, 0.65) : Color.rgb(15, 23, 42, 0.18)));
+
+            HBox body = new HBox(12);
+            body.setAlignment(Pos.CENTER_LEFT);
+            body.setPadding(new Insets(13, 15, 11, 14));
+
+            Region accentBar = new Region();
+            accentBar.setMinWidth(4);
+            accentBar.setMaxWidth(4);
+            accentBar.setMinHeight(38);
+            accentBar.setStyle("-fx-background-color: " + accentHex + "; -fx-background-radius: 4;");
+
+            Node iconNode = SvgIcons.create(iconPath, 18, accentHex);
+            VBox iconWrap = new VBox(iconNode);
+            iconWrap.setAlignment(Pos.CENTER);
+            iconWrap.setMinSize(34, 34);
+            iconWrap.setMaxSize(34, 34);
+            iconWrap.setStyle(
+                    "-fx-background-color: " + accentHex + "22;"
+                    + "-fx-background-radius: 10;");
+
+            VBox textCol = new VBox(3);
+            HBox.setHgrow(textCol, Priority.ALWAYS);
+
+            Label lblTitle = new Label(title);
+            lblTitle.setStyle("-fx-text-fill: " + (dark ? "#F8FAFC" : "#0F172A") + "; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+            Label lblMsg = new Label(safeMsg);
+            lblMsg.setWrapText(true);
+            lblMsg.setStyle("-fx-text-fill: " + (dark ? "#CBD5E1" : "#475569") + "; -fx-font-size: 12px;");
+
+            textCol.getChildren().addAll(lblTitle, lblMsg);
+            body.getChildren().addAll(accentBar, iconWrap, textCol);
+
+            Rectangle progressBar = new Rectangle(350, 3);
+            progressBar.setFill(Color.web(accentHex));
+            progressBar.setArcWidth(3);
+            progressBar.setArcHeight(3);
+            HBox progressWrap = new HBox(progressBar);
+            progressWrap.setPadding(new Insets(0, 10, 4, 10));
+
+            card.getChildren().addAll(body, progressWrap);
+
+            // Giới hạn tối đa 4 toast cùng lúc để màn hình luôn gọn gàng
+            while (toastContainer.getChildren().size() >= 4) {
+                toastContainer.getChildren().remove(toastContainer.getChildren().size() - 1);
+            }
+            toastContainer.getChildren().add(0, card);
+
+            // Hoạt ảnh trượt từ phải vào
+            card.setOpacity(0);
+            card.setTranslateX(80);
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(260), card);
+            fadeIn.setFromValue(0);
+            fadeIn.setToValue(1);
+            TranslateTransition slideIn = new TranslateTransition(Duration.millis(280), card);
+            slideIn.setFromX(80);
+            slideIn.setToX(0);
+            slideIn.setInterpolator(Interpolator.SPLINE(0.22, 1.0, 0.36, 1.0));
+            new ParallelTransition(fadeIn, slideIn).play();
+
+            // Thanh thời gian thu hẹp mượt
+            Timeline progressTl = new Timeline(
+                    new KeyFrame(Duration.ZERO, new KeyValue(progressBar.widthProperty(), 340)),
+                    new KeyFrame(Duration.millis(durationMs), new KeyValue(progressBar.widthProperty(), 0))
+            );
+            progressTl.play();
+
+            Runnable dismiss = () -> {
+                if (!toastContainer.getChildren().contains(card)) {
+                    return;
+                }
+                FadeTransition fadeOut = new FadeTransition(Duration.millis(220), card);
+                fadeOut.setToValue(0);
+                TranslateTransition slideOut = new TranslateTransition(Duration.millis(220), card);
+                slideOut.setToX(70);
+                ParallelTransition exit = new ParallelTransition(fadeOut, slideOut);
+                exit.setOnFinished(ev -> toastContainer.getChildren().remove(card));
+                exit.play();
+            };
+
+            card.setOnMouseClicked(e -> dismiss.run());
+            PauseTransition autoDismiss = new PauseTransition(Duration.millis(durationMs));
+            autoDismiss.setOnFinished(e -> dismiss.run());
+            autoDismiss.play();
         };
 
-    if (Platform.isFxApplicationThread()) {
-      displayAlert.run();
-      // Chạy ngay nếu đang ở FX thread để tránh delay
-    } else {
-      Platform.runLater(displayAlert);
+        if (Platform.isFxApplicationThread()) {
+            render.run();
+        } else {
+            Platform.runLater(render);
+        }
     }
-  }
-
-  /** Tìm cửa sổ chính: Stage đang hiển thị và không phải hộp thoại Alert. */
-  private static Window findMainWindow() {
-    for (Window window : Window.getWindows()) {
-      // Window.getWindows() trả về các cửa sổ hiện có của ứng dụng
-      if (window instanceof Stage
-          // Cử sổ loại Popup, Tooltip(? window)
-          && window.isShowing()
-          // Phải đang thực sự hiển thị
-          && window.getScene() != null
-          // Có Scene gắn vào
-          && !(window.getScene().getRoot() instanceof DialogPane)) {
-        return window;
-        // Loại trừ các Alert/dialog vì Alert cũng là Stage với scene root là DialogPane
-        // Nếu không lọc, có thể chọn nhầm một Alert khác làm owner gây vòng lặp owner
-      }
-    }
-    return null;
-    // Không tìm thấy thì trả null
-  }
 }

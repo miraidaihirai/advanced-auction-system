@@ -1,11 +1,10 @@
 {
     "java.configuration.updateBuildConfiguration": "automatic",
-    "java.compile.nullAnalysis.mode": "disabled",
-    "java.server.launchMode": "Standard",
     "java.import.maven.enabled": true,
-    "java.import.gradle.enabled": false,
-    "java.project.outputPath": "target/classes",
-    "java.project.referencedLibraries": [
-        "target/dependency/**/*.jar"
+    "java.import.exclusions": [
+        "**/node_modules/**",
+        "**/.metadata/**",
+        "**/bin/**",
+        "**/target/**"
     ]
 }

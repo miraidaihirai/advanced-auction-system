@@ -5,90 +5,185 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <StackPane xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.auction.ui.HomeController"
-           stylesheets="@../css/styleHome.css">
+           stylesheets="@../css/bidx-theme.css"
+           styleClass="app-shell">
 
-    <BorderPane styleClass="home-main-layout">
+    <BorderPane styleClass="app-shell">
 
-        <!-- Left Sidebar Navigation -->
+        <!-- Left Luxury Sidebar -->
         <left>
-            <VBox spacing="10" styleClass="sidebar-container" prefWidth="220" minWidth="200" maxWidth="240">
-                <!-- Brand Title -->
-                <VBox spacing="2" styleClass="sidebar-brand-box">
-                    <Label text="ĐẤU GIÁ" styleClass="brand-logo-text"/>
-                    <Label text="Sàn giao dịch trực tuyến" styleClass="brand-sub-text"/>
+            <VBox spacing="14" prefWidth="244" minWidth="232" maxWidth="256" styleClass="sidebar">
+                <!-- Brand Header -->
+                <HBox spacing="11" alignment="CENTER_LEFT" style="-fx-padding: 2 6 8 6;">
+                    <StackPane fx:id="sidebarLogoWrap" style="-fx-background-color: #0D1322; -fx-background-radius: 12; -fx-border-color: rgba(255,158,68,0.55); -fx-border-radius: 12; -fx-padding: 2;">
+                        <ImageView fx:id="imgSidebarLogo" fitWidth="38" fitHeight="38" preserveRatio="true"/>
+                    </StackPane>
+                    <VBox spacing="1">
+                        <HBox spacing="0" alignment="BASELINE_LEFT">
+                            <Label text="Bid" styleClass="sidebar-brand-name"/>
+                            <Label text="X" styleClass="sidebar-brand-accent"/>
+                        </HBox>
+                        <Label text="BIDDER • VIP" styleClass="role-chip-bidder"/>
+                    </VBox>
+                </HBox>
+
+                <!-- Navigation Menu -->
+                <VBox spacing="6" VBox.vgrow="ALWAYS">
+                    <Button fx:id="navHome" text="Trang chủ" onAction="#handleNavHome" maxWidth="Infinity" styleClass="nav-btn, nav-btn-active"/>
+                    <Button fx:id="navLive" text="Đang diễn ra" onAction="#handleNavExplore" maxWidth="Infinity" styleClass="nav-btn"/>
+                    <Button fx:id="navMyBids" text="Đấu giá của tôi" onAction="#handleNavMyAuctions" maxWidth="Infinity" styleClass="nav-btn"/>
+                    <Button fx:id="navFavorites" text="Yêu thích" onAction="#handleNavFavorites" maxWidth="Infinity" styleClass="nav-btn"/>
+                    <Button fx:id="navLeaderboard" text="Bảng xếp hạng" onAction="#handleNavLeaderboard" maxWidth="Infinity" styleClass="nav-btn"/>
+                    <Button fx:id="navWallet" text="Ví &amp; Nạp / Rút" onAction="#handleNavWallet" maxWidth="Infinity" styleClass="nav-btn"/>
                 </VBox>
 
-                <!-- Navigation Menu Buttons -->
-                <VBox spacing="6" VBox.vgrow="ALWAYS" styleClass="sidebar-menu-list">
-                    <Button text="Trang chủ" onAction="#handleNavHome" styleClass="nav-item, nav-item-active" maxWidth="Infinity"/>
-                    <Button text="Khám phá" onAction="#handleNavExplore" styleClass="nav-item" maxWidth="Infinity"/>
-                    <Button text="Đấu giá của tôi" onAction="#handleNavMyAuctions" styleClass="nav-item" maxWidth="Infinity"/>
-                    <Button fx:id="btnAuctionRequests" text="Yêu cầu đấu giá" onAction="#handleNavAuctionRequests" styleClass="nav-item" maxWidth="Infinity"/>
-                    <Button text="Lịch sử giao dịch" onAction="#handleNavHistory" styleClass="nav-item" maxWidth="Infinity"/>
-                    <Button text="Yêu thích" onAction="#handleNavFavorites" styleClass="nav-item" maxWidth="Infinity"/>
-                    <Button text="Cài đặt hệ thống" onAction="#handleNavSettings" styleClass="nav-item" maxWidth="Infinity"/>
-                </VBox>
-
-                <!-- User Session & Logout Panel at Bottom of Sidebar -->
-                <VBox spacing="8" styleClass="sidebar-user-panel">
-                    <Label fx:id="lblCurrentUser" text="Tài khoản: Chưa đăng nhập" styleClass="sidebar-user-name"/>
-                    <Label text="● Trạng thái: Trực tuyến" styleClass="sidebar-user-status"/>
-                    <Button text="Đăng xuất" onAction="#SwitchToLogin" styleClass="btn-sidebar-logout" maxWidth="Infinity"/>
+                <!-- Bidder Wallet Card -->
+                <VBox spacing="8" styleClass="sidebar-wallet-card">
+                    <HBox alignment="CENTER_LEFT" spacing="5">
+                        <Label text="VÍ BIDX" styleClass="sidebar-wallet-label"/>
+                        <HBox HBox.hgrow="ALWAYS"/>
+                        <Button text="+ Nạp" onAction="#handleOpenDeposit" styleClass="sidebar-mini-deposit"/>
+                        <Button text="Rút" onAction="#handleOpenWithdraw" styleClass="sidebar-mini-withdraw"/>
+                    </HBox>
+                    <Label fx:id="lblWalletBalance" text="500,000,000 đ" styleClass="sidebar-wallet-amount"/>
+                    <Label fx:id="lblCurrentUser" text="BIDDER-01 • Xuân Thắng" styleClass="text-primary" style="-fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <Label text="● Đang trực tuyến" styleClass="text-accent-emerald" style="-fx-font-size: 10.5px; -fx-font-weight: bold;"/>
+                    <Button fx:id="btnLogout" text="Đăng xuất" onAction="#SwitchToLogin" maxWidth="Infinity" styleClass="btn-ghost" style="-fx-padding: 7 12 7 12; -fx-font-size: 12px;"/>
                 </VBox>
             </VBox>
         </left>
 
-        <!-- Right Content Area -->
+        <!-- Right Main Workspace -->
         <center>
-            <BorderPane styleClass="center-content-area">
+            <BorderPane styleClass="app-shell">
 
-                <!-- Top Header Bar: Search & Category Filter Pills -->
+                <!-- Top Header Bar -->
                 <top>
-                    <VBox spacing="14" styleClass="top-nav-bar">
-                        <!-- Top Row: Search Field + Actions -->
-                        <HBox spacing="12" alignment="CENTER_LEFT">
-                            <TextField fx:id="searchField" promptText="Tìm kiếm phiên đấu giá, tên sản phẩm hoặc mã phiên..."
-                                       HBox.hgrow="ALWAYS" styleClass="search-input-field" />
-                            <Button text="Làm mới" onAction="#handleRefreshList" styleClass="btn-refresh-list"/>
-                            <Button fx:id="btnToggleTheme" text="☀ Chế độ sáng" onAction="#handleToggleTheme" styleClass="btn-refresh-list"/>
-                            <Button fx:id="btnCreateAuctionRoom" text="+ Tạo phòng đấu giá"
-                                    styleClass="btn-create-auction-primary" onAction="#handleCreateAuctionRoom" />
+                    <VBox spacing="12" styleClass="topbar">
+                        <HBox spacing="14" alignment="CENTER_LEFT">
+                            <HBox spacing="8" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS" maxWidth="540" styleClass="search-box">
+                                <StackPane fx:id="searchIconWrap"/>
+                                <TextField fx:id="searchField" promptText="Tìm kiếm đồng hồ, máy ảnh, cổ vật, mã phiên..."
+                                           HBox.hgrow="ALWAYS" styleClass="search-textfield"/>
+                            </HBox>
+
+                            <HBox HBox.hgrow="ALWAYS"/>
+
+                            <Label fx:id="lblLivePill" text="● SÀN TRỰC TUYẾN" styleClass="badge-live"/>
+                            <Button fx:id="btnThemeToggle" text="Light" onAction="#handleToggleTheme" styleClass="theme-toggle-btn"/>
+                            <Button fx:id="btnSoundToggle" text="SFX ON" onAction="#handleToggleSound" styleClass="filter-pill" style="-fx-padding: 6 11 6 11; -fx-font-size: 11px;"/>
+                            <Button fx:id="btnRefresh" onAction="#handleRefreshList" styleClass="icon-circle-btn"/>
+                            <StackPane>
+                                <Button fx:id="btnBell" onAction="#handleToggleNotifications" styleClass="icon-circle-btn"/>
+                                <Label fx:id="lblNotifCount" text="0" visible="false" managed="false"
+                                       styleClass="notif-badge-dot" StackPane.alignment="TOP_RIGHT"/>
+                            </StackPane>
                         </HBox>
 
-                        <!-- Bottom Row: Filter Pills -->
-                        <HBox spacing="10" alignment="CENTER_LEFT" styleClass="filter-pills-row">
-                            <Button text="Tất cả" onAction="#handleFilterAll" styleClass="filter-pill, filter-pill-active"/>
-                            <Button text="Đang diễn ra" onAction="#handleFilterActive" styleClass="filter-pill"/>
-                            <Button text="Đồng hồ cổ" onAction="#handleFilterWatches" styleClass="filter-pill"/>
-                            <Button text="Đồ điện tử" onAction="#handleFilterElectronics" styleClass="filter-pill"/>
-                            <Button text="Nghệ thuật" onAction="#handleFilterArt" styleClass="filter-pill"/>
-                            <Button text="Xe cộ" onAction="#handleFilterVehicles" styleClass="filter-pill"/>
+                        <!-- Filter Pills Row -->
+                        <HBox fx:id="filterBar" spacing="9" alignment="CENTER_LEFT">
+                            <Button fx:id="pillAll" text="Tất cả" onAction="#handleFilterAll" styleClass="filter-pill, filter-pill-active"/>
+                            <Button fx:id="pillActive" text="Đang diễn ra" onAction="#handleFilterActive" styleClass="filter-pill"/>
+                            <Button fx:id="pillWatches" text="Đồng hồ cổ" onAction="#handleFilterWatches" styleClass="filter-pill"/>
+                            <Button fx:id="pillElectronics" text="Đồ điện tử" onAction="#handleFilterElectronics" styleClass="filter-pill"/>
+                            <Button fx:id="pillArt" text="Nghệ thuật" onAction="#handleFilterArt" styleClass="filter-pill"/>
+                            <Button fx:id="pillVehicles" text="Siêu Xe" onAction="#handleFilterVehicles" styleClass="filter-pill"/>
+                            <Button fx:id="pillOther" text="Khác" onAction="#handleFilterOther" styleClass="filter-pill"/>
                         </HBox>
                     </VBox>
                 </top>
 
-                <!-- Center: Product Cards Grid -->
+                <!-- Center Workspace: Marketplace Grid OR Wallet History -->
                 <center>
-                    <ScrollPane fitToWidth="true" styleClass="grid-scroll-pane">
-                        <content>
-                            <VBox spacing="15" styleClass="grid-wrapper">
-                                <Label fx:id="lblSectionTitle" text="Danh Sách Phiên Đấu Giá Đang Hoạt Động" styleClass="section-header-title"/>
-                                <FlowPane fx:id="productGridContainer" hgap="18" vgap="18" styleClass="product-grid-flow">
-                                    <!-- Dynamic cards inserted here -->
-                                </FlowPane>
-                            </VBox>
-                        </content>
-                    </ScrollPane>
+                    <StackPane>
+                        <!-- 1. Marketplace Grid View -->
+                        <ScrollPane fx:id="marketplaceScroll" fitToWidth="true" styleClass="bidx-scroll">
+                            <content>
+                                <VBox spacing="18" style="-fx-padding: 16 26 28 26;">
+                                    <!-- Live Breaking Bid Marquee Strip -->
+                                    <HBox fx:id="tickerClipBox" alignment="CENTER_LEFT" spacing="12" styleClass="ticker-bar">
+                                        <Label text="⚡ LIVE FEED" minWidth="-Infinity" styleClass="badge-pending"/>
+                                        <StackPane fx:id="tickerViewport" HBox.hgrow="ALWAYS" alignment="CENTER_LEFT" minHeight="20" maxHeight="22">
+                                            <Label fx:id="lblTickerText" text="BidX Live • Sàn đấu giá tài sản cao cấp thời gian thực..."
+                                                   styleClass="text-primary" style="-fx-font-size: 12px; -fx-font-weight: bold;"/>
+                                        </StackPane>
+                                    </HBox>
+
+                                    <!-- Compact Spotlight Hero Banner with Studio Photo -->
+                                    <HBox fx:id="heroBanner" spacing="20" alignment="CENTER_LEFT" styleClass="hero-banner">
+                                        <StackPane fx:id="heroThumbWrap" style="-fx-background-color: #0B101D; -fx-background-radius: 14; -fx-border-color: rgba(255,123,36,0.5); -fx-border-radius: 14; -fx-padding: 3;">
+                                            <ImageView fx:id="imgHeroSpotlight" fitWidth="172" fitHeight="104" preserveRatio="false"/>
+                                        </StackPane>
+                                        <VBox spacing="6" HBox.hgrow="ALWAYS">
+                                            <HBox spacing="8" alignment="CENTER_LEFT">
+                                                <Label text="PHIÊN NỔI BẬT TRÊN BIDX" styleClass="badge-pending"/>
+                                                <Label fx:id="lblHeroStats" text="7 phiên đang mở • Đấu giá thời gian thực" styleClass="text-muted" style="-fx-font-size: 12px;"/>
+                                            </HBox>
+                                            <Label fx:id="lblHeroTitle" text="Săn ngay kiệt tác sưu tầm đã được Admin kiểm duyệt" styleClass="hero-title"/>
+                                            <Label fx:id="lblHeroSub" text="Đấu giá trực tuyến minh bạch với tốc độ tức thời." styleClass="hero-subtitle"/>
+                                        </VBox>
+                                        <Button fx:id="btnHeroAction" text="Vào phiên hot nhất →" onAction="#handleOpenSpotlight" styleClass="btn-fire"/>
+                                    </HBox>
+
+                                    <HBox alignment="CENTER_LEFT" spacing="12">
+                                        <Label fx:id="lblSectionTitle" text="Phiên Đấu Giá Đã Kiểm Duyệt" styleClass="section-title"/>
+                                        <HBox HBox.hgrow="ALWAYS"/>
+                                        <Label fx:id="lblResultCount" text="0 phiên" style="-fx-text-fill: #94A3B8; -fx-font-size: 12.5px; -fx-font-weight: bold;"/>
+                                    </HBox>
+
+                                    <FlowPane fx:id="productGridContainer" hgap="16" vgap="16"/>
+
+                                    <VBox fx:id="emptyStateBox" alignment="CENTER" spacing="8" visible="false" managed="false"
+                                          style="-fx-padding: 50 20 50 20;">
+                                        <Label text="Chưa có phiên đấu giá phù hợp" style="-fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: #CBD5E1;"/>
+                                        <Label text="Thử đổi bộ lọc danh mục hoặc nhấn Làm mới để đồng bộ phiên mới từ Admin duyệt." style="-fx-text-fill: #64748B; -fx-font-size: 13px;"/>
+                                    </VBox>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+
+                        <!-- 2. Wallet & Deposit / Withdraw Hub -->
+                        <ScrollPane fx:id="walletScroll" fitToWidth="true" visible="false" managed="false" styleClass="bidx-scroll">
+                            <content>
+                                <VBox spacing="22" style="-fx-padding: 22 26 28 26;">
+                                    <VBox spacing="4">
+                                        <Label text="Ví Đấu Giá BidX • Nạp &amp; Rút Tiền" styleClass="section-title"/>
+                                        <Label text="Quản lý số dư, nạp tiền 24/7 qua ngân hàng / VietQR hoặc rút tiền về tài khoản liên kết." styleClass="section-sub"/>
+                                    </VBox>
+
+                                    <VBox fx:id="walletHubSlot"/>
+
+                                    <Label text="Lịch sử giao dịch ví của bạn" styleClass="section-title"/>
+                                    <VBox fx:id="walletLedgerContainer" spacing="10"/>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+
+                        <!-- 3. Leaderboard View -->
+                        <ScrollPane fx:id="leaderboardScroll" fitToWidth="true" visible="false" managed="false" styleClass="bidx-scroll">
+                            <content>
+                                <VBox spacing="20" style="-fx-padding: 22 26 28 26;">
+                                    <VBox spacing="4">
+                                        <Label text="Bảng Xếp Hạng Sàn BidX" styleClass="section-title"/>
+                                        <Label text="Những phiên đấu giá giá trị nhất và sôi động nhất đang diễn ra trực tuyến" styleClass="section-sub"/>
+                                    </VBox>
+                                    <HBox fx:id="podiumBox" spacing="16"/>
+                                    <Label text="Toàn bộ bảng xếp hạng phiên theo giá trị" styleClass="text-primary" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                                    <VBox fx:id="leaderboardListContainer" spacing="10"/>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+                    </StackPane>
                 </center>
 
             </BorderPane>
@@ -96,10 +191,23 @@
 
     </BorderPane>
 
-    <!-- Overlay Layer for Create Room & Product Details -->
-    <StackPane fx:id="overlayPane" visible="false" managed="false" styleClass="overlay-container" alignment="CENTER">
-        <fx:include fx:id="createRoomSubView" source="CreateAuctionRoom.fxml"/>
-        <fx:include fx:id="productDetailsView" source="ProductDetailsView.fxml"/>
+    <!-- Notification Drawer Overlay -->
+    <StackPane fx:id="notifOverlay" visible="false" managed="false" styleClass="modal-backdrop"
+               onMouseClicked="#handleCloseNotifications" alignment="CENTER_RIGHT">
+        <VBox spacing="14" prefWidth="380" maxWidth="380" maxHeight="540" styleClass="modal-card"
+              onMouseClicked="#consumeClick">
+            <StackPane.margin>
+                <Insets right="24"/>
+            </StackPane.margin>
+            <HBox alignment="CENTER_LEFT">
+                <Label text="Trung tâm thông báo" styleClass="text-primary" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <HBox HBox.hgrow="ALWAYS"/>
+                <Button text="Đóng" onAction="#handleCloseNotifications" styleClass="btn-ghost" style="-fx-padding: 5 10 5 10; -fx-font-size: 11.5px;"/>
+            </HBox>
+            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="bidx-scroll">
+                <VBox fx:id="notifListContainer" spacing="8"/>
+            </ScrollPane>
+        </VBox>
     </StackPane>
 
 </StackPane>

@@ -2,84 +2,120 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.TextField?>
-<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<!--Khung cho toàn bộ giao diện, Làm khung chứa toàn cục (Root Container) và định vị các thành phần con dựa trên khoảng cách neo (anchors) đối với các mép của cửa sổ ứng dụng.-->
-<AnchorPane fx:id="RegisterPane"
-            prefHeight="600.0" prefWidth="800.0"
-            stylesheets="@../css/styleLogIn.css"
-            styleClass="Login-pane"
-            xmlns="http://javafx.com/javafx/21" 
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.auction.ui.RegisterController">
-    <children>
-        <!--Thẻ ngoài bao quát-->
-        <VBox alignment="CENTER" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
-            <children>
-                <!--khung giao diện chứa nội dung-->
-                <VBox alignment="CENTER_LEFT" prefWidth="400.0" maxWidth="400.0" spacing="18.0" styleClass="login-card">
-                    <padding>
-                        <!-- căn chỉnh toàn bộ text, field, button bên trong vào giữa-->
-                        <Insets bottom="40.0" left="40.0" right="40.0" top="40.0"/>
-                    </padding>
-                    <children>
-                        <!--Phần tiêu đề-->
-                        <VBox spacing="6.0">
-                            <children>
-                                <Label styleClass="title-label" text="Đăng ký tài khoản"/>
-                            </children>
-                            <VBox.margin>
-                                <Insets bottom="10.0"/>
-                            </VBox.margin>
-                        </VBox>
-                        <!--Mã tài khoản-->
-                        <VBox spacing="6.0">
-                            <children>
-                                <Label styleClass="sub-label" text="Mã tài khoản (User ID)"/>
-                                <TextField fx:id="username" promptText="Ví dụ: bidder05 hoặc shop01..."/>
-                            </children>
-                        </VBox>
-                        <!--Họ và tên-->
-                        <VBox spacing="6.0">
-                            <children>
-                                <Label styleClass="sub-label" text="Tên hiển thị"/>
-                                <TextField fx:id="txtName" promptText="Nhập tên hiển thị..."/>
-                            </children>
-                        </VBox>
-                        <!--Vai trò-->
-                        <VBox spacing="6.0">
-                            <children>
-                                <Label styleClass="sub-label" text="Vai trò"/>
-                                <ComboBox fx:id="cbRole" maxWidth="Infinity" promptText="Chọn vai trò..."/>
-                            </children>
-                        </VBox>
-                        <!--Ô nhập password-->
-                        <VBox spacing="6.0">
-                            <children>
-                                <Label styleClass="sub-label" text="Mật khẩu (tối thiểu 8 ký tự)"/>
-                                <PasswordField fx:id="password" promptText="Nhập mật khẩu...">
-                                    <VBox.margin>
-                                        <Insets bottom="10.0"/>
-                                    </VBox.margin>
-                                </PasswordField>
-                            </children>
-                        </VBox>
-                        <Label fx:id="errorRegister" styleClass="error-label" textFill="#e74c3c" wrapText="true"/>
-                        <VBox alignment="CENTER" spacing="10.0">
-                            <children>
-                                <Button fx:id="RegisterButton" maxWidth="Infinity" styleClass="button" text="Đăng ký" onAction="#Register"/>
-                                <Button maxWidth="Infinity" styleClass="button" text="Quay lại Đăng nhập" onAction="#SwitchToLogin"/>
-                            </children>
-                        </VBox>
-                    </children>
+<StackPane fx:id="registerRoot"
+           xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.auction.ui.RegisterController"
+           stylesheets="@../css/bidx-theme.css"
+           styleClass="auth-root">
+
+    <Pane fx:id="ambientPane" mouseTransparent="true"/>
+
+    <!-- Floating Light/Dark Theme Switcher -->
+    <Button fx:id="btnThemeToggle" text="Light" onAction="#handleToggleTheme"
+            styleClass="theme-toggle-btn" StackPane.alignment="TOP_RIGHT">
+        <StackPane.margin>
+            <Insets top="20" right="26"/>
+        </StackPane.margin>
+    </Button>
+
+    <HBox alignment="CENTER" spacing="44" maxWidth="1180" style="-fx-padding: 28 40 28 40;">
+
+        <!-- Left 60 FPS Motion-Graphics Promo Showcase -->
+        <StackPane fx:id="promoHost" prefWidth="560" prefHeight="640" minWidth="500" maxWidth="560"/>
+
+        <!-- Right Upgraded Glassmorphism Register Card -->
+        <VBox fx:id="registerCard" spacing="15" prefWidth="474" minWidth="444" maxWidth="484" styleClass="auth-card">
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <StackPane fx:id="logoWrap" style="-fx-background-color: #0D1322; -fx-background-radius: 14; -fx-border-color: rgba(255,158,68,0.55); -fx-border-radius: 14; -fx-padding: 3;">
+                    <ImageView fx:id="imgLogo" fitWidth="46" fitHeight="46" preserveRatio="true"/>
+                </StackPane>
+                <VBox spacing="1">
+                    <Label text="Gia nhập BidX" styleClass="auth-card-title"/>
+                    <Label text="Khởi tạo tài khoản &amp; trải nghiệm đấu giá đỉnh cao" styleClass="auth-card-sub"/>
                 </VBox>
-            </children>
+            </HBox>
+
+            <!-- Interactive Neon Role Selector Cards -->
+            <VBox spacing="8">
+                <Label text="Bạn muốn tham gia với tư cách" styleClass="field-label"/>
+                <HBox spacing="12">
+                    <VBox fx:id="roleBidderCard" spacing="6" HBox.hgrow="ALWAYS" onMouseClicked="#selectBidderRole"
+                          styleClass="role-choice-card, role-choice-selected">
+                        <HBox spacing="8" alignment="CENTER_LEFT">
+                            <StackPane fx:id="iconBidder" minWidth="30" minHeight="30"
+                                       style="-fx-background-color: rgba(255,123,36,0.20); -fx-background-radius: 9;"/>
+                            <Label text="BIDDER" styleClass="text-accent-orange" style="-fx-font-weight: bold; -fx-font-size: 13.5px;"/>
+                        </HBox>
+                        <Label text="Săn vật phẩm độc bản" wrapText="true" styleClass="text-primary" style="-fx-font-size: 12px; -fx-font-weight: bold;"/>
+                        <Label text="Tặng ngay ví 500M đ trải nghiệm" styleClass="text-accent-gold" style="-fx-font-size: 10.5px;"/>
+                    </VBox>
+
+                    <VBox fx:id="roleSellerCard" spacing="6" HBox.hgrow="ALWAYS" onMouseClicked="#selectSellerRole"
+                          styleClass="role-choice-card">
+                        <HBox spacing="8" alignment="CENTER_LEFT">
+                            <StackPane fx:id="iconSeller" minWidth="30" minHeight="30"
+                                       style="-fx-background-color: rgba(16,185,129,0.20); -fx-background-radius: 9;"/>
+                            <Label text="SELLER" styleClass="text-accent-emerald" style="-fx-font-weight: bold; -fx-font-size: 13.5px;"/>
+                        </HBox>
+                        <Label text="Mở phòng đấu giá bán" wrapText="true" styleClass="text-primary" style="-fx-font-size: 12px; -fx-font-weight: bold;"/>
+                        <Label text="Nhận doanh thu tự động về ví" styleClass="text-accent-emerald" style="-fx-font-size: 10.5px;"/>
+                    </VBox>
+                </HBox>
+            </VBox>
+
+            <HBox spacing="12">
+                <VBox spacing="5" HBox.hgrow="ALWAYS">
+                    <HBox alignment="CENTER_LEFT" spacing="6">
+                        <Label text="Mã tài khoản" styleClass="field-label"/>
+                        <Label fx:id="lblIdValid" text="" style="-fx-text-fill: #34D399; -fx-font-size: 11px; -fx-font-weight: bold;"/>
+                    </HBox>
+                    <TextField fx:id="txtUserId" promptText="VD: BIDDER-99" styleClass="bidx-input"/>
+                </VBox>
+                <VBox spacing="5" HBox.hgrow="ALWAYS">
+                    <HBox alignment="CENTER_LEFT" spacing="6">
+                        <Label text="Tên hiển thị" styleClass="field-label"/>
+                        <Label fx:id="lblNameValid" text="" style="-fx-text-fill: #34D399; -fx-font-size: 11px; -fx-font-weight: bold;"/>
+                    </HBox>
+                    <TextField fx:id="txtDisplayName" promptText="VD: Tuấn_Đại" styleClass="bidx-input"/>
+                </VBox>
+            </HBox>
+
+            <VBox spacing="6">
+                <HBox alignment="CENTER_LEFT">
+                    <Label text="Mật khẩu bảo mật (tối thiểu 8 ký tự)" styleClass="field-label"/>
+                    <HBox HBox.hgrow="ALWAYS"/>
+                    <Label fx:id="lblPwdStrength" text="" style="-fx-font-size: 11px; -fx-font-weight: bold;"/>
+                </HBox>
+                <PasswordField fx:id="txtPassword" promptText="Nhập mật khẩu bảo mật..." styleClass="bidx-input" onAction="#Register"/>
+                <ProgressBar fx:id="pwdStrengthBar" progress="0.0" maxWidth="Infinity" prefHeight="5"
+                             style="-fx-accent: #FF7B24; -fx-control-inner-background: #1C2640;"/>
+            </VBox>
+
+            <VBox spacing="5">
+                <Label text="Xác nhận mật khẩu" styleClass="field-label"/>
+                <PasswordField fx:id="txtConfirmPassword" promptText="Nhập lại mật khẩu..." styleClass="bidx-input" onAction="#Register"/>
+            </VBox>
+
+            <Label fx:id="errorRegister" text="" wrapText="true" style="-fx-text-fill: #FB7185; -fx-font-size: 12.5px; -fx-font-weight: bold;"/>
+
+            <Button fx:id="btnRegister" text="KHỞI TẠO TÀI KHOẢN BIDX" onAction="#Register" maxWidth="Infinity" styleClass="btn-fire"/>
+
+            <HBox alignment="CENTER" spacing="6">
+                <Label text="Đã có tài khoản BidX?" style="-fx-text-fill: #94A3B8; -fx-font-size: 12.5px;"/>
+                <Button text="← Quay lại Đăng nhập" onAction="#backToLogin" styleClass="btn-link-subtle"/>
+            </HBox>
         </VBox>
-    </children>
-</AnchorPane>
+
+    </HBox>
+</StackPane>

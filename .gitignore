@@ -33,3 +33,4 @@ dependency-reduced-pom.xml
 
 # IDE / AI tooling cache
 .github/context-mode/
+.codegraph/

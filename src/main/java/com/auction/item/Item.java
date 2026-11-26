@@ -3,51 +3,51 @@ package com.auction.item;
 import java.io.Serializable;
 
 public abstract class Item implements Serializable {
-  private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-  private final String name;
-  private final int id;
-  private int price;
-  private int quantity;
-  private String imagePath;
+    private final String name;
+    private final int id;
+    private int price;
+    private int quantity;
+    private String imagePath;
 
-  protected Item(String name, int id, int price, int quantity) {
-    this.name = name;
-    this.id = id;
-    this.price = price;
-    this.quantity = quantity;
-  }
+    protected Item(String name, int id, int price, int quantity) {
+        this.name = name;
+        this.id = id;
+        this.price = price;
+        this.quantity = quantity;
+    }
 
-  // Getters and setters
-  public String getName() {
-    return name;
-  }
+    // Getters and setters
+    public String getName() {
+        return name;
+    }
 
-  public int getId() {
-    return id;
-  }
+    public int getId() {
+        return id;
+    }
 
-  public int getPrice() {
-    return price;
-  }
+    public int getPrice() {
+        return price;
+    }
 
-  public void setPrice(int price) {
-    this.price = price;
-  }
+    public void setPrice(int price) {
+        this.price = price;
+    }
 
-  public int getQuantity() {
-    return quantity;
-  }
+    public int getQuantity() {
+        return quantity;
+    }
 
-  public void setQuantity(int quantity) {
-    this.quantity = quantity;
-  }
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
 
-  public String getImagePath() {
-    return imagePath;
-  }
+    public String getImagePath() {
+        return imagePath;
+    }
 
-  public void setImagePath(String imagePath) {
-    this.imagePath = imagePath;
-  }
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
+    }
 }
